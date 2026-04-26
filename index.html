@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ploy Spa - Our Therapists</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="bg-gradient-to-b from-pink-50 via-white to-pink-50 min-h-screen">
+  <!-- Header -->
+  <header class="bg-white/80 backdrop-blur border-b sticky top-0 z-10">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div>
+        <h1 class="text-xl font-bold text-pink-600" data-i18n="appName"></h1>
+      </div>
+      <div class="flex items-center gap-3">
+        <div id="lang-toggle" class="flex gap-1"></div>
+        <a href="admin.html" class="text-xs text-gray-400 hover:text-gray-600" data-i18n="adminLink"></a>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-6">
+    <!-- Title -->
+    <div class="text-center mb-6">
+      <h2 class="text-2xl sm:text-3xl font-bold text-gray-800" data-i18n="homeTitle"></h2>
+      <p class="text-gray-500 text-sm mt-1" data-i18n="homeSubtitle"></p>
+    </div>
+
+    <!-- Branch filter -->
+    <div id="branch-filter" class="flex flex-wrap gap-2 mb-6 justify-center"></div>
+
+    <!-- Therapist grid -->
+    <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div class="col-span-full text-center py-12">
+        <div class="spinner mx-auto"></div>
+      </div>
+    </div>
+
+    <div id="empty" class="hidden text-center py-16 text-gray-400">
+      <div class="text-5xl mb-3">😴</div>
+      <p data-i18n="noTherapistsAvailable"></p>
+    </div>
+  </main>
+
+  <footer class="text-center py-6 text-xs text-gray-400">
+    <p>© Ploy Spa</p>
+  </footer>
+
+  <script type="module">
+    import { watchTherapists, watchStatuses, statusLabel, statusBadgeClasses, badgeStyle, badgeLabel, escapeHtml } from "./js/helpers.js";
+    import { t, getLang, pickName } from "./js/i18n.js";
+
+    let therapists = [];
+    let statuses = {};
+    let activeBranch = "all";
+
+    function renderBranchFilter() {
+      const branches = [
+        { key: "all", label: t("allBranches") },
+        { key: "branch1", label: t("branch1") },
+        { key: "branch2", label: t("branch2") },
+      ];
+      document.getElementById("branch-filter").innerHTML = branches.map((b) => `
+        <button data-branch="${b.key}" class="px-4 py-1.5 rounded-full text-sm font-medium border transition ${
+          activeBranch === b.key ? "bg-pink-500 text-white border-pink-500" : "bg-white text-gray-600 border-gray-200 hover:border-pink-300"
+        }">${escapeHtml(b.label)}</button>
+      `).join("");
+      document.querySelectorAll("[data-branch]").forEach((b) => {
+        b.addEventListener("click", () => {
+          activeBranch = b.dataset.branch;
+          renderBranchFilter();
+          renderGrid();
+        });
+      });
+    }
+
+    function renderGrid() {
+      const filtered = therapists.filter((th) => {
+        if (th.active === false) return false;
+        if (activeBranch !== "all" && th.branch !== activeBranch) return false;
+        return true;
+      });
+
+      // Sort: ready first, then ready_at, then not_ready, then unknown
+      const order = { ready: 0, ready_at: 1, not_ready: 2 };
+      filtered.sort((a, b) => {
+        const sa = statuses[a.id]?.status || "unknown";
+        const sb = statuses[b.id]?.status || "unknown";
+        const oa = order[sa] ?? 3;
+        const ob = order[sb] ?? 3;
+        if (oa !== ob) return oa - ob;
+        return (a.code || "").localeCompare(b.code || "");
+      });
+
+      const grid = document.getElementById("grid");
+      const empty = document.getElementById("empty");
+
+      if (filtered.length === 0) {
+        grid.innerHTML = "";
+        empty.classList.remove("hidden");
+        return;
+      }
+      empty.classList.add("hidden");
+
+      grid.innerHTML = filtered.map((th) => {
+        const status = statuses[th.id];
+        const lbl = statusLabel(status);
+        const photo = th.photoUrl
+          ? `<img src="${escapeHtml(th.photoUrl)}" alt="${escapeHtml(pickName(th))}" class="w-full h-full object-cover" loading="lazy" />`
+          : `<div class="w-full h-full bg-gray-100 flex items-center justify-center text-gray-300 text-4xl">👤</div>`;
+
+        const badges = (th.badges || []).map((b) => `
+          <span class="inline-block text-[10px] font-bold px-1.5 py-0.5 rounded ${badgeStyle(b)}">${escapeHtml(badgeLabel(b))}</span>
+        `).join("");
+
+        const pulseClass = lbl.color === "green" ? "pulse-green" : "";
+
+        return `
+          <a href="therapist.html?id=${encodeURIComponent(th.id)}" class="therapist-card block bg-white rounded-2xl overflow-hidden border border-gray-100 fade-in">
+            <div class="aspect-photo bg-gray-50 relative">
+              ${photo}
+              <div class="absolute top-2 left-2 flex flex-col gap-1">${badges}</div>
+              <div class="absolute bottom-2 left-2 right-2">
+                <span class="inline-flex items-center text-xs font-medium px-2 py-1 rounded-full border ${statusBadgeClasses(lbl.color)} ${pulseClass} bg-white/90 backdrop-blur">
+                  ${escapeHtml(lbl.text)}
+                </span>
+              </div>
+            </div>
+            <div class="p-3">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-[10px] font-mono bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">${escapeHtml(th.code || "—")}</span>
+                <span class="text-xs text-gray-400">${escapeHtml(t(th.branch || "branch1"))}</span>
+              </div>
+              <div class="font-semibold text-gray-800 truncate">${escapeHtml(pickName(th))}</div>
+              ${th.specialties ? `<div class="text-xs text-gray-500 truncate mt-0.5">${escapeHtml(th.specialties)}</div>` : ""}
+            </div>
+          </a>
+        `;
+      }).join("");
+    }
+
+    watchTherapists((list) => {
+      therapists = list;
+      renderBranchFilter();
+      renderGrid();
+    });
+
+    watchStatuses((map) => {
+      statuses = map;
+      renderGrid();
+    });
+
+    document.addEventListener("langchange", () => {
+      renderBranchFilter();
+      renderGrid();
+    });
+  </script>
+</body>
+</html>

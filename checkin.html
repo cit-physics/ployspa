@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Check-in - Ploy Spa</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="bg-gradient-to-b from-pink-50 via-white to-pink-50 min-h-screen">
+  <header class="bg-white/80 backdrop-blur border-b sticky top-0 z-10">
+    <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
+      <h1 class="text-lg font-bold text-pink-600" data-i18n="appName"></h1>
+      <div id="lang-toggle" class="flex gap-1"></div>
+    </div>
+  </header>
+
+  <main class="max-w-md mx-auto px-4 py-6">
+    <div class="text-center mb-6">
+      <h2 class="text-2xl font-bold text-gray-800" data-i18n="checkinTitle"></h2>
+      <p class="text-gray-500 text-sm mt-1" data-i18n="checkinSubtitle"></p>
+    </div>
+
+    <!-- STEP 1: Pick name -->
+    <section id="step-pick" class="bg-white rounded-2xl shadow-sm p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-semibold text-gray-800" data-i18n="checkinPickName"></h3>
+        <button id="btn-clear-saved" class="text-xs text-gray-400 hover:text-gray-600 hidden">↻</button>
+      </div>
+      <div id="name-list" class="space-y-2">
+        <div class="text-center py-8"><div class="spinner mx-auto"></div></div>
+      </div>
+    </section>
+
+    <!-- STEP 2: Choose status -->
+    <section id="step-status" class="bg-white rounded-2xl shadow-sm p-5 hidden">
+      <div class="flex items-center gap-3 mb-4">
+        <div id="picked-photo" class="w-12 h-12 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center text-gray-300 text-xl">👤</div>
+        <div class="flex-1">
+          <div id="picked-name" class="font-semibold text-gray-800"></div>
+          <button id="btn-change-name" class="text-xs text-pink-500 hover:text-pink-600">↻ เปลี่ยน / Change</button>
+        </div>
+      </div>
+
+      <h3 class="font-semibold text-gray-800 mb-3" data-i18n="checkinChooseStatus"></h3>
+
+      <div class="space-y-2">
+        <button data-status="ready" class="status-btn w-full flex items-center gap-3 p-4 rounded-xl border-2 border-green-200 hover:border-green-400 bg-green-50 transition">
+          <span class="text-2xl">✅</span>
+          <span class="font-semibold text-green-800" data-i18n="statusReady"></span>
+        </button>
+
+        <div class="border-2 border-yellow-200 rounded-xl bg-yellow-50">
+          <button data-status="ready_at" id="btn-ready-at" class="status-btn w-full flex items-center gap-3 p-4 hover:bg-yellow-100 rounded-xl transition">
+            <span class="text-2xl">⏰</span>
+            <span class="flex-1 text-left">
+              <span class="font-semibold text-yellow-800 block" data-i18n="statusReadyAt"></span>
+              <span class="text-xs text-yellow-700" data-i18n="setReadyAt"></span>
+            </span>
+          </button>
+          <div id="time-picker" class="hidden p-4 pt-0">
+            <div class="flex gap-2">
+              <input type="time" id="ready-time" class="flex-1 border-2 border-yellow-300 rounded-lg px-3 py-2 text-lg" />
+              <button id="btn-confirm-time" class="px-4 py-2 bg-yellow-500 text-white rounded-lg font-medium" data-i18n="confirm"></button>
+            </div>
+          </div>
+        </div>
+
+        <button data-status="not_ready" class="status-btn w-full flex items-center gap-3 p-4 rounded-xl border-2 border-red-200 hover:border-red-400 bg-red-50 transition">
+          <span class="text-2xl">❌</span>
+          <span class="font-semibold text-red-800" data-i18n="statusNotReady"></span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Success -->
+    <section id="step-success" class="bg-white rounded-2xl shadow-sm p-8 hidden text-center">
+      <div class="text-6xl mb-3">🎉</div>
+      <h3 class="text-xl font-bold text-gray-800 mb-2" data-i18n="statusUpdated"></h3>
+      <div id="success-status" class="text-lg font-semibold text-pink-600 mb-4"></div>
+      <button id="btn-update-again" class="text-sm text-pink-500 hover:text-pink-600">↻ <span data-i18n="updateStatus"></span></button>
+    </section>
+
+    <!-- Public link -->
+    <div class="text-center mt-6">
+      <a href="index.html" class="text-xs text-gray-400 hover:text-gray-600" data-i18n="backToHome"></a>
+    </div>
+  </main>
+
+  <script type="module">
+    import { listTherapists, setStatus, escapeHtml } from "./js/helpers.js";
+    import { t, pickName } from "./js/i18n.js";
+
+    const SAVED_KEY = "ployspa_checkin_id";
+    const $ = (id) => document.getElementById(id);
+
+    let therapists = [];
+    let pickedId = null;
+
+    async function load() {
+      therapists = (await listTherapists()).filter((t) => t.active !== false);
+      const saved = localStorage.getItem(SAVED_KEY);
+      if (saved && therapists.find((th) => th.id === saved)) {
+        pickedId = saved;
+        showStatusStep();
+      } else {
+        renderNameList();
+      }
+    }
+
+    function renderNameList() {
+      $("step-pick").classList.remove("hidden");
+      $("step-status").classList.add("hidden");
+      $("step-success").classList.add("hidden");
+
+      if (therapists.length === 0) {
+        $("name-list").innerHTML = `<div class="text-center py-8 text-gray-400">${t("noTherapists")}</div>`;
+        return;
+      }
+
+      $("name-list").innerHTML = therapists.map((th) => {
+        const photo = th.photoUrl
+          ? `<img src="${escapeHtml(th.photoUrl)}" class="w-10 h-10 rounded-full object-cover" />`
+          : `<div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-300">👤</div>`;
+        return `
+          <button data-pick="${th.id}" class="w-full flex items-center gap-3 p-3 rounded-xl border hover:border-pink-300 hover:bg-pink-50 transition text-left">
+            ${photo}
+            <div class="flex-1 min-w-0">
+              <div class="font-medium text-gray-800 truncate">${escapeHtml(pickName(th))}</div>
+              <div class="text-xs text-gray-500">${escapeHtml(th.code || "")} · ${escapeHtml(t(th.branch || "branch1"))}</div>
+            </div>
+            <span class="text-pink-400">→</span>
+          </button>
+        `;
+      }).join("");
+
+      $("name-list").querySelectorAll("[data-pick]").forEach((b) => {
+        b.addEventListener("click", () => {
+          pickedId = b.dataset.pick;
+          localStorage.setItem(SAVED_KEY, pickedId);
+          showStatusStep();
+        });
+      });
+    }
+
+    function showStatusStep() {
+      const th = therapists.find((x) => x.id === pickedId);
+      if (!th) {
+        localStorage.removeItem(SAVED_KEY);
+        renderNameList();
+        return;
+      }
+      $("step-pick").classList.add("hidden");
+      $("step-status").classList.remove("hidden");
+      $("step-success").classList.add("hidden");
+      $("picked-name").textContent = pickName(th);
+      $("picked-photo").innerHTML = th.photoUrl
+        ? `<img src="${escapeHtml(th.photoUrl)}" class="w-full h-full object-cover" />`
+        : "👤";
+      $("time-picker").classList.add("hidden");
+    }
+
+    async function updateStatus(status, readyAt = null) {
+      try {
+        await setStatus(pickedId, status, readyAt);
+        const th = therapists.find((x) => x.id === pickedId);
+        let text = "";
+        if (status === "ready") text = `✅ ${t("statusReady")}`;
+        else if (status === "ready_at") text = `⏰ ${t("statusReadyAt")} ${readyAt}`;
+        else text = `❌ ${t("statusNotReady")}`;
+        $("step-pick").classList.add("hidden");
+        $("step-status").classList.add("hidden");
+        $("step-success").classList.remove("hidden");
+        $("success-status").textContent = `${pickName(th)} — ${text}`;
+      } catch (err) {
+        alert(`${t("error")}: ${err.message}`);
+      }
+    }
+
+    // Event handlers
+    document.querySelectorAll("[data-status]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const status = btn.dataset.status;
+        if (status === "ready_at") {
+          $("time-picker").classList.toggle("hidden");
+          const now = new Date();
+          now.setMinutes(now.getMinutes() + 30);
+          $("ready-time").value = now.toTimeString().slice(0, 5);
+        } else {
+          updateStatus(status);
+        }
+      });
+    });
+
+    $("btn-confirm-time").addEventListener("click", () => {
+      const time = $("ready-time").value;
+      if (!time) return;
+      updateStatus("ready_at", time);
+    });
+
+    $("btn-change-name").addEventListener("click", () => {
+      localStorage.removeItem(SAVED_KEY);
+      pickedId = null;
+      renderNameList();
+    });
+
+    $("btn-update-again").addEventListener("click", () => {
+      showStatusStep();
+    });
+
+    document.addEventListener("langchange", () => {
+      if (pickedId) showStatusStep();
+      else renderNameList();
+    });
+
+    load();
+  </script>
+</body>
+</html>

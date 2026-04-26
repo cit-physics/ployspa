@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin - Ploy Spa</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <!-- Header -->
+  <header class="bg-white border-b sticky top-0 z-10">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="index.html" class="text-pink-500 hover:text-pink-600 text-sm">← <span data-i18n="backToHome"></span></a>
+        <span class="text-gray-300">|</span>
+        <h1 class="text-lg font-semibold text-gray-800" data-i18n="adminTitle"></h1>
+      </div>
+      <div id="lang-toggle" class="flex gap-1"></div>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-6">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+      <p class="text-gray-600 text-sm" data-i18n="adminSubtitle"></p>
+      <div class="flex gap-2">
+        <a href="qr.html" class="px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200">QR Code</a>
+        <button id="btn-add" class="px-4 py-2 bg-pink-500 text-white text-sm font-medium rounded-lg hover:bg-pink-600" data-i18n="addNewTherapist"></button>
+      </div>
+    </div>
+
+    <!-- Therapist list -->
+    <div id="therapist-list" class="space-y-3">
+      <div class="text-center py-12 text-gray-400">
+        <div class="spinner mx-auto"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Edit modal -->
+  <div id="modal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full my-8">
+      <div class="px-6 py-4 border-b flex items-center justify-between sticky top-0 bg-white rounded-t-xl">
+        <h2 id="modal-title" class="text-lg font-semibold"></h2>
+        <button id="btn-close-modal" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+      </div>
+
+      <form id="form" class="p-6 space-y-5">
+        <input type="hidden" id="f-id" />
+
+        <!-- Photo -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="profilePhoto"></label>
+          <div class="flex items-center gap-4">
+            <div id="f-photo-preview" class="w-24 h-32 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center text-gray-400 text-xs text-center">
+              No photo
+            </div>
+            <div class="flex-1">
+              <input type="file" id="f-photo" accept="image/*" class="text-sm" />
+              <p class="text-xs text-gray-500 mt-1" data-i18n="photoHint"></p>
+              <p id="f-photo-status" class="text-xs text-pink-500 mt-1 hidden"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Code + Names -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1" data-i18n="code"></label>
+            <input type="text" id="f-code" required class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300" placeholder="P01" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1" data-i18n="nameTh"></label>
+            <input type="text" id="f-name-th" required class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1" data-i18n="nameEn"></label>
+            <input type="text" id="f-name-en" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300" />
+          </div>
+        </div>
+
+        <!-- Branch + Age -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1" data-i18n="branch"></label>
+            <select id="f-branch" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300">
+              <option value="branch1" data-i18n="branch1"></option>
+              <option value="branch2" data-i18n="branch2"></option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1" data-i18n="age"></label>
+            <input type="number" id="f-age" min="18" max="80" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300" />
+          </div>
+        </div>
+
+        <!-- Measurements -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="measurements"></label>
+          <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            <input type="number" id="f-height" placeholder="Height" data-i18n-placeholder="height" class="border rounded-lg px-2 py-2 text-sm" />
+            <input type="number" id="f-weight" placeholder="Weight" data-i18n-placeholder="weight" class="border rounded-lg px-2 py-2 text-sm" />
+            <input type="number" id="f-bust" placeholder="Bust" data-i18n-placeholder="bust" class="border rounded-lg px-2 py-2 text-sm" />
+            <input type="number" id="f-waist" placeholder="Waist" data-i18n-placeholder="waist" class="border rounded-lg px-2 py-2 text-sm" />
+            <input type="number" id="f-hip" placeholder="Hip" data-i18n-placeholder="hip" class="border rounded-lg px-2 py-2 text-sm" />
+          </div>
+        </div>
+
+        <!-- Specialties -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1" data-i18n="specialties"></label>
+          <input type="text" id="f-specialties" data-i18n-placeholder="specialtiesPlaceholder" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300" />
+        </div>
+
+        <!-- Badges -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="badges"></label>
+          <div class="flex flex-wrap gap-2">
+            <label class="inline-flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer hover:bg-gray-50">
+              <input type="checkbox" id="f-badge-top" class="text-pink-500" />
+              <span class="text-sm">👑 <span data-i18n="badgeTop"></span></span>
+            </label>
+            <label class="inline-flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer hover:bg-gray-50">
+              <input type="checkbox" id="f-badge-new" class="text-pink-500" />
+              <span class="text-sm">🆕 <span data-i18n="badgeNew"></span></span>
+            </label>
+            <label class="inline-flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer hover:bg-gray-50">
+              <input type="checkbox" id="f-badge-rising" class="text-pink-500" />
+              <span class="text-sm">⭐ <span data-i18n="badgeRising"></span></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Note -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1" data-i18n="note"></label>
+          <textarea id="f-note" rows="2" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300"></textarea>
+        </div>
+
+        <!-- Gallery photos -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="galleryPhotos"></label>
+          <div id="f-gallery" class="flex flex-wrap gap-2 mb-2"></div>
+          <input type="file" id="f-gallery-input" accept="image/*" multiple class="text-sm" />
+        </div>
+
+        <!-- Review photos -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="reviewPhotos"></label>
+          <div id="f-reviews" class="flex flex-wrap gap-2 mb-2"></div>
+          <input type="file" id="f-reviews-input" accept="image/*" multiple class="text-sm" />
+        </div>
+
+        <!-- Active toggle -->
+        <div>
+          <label class="inline-flex items-center gap-2">
+            <input type="checkbox" id="f-active" checked class="text-pink-500" />
+            <span class="text-sm" data-i18n="active"></span>
+          </label>
+        </div>
+
+        <!-- Submit -->
+        <div class="flex justify-end gap-3 pt-4 border-t">
+          <button type="button" id="btn-cancel" class="px-4 py-2 text-gray-600 text-sm" data-i18n="cancel"></button>
+          <button type="submit" id="btn-save" class="px-5 py-2 bg-pink-500 text-white text-sm font-medium rounded-lg hover:bg-pink-600" data-i18n="saveTherapist"></button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    import {
+      listTherapists,
+      saveTherapist,
+      removeTherapist,
+      uploadPhoto,
+      removePhoto,
+      escapeHtml,
+    } from "./js/helpers.js";
+    import { t, getLang, applyTranslations, pickName } from "./js/i18n.js";
+
+    let editingId = null;
+    let pendingPhoto = null; // { url, path } new uploaded profile photo
+    let gallery = []; // [{url, path}]
+    let reviews = [];
+
+    const $ = (id) => document.getElementById(id);
+    const modal = $("modal");
+
+    // --- List render ---
+    async function refresh() {
+      const list = await listTherapists();
+      const container = $("therapist-list");
+      if (list.length === 0) {
+        container.innerHTML = `<div class="text-center py-12 text-gray-400" data-i18n="noTherapists">${t("noTherapists")}</div>`;
+        return;
+      }
+      container.innerHTML = list.map((th) => {
+        const photo = th.photoUrl
+          ? `<img src="${escapeHtml(th.photoUrl)}" class="w-16 h-20 object-cover rounded-lg" />`
+          : `<div class="w-16 h-20 bg-gray-100 rounded-lg flex items-center justify-center text-xs text-gray-400">No photo</div>`;
+        const branchKey = th.branch || "branch1";
+        return `
+          <div class="bg-white border rounded-xl p-3 flex items-center gap-3 fade-in">
+            ${photo}
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded">${escapeHtml(th.code || "—")}</span>
+                <span class="font-medium">${escapeHtml(pickName(th))}</span>
+                ${!th.active ? `<span class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-500">${t("inactive")}</span>` : ""}
+              </div>
+              <div class="text-xs text-gray-500 mt-1">${t(branchKey)}${th.age ? ` · ${th.age}` : ""}</div>
+            </div>
+            <div class="flex gap-2">
+              <button data-edit="${th.id}" class="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50">${t("edit")}</button>
+              <button data-del="${th.id}" class="px-3 py-1.5 text-sm border border-red-200 text-red-600 rounded-lg hover:bg-red-50">${t("delete")}</button>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      container.querySelectorAll("[data-edit]").forEach((b) => {
+        b.addEventListener("click", () => openModal(b.dataset.edit));
+      });
+      container.querySelectorAll("[data-del]").forEach((b) => {
+        b.addEventListener("click", async () => {
+          if (!confirm(t("deleteConfirm"))) return;
+          const item = (await listTherapists()).find((x) => x.id === b.dataset.del);
+          if (item?.photoPath) await removePhoto(item.photoPath);
+          for (const g of item?.gallery || []) if (g.path) await removePhoto(g.path);
+          for (const r of item?.reviews || []) if (r.path) await removePhoto(r.path);
+          await removeTherapist(b.dataset.del);
+          refresh();
+        });
+      });
+    }
+
+    // --- Modal ---
+    function openModal(id = null) {
+      editingId = id;
+      pendingPhoto = null;
+      gallery = [];
+      reviews = [];
+      $("form").reset();
+      $("f-photo-preview").innerHTML = "No photo";
+
+      if (!id) {
+        $("modal-title").textContent = t("addNewTherapist").replace("+ ", "");
+        renderGallery();
+        renderReviews();
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
+        return;
+      }
+
+      $("modal-title").textContent = t("editTherapist");
+      listTherapists().then((all) => {
+        const th = all.find((x) => x.id === id);
+        if (!th) return;
+        $("f-id").value = th.id;
+        $("f-code").value = th.code || "";
+        $("f-name-th").value = th.nameTh || "";
+        $("f-name-en").value = th.nameEn || "";
+        $("f-branch").value = th.branch || "branch1";
+        $("f-age").value = th.age || "";
+        $("f-height").value = th.measurements?.height || "";
+        $("f-weight").value = th.measurements?.weight || "";
+        $("f-bust").value = th.measurements?.bust || "";
+        $("f-waist").value = th.measurements?.waist || "";
+        $("f-hip").value = th.measurements?.hip || "";
+        $("f-specialties").value = th.specialties || "";
+        $("f-note").value = th.note || "";
+        $("f-active").checked = th.active !== false;
+        $("f-badge-top").checked = th.badges?.includes("top") || false;
+        $("f-badge-new").checked = th.badges?.includes("new") || false;
+        $("f-badge-rising").checked = th.badges?.includes("rising") || false;
+        if (th.photoUrl) {
+          $("f-photo-preview").innerHTML = `<img src="${th.photoUrl}" class="w-full h-full object-cover" />`;
+          pendingPhoto = { url: th.photoUrl, path: th.photoPath || null };
+        }
+        gallery = th.gallery || [];
+        reviews = th.reviews || [];
+        renderGallery();
+        renderReviews();
+      });
+
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+    }
+
+    function closeModal() {
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+
+    function renderGallery() {
+      $("f-gallery").innerHTML = gallery.map((g, i) => `
+        <div class="relative group">
+          <img src="${g.url}" class="w-20 h-20 object-cover rounded-lg" />
+          <button type="button" data-rm-gallery="${i}" class="absolute -top-2 -right-2 bg-red-500 text-white w-6 h-6 rounded-full text-xs hidden group-hover:block">&times;</button>
+        </div>
+      `).join("");
+      $("f-gallery").querySelectorAll("[data-rm-gallery]").forEach((b) => {
+        b.addEventListener("click", async () => {
+          const idx = parseInt(b.dataset.rmGallery);
+          if (gallery[idx].path) await removePhoto(gallery[idx].path);
+          gallery.splice(idx, 1);
+          renderGallery();
+        });
+      });
+    }
+
+    function renderReviews() {
+      $("f-reviews").innerHTML = reviews.map((r, i) => `
+        <div class="relative group">
+          <img src="${r.url}" class="w-20 h-20 object-cover rounded-lg" />
+          <button type="button" data-rm-review="${i}" class="absolute -top-2 -right-2 bg-red-500 text-white w-6 h-6 rounded-full text-xs hidden group-hover:block">&times;</button>
+        </div>
+      `).join("");
+      $("f-reviews").querySelectorAll("[data-rm-review]").forEach((b) => {
+        b.addEventListener("click", async () => {
+          const idx = parseInt(b.dataset.rmReview);
+          if (reviews[idx].path) await removePhoto(reviews[idx].path);
+          reviews.splice(idx, 1);
+          renderReviews();
+        });
+      });
+    }
+
+    // --- Photo upload handlers ---
+    $("f-photo").addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const status = $("f-photo-status");
+      status.textContent = t("uploadingPhoto");
+      status.classList.remove("hidden");
+      try {
+        if (pendingPhoto?.path) await removePhoto(pendingPhoto.path);
+        const result = await uploadPhoto(file, "profiles");
+        pendingPhoto = result;
+        $("f-photo-preview").innerHTML = `<img src="${result.url}" class="w-full h-full object-cover" />`;
+      } catch (err) {
+        alert(`${t("error")}: ${err.message}`);
+      } finally {
+        status.classList.add("hidden");
+      }
+    });
+
+    $("f-gallery-input").addEventListener("change", async (e) => {
+      for (const file of e.target.files) {
+        try {
+          const r = await uploadPhoto(file, "gallery");
+          gallery.push(r);
+        } catch (err) { alert(err.message); }
+      }
+      e.target.value = "";
+      renderGallery();
+    });
+
+    $("f-reviews-input").addEventListener("change", async (e) => {
+      for (const file of e.target.files) {
+        try {
+          const r = await uploadPhoto(file, "reviews");
+          reviews.push(r);
+        } catch (err) { alert(err.message); }
+      }
+      e.target.value = "";
+      renderReviews();
+    });
+
+    // --- Save ---
+    $("form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const badges = [];
+      if ($("f-badge-top").checked) badges.push("top");
+      if ($("f-badge-new").checked) badges.push("new");
+      if ($("f-badge-rising").checked) badges.push("rising");
+
+      const data = {
+        code: $("f-code").value.trim(),
+        nameTh: $("f-name-th").value.trim(),
+        nameEn: $("f-name-en").value.trim(),
+        branch: $("f-branch").value,
+        age: parseInt($("f-age").value) || null,
+        measurements: {
+          height: parseInt($("f-height").value) || null,
+          weight: parseInt($("f-weight").value) || null,
+          bust: parseInt($("f-bust").value) || null,
+          waist: parseInt($("f-waist").value) || null,
+          hip: parseInt($("f-hip").value) || null,
+        },
+        specialties: $("f-specialties").value.trim(),
+        note: $("f-note").value.trim(),
+        badges,
+        active: $("f-active").checked,
+        photoUrl: pendingPhoto?.url || null,
+        photoPath: pendingPhoto?.path || null,
+        gallery,
+        reviews,
+      };
+
+      const btn = $("btn-save");
+      btn.disabled = true;
+      btn.textContent = "...";
+      try {
+        await saveTherapist(editingId, data);
+        closeModal();
+        refresh();
+      } catch (err) {
+        alert(`${t("error")}: ${err.message}`);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = t("saveTherapist");
+      }
+    });
+
+    // --- Wire up ---
+    $("btn-add").addEventListener("click", () => openModal(null));
+    $("btn-close-modal").addEventListener("click", closeModal);
+    $("btn-cancel").addEventListener("click", closeModal);
+    document.addEventListener("langchange", refresh);
+
+    refresh();
+  </script>
+</body>
+</html>
