@@ -17,7 +17,10 @@
         <span class="text-gray-300">|</span>
         <h1 class="text-lg font-semibold text-gray-800" data-i18n="qrTitle"></h1>
       </div>
-      <div id="lang-toggle" class="flex gap-1"></div>
+      <div class="flex items-center gap-3">
+        <div id="lang-toggle" class="flex gap-1"></div>
+        <button id="btn-logout" class="text-xs text-gray-500 hover:text-red-500 border px-2 py-1 rounded hidden">Logout</button>
+      </div>
     </div>
   </header>
 
@@ -56,6 +59,14 @@
 
   <script type="module">
     import { t } from "./js/i18n.js";
+    import { requireAuth, logout } from "./js/auth.js";
+
+    await requireAuth();
+    document.getElementById("btn-logout").classList.remove("hidden");
+    document.getElementById("btn-logout").addEventListener("click", async () => {
+      await logout();
+      location.replace("login.html");
+    });
 
     const $ = (id) => document.getElementById(id);
 

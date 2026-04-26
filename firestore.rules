@@ -1,0 +1,30 @@
+rules_version = '2';
+
+// Production rules for Ploy Spa
+// - Public can READ therapist info and statuses (for customers and check-in)
+// - Public can WRITE statuses (staff press status without login)
+// - Only authenticated admin can write therapist data
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Therapist data: public read, admin-only write
+    match /therapists/{therapistId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Status data: public read AND write (no PIN required for staff)
+    // Validate shape so people can't dump arbitrary data
+    match /statuses/{therapistId} {
+      allow read: if true;
+      allow write: if
+        request.resource.data.status in ['ready', 'not_ready', 'ready_at']
+        && request.resource.data.keys().hasOnly(['status', 'readyAt', 'updatedAt'])
+        && (
+          request.resource.data.status != 'ready_at'
+          || (request.resource.data.readyAt is string
+              && request.resource.data.readyAt.size() <= 5)
+        );
+    }
+  }
+}

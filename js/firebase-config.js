@@ -25,6 +25,14 @@ import {
   getDownloadURL,
   deleteObject,
 } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-storage.js";
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  setPersistence,
+  browserLocalPersistence,
+} from "https://www.gstatic.com/firebasejs/12.12.1/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDurdts9-ClzDA_Jatm5UgiGMudUtVeK6s",
@@ -39,10 +47,13 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app);
+const auth = getAuth(app);
+setPersistence(auth, browserLocalPersistence).catch(() => {});
 
 export {
   db,
   storage,
+  auth,
   collection,
   doc,
   getDoc,
@@ -60,4 +71,7 @@ export {
   uploadBytes,
   getDownloadURL,
   deleteObject,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
 };

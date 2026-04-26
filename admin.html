@@ -17,7 +17,11 @@
         <span class="text-gray-300">|</span>
         <h1 class="text-lg font-semibold text-gray-800" data-i18n="adminTitle"></h1>
       </div>
-      <div id="lang-toggle" class="flex gap-1"></div>
+      <div class="flex items-center gap-3">
+        <div id="lang-toggle" class="flex gap-1"></div>
+        <span id="user-email" class="text-xs text-gray-400 hidden sm:inline"></span>
+        <button id="btn-logout" class="text-xs text-gray-500 hover:text-red-500 border px-2 py-1 rounded hidden">Logout</button>
+      </div>
     </div>
   </header>
 
@@ -179,6 +183,17 @@
       escapeHtml,
     } from "./js/helpers.js";
     import { t, getLang, applyTranslations, pickName } from "./js/i18n.js";
+    import { requireAuth, logout } from "./js/auth.js";
+
+    // Auth guard - redirects to login if not authenticated
+    const user = await requireAuth();
+    document.getElementById("user-email").textContent = user.email;
+    document.getElementById("user-email").classList.remove("hidden");
+    document.getElementById("btn-logout").classList.remove("hidden");
+    document.getElementById("btn-logout").addEventListener("click", async () => {
+      await logout();
+      location.replace("login.html");
+    });
 
     let editingId = null;
     let pendingPhoto = null; // { url, path } new uploaded profile photo

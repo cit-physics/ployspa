@@ -1,0 +1,17 @@
+rules_version = '2';
+
+// Production rules for Ploy Spa Storage
+// - Public can read all images (profile photos, gallery, reviews)
+// - Only authenticated admin can upload/delete
+// - Image files only, max 10 MB per upload
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.resource.size < 10 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null;
+    }
+  }
+}
