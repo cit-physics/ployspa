@@ -28,7 +28,7 @@
   </div>
 
   <script type="module">
-    import { getTherapist, watchStatuses, statusLabel, statusBadgeClasses, badgeStyle, badgeLabel, escapeHtml, qs } from "./js/helpers.js";
+    import { getTherapist, watchStatuses, statusLabel, statusBadgeClasses, badgeStyle, badgeLabel, escapeHtml, qs, formatMeasurements } from "./js/helpers.js";
     import { t, getLang, pickName } from "./js/i18n.js";
 
     const id = qs("id");
@@ -62,14 +62,10 @@
         `<span class="text-xs font-bold px-2 py-1 rounded ${badgeStyle(b)}">${escapeHtml(badgeLabel(b))}</span>`
       ).join(" ");
 
-      const m = th.measurements || {};
-      const measurementsRows = [
-        row(t("height"), m.height),
-        row(t("weight"), m.weight),
-        row(t("bust"), m.bust),
-        row(t("waist"), m.waist),
-        row(t("hip"), m.hip),
-      ].join("");
+      const measurementsStr = formatMeasurements(th.measurements);
+      const measurementsRows = measurementsStr
+        ? row(t("measurementsLabel"), measurementsStr)
+        : "";
 
       const galleryHtml = (th.gallery || []).length
         ? `<section class="mt-6">

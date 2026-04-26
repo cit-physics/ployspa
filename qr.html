@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>QR Code - Ploy Spa</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
@@ -74,12 +74,21 @@
     const defaultUrl = new URL("checkin.html", window.location.href).toString();
     $("checkin-url").value = defaultUrl;
 
+    let qrInstance = null;
     function generate(url) {
-      QRCode.toCanvas($("qr-canvas"), url, {
-        width: 320,
-        margin: 2,
-        color: { dark: "#db2777", light: "#ffffff" },
-      }, (err) => { if (err) console.error(err); });
+      if (!qrInstance) {
+        qrInstance = new QRious({
+          element: $("qr-canvas"),
+          value: url,
+          size: 320,
+          padding: 16,
+          foreground: "#db2777",
+          background: "#ffffff",
+          level: "M",
+        });
+      } else {
+        qrInstance.value = url;
+      }
       $("display-url").textContent = url;
     }
 

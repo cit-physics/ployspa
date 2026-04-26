@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manage Status - Ploy Spa</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <header class="bg-white border-b sticky top-0 z-20">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="admin.html" class="text-pink-500 hover:text-pink-600 text-sm">← Admin</a>
+        <span class="text-gray-300">|</span>
+        <h1 class="text-lg font-semibold text-gray-800" data-i18n="statusManagerTitle"></h1>
+      </div>
+      <div class="flex items-center gap-3">
+        <div id="lang-toggle" class="flex gap-1"></div>
+        <span id="user-email" class="text-xs text-gray-400 hidden sm:inline"></span>
+        <button id="btn-logout" class="text-xs text-gray-500 hover:text-red-500 border px-2 py-1 rounded hidden">Logout</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-6">
+    <p class="text-gray-600 text-sm mb-4" data-i18n="statusManagerSubtitle"></p>
+
+    <!-- Bulk toolbar -->
+    <div id="bulk-toolbar" class="bg-white border rounded-xl p-3 mb-4 flex flex-wrap items-center gap-2 sticky top-16 z-10 shadow-sm">
+      <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+        <input type="checkbox" id="select-all" class="text-pink-500" />
+        <span data-i18n="selectAll"></span>
+      </label>
+      <span id="selected-count" class="text-xs text-gray-500"></span>
+      <div class="flex-1"></div>
+      <button id="btn-bulk-ready" disabled class="px-3 py-1.5 bg-green-500 text-white text-sm rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-green-600">
+        ✅ <span data-i18n="bulkSetReady"></span>
+      </button>
+      <button id="btn-bulk-not-ready" disabled class="px-3 py-1.5 bg-red-500 text-white text-sm rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-red-600">
+        ❌ <span data-i18n="bulkSetNotReady"></span>
+      </button>
+      <button id="btn-bulk-clear" disabled class="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-300">
+        🗑 <span data-i18n="clearStatus"></span>
+      </button>
+    </div>
+
+    <!-- Branches -->
+    <div id="branches-container">
+      <div class="text-center py-12"><div class="spinner mx-auto"></div></div>
+    </div>
+  </main>
+
+  <!-- Time picker modal -->
+  <div id="time-modal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+      <h3 class="text-lg font-semibold mb-3" data-i18n="setReadyAt"></h3>
+      <p id="time-modal-name" class="text-sm text-gray-600 mb-3"></p>
+      <input type="time" id="time-modal-input" class="w-full border-2 border-yellow-300 rounded-lg px-3 py-2 text-lg mb-4" />
+      <div class="flex justify-end gap-2">
+        <button id="time-modal-cancel" class="px-4 py-2 text-sm text-gray-600" data-i18n="cancel"></button>
+        <button id="time-modal-confirm" class="px-4 py-2 bg-yellow-500 text-white text-sm rounded-lg" data-i18n="confirm"></button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import {
+      watchTherapists,
+      watchStatuses,
+      setStatus,
+      clearStatus,
+      statusLabel,
+      statusBadgeClasses,
+      escapeHtml,
+    } from "./js/helpers.js";
+    import { t, pickName } from "./js/i18n.js";
+    import { requireAuth, logout } from "./js/auth.js";
+
+    const user = await requireAuth();
+    document.getElementById("user-email").textContent = user.email;
+    document.getElementById("user-email").classList.remove("hidden");
+    document.getElementById("btn-logout").classList.remove("hidden");
+    document.getElementById("btn-logout").addEventListener("click", async () => {
+      await logout();
+      location.replace("login.html");
+    });
+
+    const $ = (id) => document.getElementById(id);
+    let therapists = [];
+    let statuses = {};
+    const selected = new Set();
+    let timeTargetId = null;
+
+    function getActiveByBranch() {
+      const groups = { branch1: [], branch2: [] };
+      for (const th of therapists) {
+        if (th.active === false) continue;
+        const branch = th.branch || "branch1";
+        if (!groups[branch]) groups[branch] = [];
+        groups[branch].push(th);
+      }
+      // sort each group by code
+      for (const k in groups) {
+        groups[k].sort((a, b) => (a.code || "").localeCompare(b.code || ""));
+      }
+      return groups;
+    }
+
+    function render() {
+      const groups = getActiveByBranch();
+      const container = $("branches-container");
+      const sections = [];
+
+      for (const branchKey of ["branch1", "branch2"]) {
+        const list = groups[branchKey] || [];
+        if (list.length === 0) continue;
+        sections.push(`
+          <section class="mb-6">
+            <h2 class="text-base font-bold text-gray-700 mb-2 flex items-center gap-2">
+              <span class="inline-block w-2 h-2 rounded-full bg-pink-500"></span>
+              ${escapeHtml(t(branchKey))}
+              <span class="text-xs text-gray-400 font-normal">(${list.length} ${t("therapistsCount")})</span>
+            </h2>
+            <div class="space-y-2">
+              ${list.map((th) => renderRow(th)).join("")}
+            </div>
+          </section>
+        `);
+      }
+
+      container.innerHTML = sections.length
+        ? sections.join("")
+        : `<div class="text-center py-12 text-gray-400">${t("noTherapists")}</div>`;
+
+      bindRowEvents();
+      updateSelectAll();
+      updateBulkButtons();
+    }
+
+    function renderRow(th) {
+      const status = statuses[th.id];
+      const lbl = statusLabel(status);
+      const isSelected = selected.has(th.id);
+      const photo = th.photoUrl
+        ? `<img src="${escapeHtml(th.photoUrl)}" class="w-12 h-12 rounded-lg object-cover" />`
+        : `<div class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-gray-300 text-xl">👤</div>`;
+
+      return `
+        <div class="bg-white border rounded-xl p-3 flex items-center gap-3 ${isSelected ? "ring-2 ring-pink-300" : ""}">
+          <input type="checkbox" data-pick="${th.id}" ${isSelected ? "checked" : ""} class="text-pink-500 flex-shrink-0" />
+          ${photo}
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded">${escapeHtml(th.code || "—")}</span>
+              <span class="font-medium truncate">${escapeHtml(pickName(th))}</span>
+            </div>
+            <div class="mt-1">
+              <span class="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full border ${statusBadgeClasses(lbl.color)}">
+                ${escapeHtml(lbl.text)}
+              </span>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-1 justify-end">
+            <button data-act="ready" data-id="${th.id}" title="${t("statusReady")}" class="w-9 h-9 flex items-center justify-center bg-green-100 hover:bg-green-200 text-green-700 rounded-lg text-base">✅</button>
+            <button data-act="ready_at" data-id="${th.id}" title="${t("statusReadyAt")}" class="w-9 h-9 flex items-center justify-center bg-yellow-100 hover:bg-yellow-200 text-yellow-700 rounded-lg text-base">⏰</button>
+            <button data-act="not_ready" data-id="${th.id}" title="${t("statusNotReady")}" class="w-9 h-9 flex items-center justify-center bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-base">❌</button>
+            <button data-act="clear" data-id="${th.id}" title="${t("clearStatus")}" class="w-9 h-9 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-base">🗑</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function bindRowEvents() {
+      document.querySelectorAll("[data-pick]").forEach((cb) => {
+        cb.addEventListener("change", (e) => {
+          const id = cb.dataset.pick;
+          if (cb.checked) selected.add(id);
+          else selected.delete(id);
+          updateSelectAll();
+          updateBulkButtons();
+          // toggle row highlight without full re-render
+          cb.closest("div.bg-white")?.classList.toggle("ring-2", cb.checked);
+          cb.closest("div.bg-white")?.classList.toggle("ring-pink-300", cb.checked);
+        });
+      });
+
+      document.querySelectorAll("[data-act]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const id = btn.dataset.id;
+          const act = btn.dataset.act;
+          try {
+            if (act === "ready") await setStatus(id, "ready");
+            else if (act === "not_ready") await setStatus(id, "not_ready");
+            else if (act === "clear") await clearStatus(id);
+            else if (act === "ready_at") openTimeModal(id);
+          } catch (err) {
+            alert(`${t("error")}: ${err.message}`);
+          }
+        });
+      });
+    }
+
+    function updateSelectAll() {
+      const groups = getActiveByBranch();
+      const all = [...(groups.branch1 || []), ...(groups.branch2 || [])];
+      const cb = $("select-all");
+      cb.checked = all.length > 0 && all.every((t) => selected.has(t.id));
+      cb.indeterminate = !cb.checked && all.some((t) => selected.has(t.id));
+      const count = selected.size;
+      $("selected-count").textContent = count
+        ? `(${count} ${t("selected")})`
+        : "";
+    }
+
+    function updateBulkButtons() {
+      const enabled = selected.size > 0;
+      $("btn-bulk-ready").disabled = !enabled;
+      $("btn-bulk-not-ready").disabled = !enabled;
+      $("btn-bulk-clear").disabled = !enabled;
+    }
+
+    // Time modal
+    function openTimeModal(id) {
+      timeTargetId = id;
+      const th = therapists.find((x) => x.id === id);
+      $("time-modal-name").textContent = th ? pickName(th) : "";
+      const now = new Date();
+      now.setMinutes(now.getMinutes() + 30);
+      $("time-modal-input").value = now.toTimeString().slice(0, 5);
+      $("time-modal").classList.remove("hidden");
+      $("time-modal").classList.add("flex");
+    }
+
+    function closeTimeModal() {
+      $("time-modal").classList.add("hidden");
+      $("time-modal").classList.remove("flex");
+      timeTargetId = null;
+    }
+
+    $("time-modal-cancel").addEventListener("click", closeTimeModal);
+    $("time-modal-confirm").addEventListener("click", async () => {
+      if (!timeTargetId) return;
+      const time = $("time-modal-input").value;
+      if (!time) return;
+      try {
+        await setStatus(timeTargetId, "ready_at", time);
+        closeTimeModal();
+      } catch (err) {
+        alert(`${t("error")}: ${err.message}`);
+      }
+    });
+
+    // Bulk handlers
+    $("select-all").addEventListener("change", (e) => {
+      const groups = getActiveByBranch();
+      const all = [...(groups.branch1 || []), ...(groups.branch2 || [])];
+      if (e.target.checked) all.forEach((t) => selected.add(t.id));
+      else selected.clear();
+      render();
+    });
+
+    async function bulkApply(action) {
+      if (selected.size === 0) return;
+      const count = selected.size;
+      if (!confirm(`${t("bulkConfirm")}: ${count} ${t("therapistsCount")}`)) return;
+      const ids = Array.from(selected);
+      try {
+        for (const id of ids) {
+          if (action === "ready") await setStatus(id, "ready");
+          else if (action === "not_ready") await setStatus(id, "not_ready");
+          else if (action === "clear") await clearStatus(id);
+        }
+        selected.clear();
+        render();
+      } catch (err) {
+        alert(`${t("error")}: ${err.message}`);
+      }
+    }
+
+    $("btn-bulk-ready").addEventListener("click", () => bulkApply("ready"));
+    $("btn-bulk-not-ready").addEventListener("click", () => bulkApply("not_ready"));
+    $("btn-bulk-clear").addEventListener("click", () => bulkApply("clear"));
+
+    // Live data
+    watchTherapists((list) => { therapists = list; render(); });
+    watchStatuses((map) => { statuses = map; render(); });
+
+    document.addEventListener("langchange", render);
+  </script>
+</body>
+</html>

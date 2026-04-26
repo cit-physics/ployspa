@@ -71,7 +71,7 @@ const translations = {
     noTherapistsAvailable: "ขณะนี้ยังไม่มีหมอที่พร้อมให้บริการ",
 
     // Pages
-    homeTitle: "หมอนวดของเรา",
+    homeTitle: "น้องหมอของร้าน Ploy Spa",
     homeSubtitle: "ดูสถานะหมอแบบเรียลไทม์",
     adminTitle: "จัดการข้อมูลหมอ",
     adminSubtitle: "เพิ่ม / แก้ไข / ลบ ข้อมูลหมอ",
@@ -82,6 +82,22 @@ const translations = {
     qrTitle: "QR Code สำหรับพนักงาน",
     qrSubtitle: "ให้พนักงานสแกนเพื่อเปลี่ยนสถานะ",
     qrPrint: "พิมพ์ QR Code",
+    statusManagerTitle: "จัดการสถานะหมอ",
+    statusManagerSubtitle: "ดูและแก้ไขสถานะหมอทุกคน แยกตามสาขา",
+    statusManagerLink: "จัดการสถานะ",
+
+    // Bulk actions
+    selectAll: "เลือกทั้งหมด",
+    deselectAll: "ยกเลิกการเลือก",
+    selected: "เลือกแล้ว",
+    bulkSetReady: "ตั้งเป็น พร้อมทำงาน",
+    bulkSetNotReady: "ตั้งเป็น ไม่พร้อม",
+    apply: "ใช้กับที่เลือก",
+    clearStatus: "ล้างสถานะ",
+    bulkConfirm: "ยืนยันการเปลี่ยนสถานะ",
+    branchSection: "สาขา",
+    therapistsCount: "หมอ",
+    measurementsLabel: "สัดส่วน",
 
     // Detail page
     aboutTherapist: "เกี่ยวกับหมอ",
@@ -177,7 +193,7 @@ const translations = {
     noTherapistsAvailable: "No therapists available right now",
 
     // Pages
-    homeTitle: "Our Therapists",
+    homeTitle: "Our Girls at Ploy Spa",
     homeSubtitle: "Real-time availability",
     adminTitle: "Manage Therapists",
     adminSubtitle: "Add / Edit / Delete therapist information",
@@ -188,6 +204,22 @@ const translations = {
     qrTitle: "QR Code for Staff",
     qrSubtitle: "Staff scan this to update their status",
     qrPrint: "Print QR Code",
+    statusManagerTitle: "Manage Staff Status",
+    statusManagerSubtitle: "View and update therapist status, grouped by branch",
+    statusManagerLink: "Manage Status",
+
+    // Bulk actions
+    selectAll: "Select all",
+    deselectAll: "Deselect all",
+    selected: "selected",
+    bulkSetReady: "Set as Available",
+    bulkSetNotReady: "Set as Unavailable",
+    apply: "Apply to selected",
+    clearStatus: "Clear status",
+    bulkConfirm: "Confirm status change",
+    branchSection: "Branch",
+    therapistsCount: "therapists",
+    measurementsLabel: "Measurements",
 
     // Detail page
     aboutTherapist: "About",

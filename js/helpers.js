@@ -68,6 +68,10 @@ export async function setStatus(therapistId, status, readyAt = null) {
   });
 }
 
+export async function clearStatus(therapistId) {
+  await deleteDoc(doc(db, "statuses", therapistId));
+}
+
 export function watchStatuses(callback) {
   return onSnapshot(collection(db, "statuses"), (snap) => {
     const map = {};
@@ -76,6 +80,28 @@ export function watchStatuses(callback) {
     });
     callback(map);
   });
+}
+
+// --- Code generator ---
+
+export function generateNextCode(therapists) {
+  const numbers = therapists
+    .map((t) => {
+      const m = (t.code || "").match(/^P(\d+)$/i);
+      return m ? parseInt(m[1], 10) : null;
+    })
+    .filter((n) => n != null && !isNaN(n));
+  const max = numbers.length ? Math.max(...numbers) : 0;
+  return `P${String(max + 1).padStart(2, "0")}`;
+}
+
+// --- Measurements formatter ---
+
+export function formatMeasurements(measurements) {
+  if (!measurements) return "";
+  const { bust, waist, hip } = measurements;
+  if (!bust || !waist || !hip) return "";
+  return `${bust}-${waist}-${hip}`;
 }
 
 // --- Photo upload ---

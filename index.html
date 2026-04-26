@@ -50,7 +50,7 @@
   </footer>
 
   <script type="module">
-    import { watchTherapists, watchStatuses, statusLabel, statusBadgeClasses, badgeStyle, badgeLabel, escapeHtml } from "./js/helpers.js";
+    import { watchTherapists, watchStatuses, statusLabel, statusBadgeClasses, badgeStyle, badgeLabel, escapeHtml, formatMeasurements } from "./js/helpers.js";
     import { t, getLang, pickName } from "./js/i18n.js";
 
     let therapists = [];
@@ -134,7 +134,9 @@
                 <span class="text-[10px] font-mono bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">${escapeHtml(th.code || "—")}</span>
                 <span class="text-xs text-gray-400">${escapeHtml(t(th.branch || "branch1"))}</span>
               </div>
-              <div class="font-semibold text-gray-800 truncate">${escapeHtml(pickName(th))}</div>
+              <div class="font-semibold text-gray-800 truncate">
+                ${escapeHtml(pickName(th))}${formatMeasurements(th.measurements) ? ` <span class="text-pink-500 font-mono text-xs font-normal">${formatMeasurements(th.measurements)}</span>` : ""}
+              </div>
               ${th.specialties ? `<div class="text-xs text-gray-500 truncate mt-0.5">${escapeHtml(th.specialties)}</div>` : ""}
             </div>
           </a>
