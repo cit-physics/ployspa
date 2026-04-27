@@ -454,7 +454,16 @@
     $("btn-cancel").addEventListener("click", closeModal);
     document.addEventListener("langchange", refresh);
 
-    refresh();
+    // Initial load + auto-open edit modal if ?edit= URL param present
+    (async () => {
+      await refresh();
+      const editId = new URLSearchParams(location.search).get("edit");
+      if (editId && cachedList.find((t) => t.id === editId)) {
+        openModal(editId);
+        // Clean URL so refresh doesn't reopen
+        history.replaceState(null, "", "admin.html");
+      }
+    })();
   </script>
 </body>
 </html>

@@ -30,10 +30,17 @@
   <script type="module">
     import { getTherapist, watchStatuses, statusLabel, statusBadgeClasses, badgeStyle, badgeLabel, escapeHtml, qs, formatMeasurements } from "./js/helpers.js";
     import { t, getLang, pickName } from "./js/i18n.js";
+    import { onAuth } from "./js/auth.js";
 
     const id = qs("id");
     let therapist = null;
     let statuses = {};
+    let isAdmin = false;
+
+    onAuth((user) => {
+      isAdmin = !!user;
+      if (therapist) render();
+    });
 
     if (!id) {
       document.getElementById("content").innerHTML = `<div class="text-center py-12"><a href="index.html" class="text-pink-500">${t("backToList")}</a></div>`;
@@ -104,11 +111,11 @@
           </div>
 
           <div class="p-5">
-            <div class="flex items-center gap-2 mb-1">
-              <span class="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded text-gray-600">${escapeHtml(th.code || "—")}</span>
-              <span class="text-xs text-gray-400">${escapeHtml(t(th.branch || "branch1"))}</span>
+            <div class="text-xs text-gray-400 mb-1">${escapeHtml(t(th.branch || "branch1"))}</div>
+            <div class="flex items-start justify-between gap-3">
+              <h1 class="text-2xl font-bold text-gray-800">${escapeHtml(pickName(th))}</h1>
+              ${isAdmin ? `<a href="admin.html?edit=${encodeURIComponent(th.id)}" class="flex-shrink-0 inline-flex items-center gap-1 px-3 py-1.5 bg-pink-500 hover:bg-pink-600 text-white text-xs font-medium rounded-lg whitespace-nowrap">✏️ ${t("edit")}</a>` : ""}
             </div>
-            <h1 class="text-2xl font-bold text-gray-800">${escapeHtml(pickName(th))}</h1>
             ${th.specialties ? `<p class="text-pink-600 text-sm mt-1">${escapeHtml(th.specialties)}</p>` : ""}
 
             ${th.note ? `<p class="text-gray-600 text-sm mt-3 leading-relaxed whitespace-pre-line">${escapeHtml(th.note)}</p>` : ""}

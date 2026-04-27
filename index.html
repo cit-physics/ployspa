@@ -32,9 +32,9 @@
     <!-- Branch filter -->
     <div id="branch-filter" class="flex flex-wrap gap-2 mb-6 justify-center"></div>
 
-    <!-- Therapist grid -->
-    <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-      <div class="col-span-full text-center py-12">
+    <!-- Therapist groups -->
+    <div id="grid-wrapper">
+      <div class="text-center py-12">
         <div class="spinner mx-auto"></div>
       </div>
     </div>
@@ -77,6 +77,65 @@
       });
     }
 
+    // Badge priority for sort: top=0, rising=1, new=2, none=3 (lower = earlier)
+    function badgePriority(th) {
+      const b = th.badges || [];
+      if (b.includes("top")) return 0;
+      if (b.includes("rising")) return 1;
+      if (b.includes("new")) return 2;
+      return 3;
+    }
+
+    function sortByBadgeThenName(list) {
+      return list.slice().sort((a, b) => {
+        const pa = badgePriority(a);
+        const pb = badgePriority(b);
+        if (pa !== pb) return pa - pb;
+        return (a.nameTh || a.nameEn || "").localeCompare(b.nameTh || b.nameEn || "");
+      });
+    }
+
+    function renderCard(th) {
+      const status = statuses[th.id];
+      const lbl = statusLabel(status);
+      const photo = th.photoUrl
+        ? `<img src="${escapeHtml(th.photoUrl)}" alt="${escapeHtml(pickName(th))}" class="w-full h-full object-cover" loading="lazy" />`
+        : `<div class="w-full h-full bg-gray-100 flex items-center justify-center text-gray-300 text-4xl">👤</div>`;
+
+      const badges = (th.badges || []).map((b) => `
+        <span class="inline-block text-[10px] font-bold px-1.5 py-0.5 rounded ${badgeStyle(b)}">${escapeHtml(badgeLabel(b))}</span>
+      `).join("");
+
+      const pulseClass = lbl.color === "green" ? "pulse-green" : "";
+
+      return `
+        <a href="therapist.html?id=${encodeURIComponent(th.id)}" class="therapist-card block bg-white rounded-2xl overflow-hidden border border-gray-100 fade-in">
+          <div class="aspect-photo bg-gray-50 relative">
+            ${photo}
+            <div class="absolute top-2 left-2 flex flex-col gap-1">${badges}</div>
+            <div class="absolute bottom-2 left-2 right-2">
+              <span class="inline-flex items-center text-xs font-medium px-2 py-1 rounded-full border ${statusBadgeClasses(lbl.color)} ${pulseClass} bg-white/90 backdrop-blur">
+                ${escapeHtml(lbl.text)}
+              </span>
+            </div>
+          </div>
+          <div class="p-3">
+            <div class="text-xs text-gray-400 mb-1">${escapeHtml(t(th.branch || "branch1"))}</div>
+            <div class="font-semibold text-gray-800 truncate">
+              ${escapeHtml(pickName(th))}${formatMeasurements(th.measurements) ? ` <span class="text-pink-500 font-mono text-xs font-normal">${formatMeasurements(th.measurements)}</span>` : ""}
+            </div>
+            ${th.specialties ? `<div class="text-xs text-gray-500 truncate mt-0.5">${escapeHtml(th.specialties)}</div>` : ""}
+          </div>
+        </a>
+      `;
+    }
+
+    function renderGroup(list) {
+      return `<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+        ${list.map(renderCard).join("")}
+      </div>`;
+    }
+
     function renderGrid() {
       const filtered = therapists.filter((th) => {
         if (th.active === false) return false;
@@ -84,64 +143,43 @@
         return true;
       });
 
-      // Sort: ready first, then ready_at, then not_ready, then unknown
-      const order = { ready: 0, ready_at: 1, not_ready: 2 };
-      filtered.sort((a, b) => {
-        const sa = statuses[a.id]?.status || "unknown";
-        const sb = statuses[b.id]?.status || "unknown";
-        const oa = order[sa] ?? 3;
-        const ob = order[sb] ?? 3;
-        if (oa !== ob) return oa - ob;
-        return (a.code || "").localeCompare(b.code || "");
-      });
-
-      const grid = document.getElementById("grid");
+      const wrapper = document.getElementById("grid-wrapper");
       const empty = document.getElementById("empty");
 
       if (filtered.length === 0) {
-        grid.innerHTML = "";
+        wrapper.innerHTML = "";
         empty.classList.remove("hidden");
         return;
       }
       empty.classList.add("hidden");
 
-      grid.innerHTML = filtered.map((th) => {
-        const status = statuses[th.id];
-        const lbl = statusLabel(status);
-        const photo = th.photoUrl
-          ? `<img src="${escapeHtml(th.photoUrl)}" alt="${escapeHtml(pickName(th))}" class="w-full h-full object-cover" loading="lazy" />`
-          : `<div class="w-full h-full bg-gray-100 flex items-center justify-center text-gray-300 text-4xl">👤</div>`;
+      // Group by status
+      const ready = [];
+      const readyAt = [];
+      const others = [];
+      filtered.forEach((th) => {
+        const s = statuses[th.id]?.status;
+        if (s === "ready") ready.push(th);
+        else if (s === "ready_at") readyAt.push(th);
+        else others.push(th); // not_ready or unknown
+      });
 
-        const badges = (th.badges || []).map((b) => `
-          <span class="inline-block text-[10px] font-bold px-1.5 py-0.5 rounded ${badgeStyle(b)}">${escapeHtml(badgeLabel(b))}</span>
-        `).join("");
+      // Sort within groups by badge priority then name
+      const readySorted = sortByBadgeThenName(ready);
+      const readyAtSorted = sortByBadgeThenName(readyAt);
+      const othersSorted = sortByBadgeThenName(others);
 
-        const pulseClass = lbl.color === "green" ? "pulse-green" : "";
+      // Available group = ready + ready_at (ready first)
+      const availableGroup = [...readySorted, ...readyAtSorted];
 
-        return `
-          <a href="therapist.html?id=${encodeURIComponent(th.id)}" class="therapist-card block bg-white rounded-2xl overflow-hidden border border-gray-100 fade-in">
-            <div class="aspect-photo bg-gray-50 relative">
-              ${photo}
-              <div class="absolute top-2 left-2 flex flex-col gap-1">${badges}</div>
-              <div class="absolute bottom-2 left-2 right-2">
-                <span class="inline-flex items-center text-xs font-medium px-2 py-1 rounded-full border ${statusBadgeClasses(lbl.color)} ${pulseClass} bg-white/90 backdrop-blur">
-                  ${escapeHtml(lbl.text)}
-                </span>
-              </div>
-            </div>
-            <div class="p-3">
-              <div class="flex items-center gap-2 mb-1">
-                <span class="text-[10px] font-mono bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">${escapeHtml(th.code || "—")}</span>
-                <span class="text-xs text-gray-400">${escapeHtml(t(th.branch || "branch1"))}</span>
-              </div>
-              <div class="font-semibold text-gray-800 truncate">
-                ${escapeHtml(pickName(th))}${formatMeasurements(th.measurements) ? ` <span class="text-pink-500 font-mono text-xs font-normal">${formatMeasurements(th.measurements)}</span>` : ""}
-              </div>
-              ${th.specialties ? `<div class="text-xs text-gray-500 truncate mt-0.5">${escapeHtml(th.specialties)}</div>` : ""}
-            </div>
-          </a>
-        `;
-      }).join("");
+      const sections = [];
+      if (availableGroup.length) sections.push(renderGroup(availableGroup));
+      if (availableGroup.length && othersSorted.length) {
+        sections.push(`<div class="my-8 border-t-2 border-dashed border-pink-200"></div>`);
+      }
+      if (othersSorted.length) sections.push(renderGroup(othersSorted));
+
+      wrapper.innerHTML = sections.join("");
     }
 
     watchTherapists((list) => {
