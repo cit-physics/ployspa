@@ -9,451 +9,532 @@
   <link rel="stylesheet" href="css/style.css" />
   <style>
     body { font-family: 'Sarabun', sans-serif; }
+
+    /* therapist cards */
+    .therapist-card { transition: all .18s; }
+    .therapist-card.selected {
+      border-color: #ec4899 !important;
+      box-shadow: 0 0 0 3px #fce7f3;
+    }
+    .therapist-card:hover { border-color: #f9a8d4; }
+
+    /* service cards */
+    .service-card { transition: all .18s; }
+    .service-card.selected {
+      border-color: #ec4899 !important;
+      background: #fdf2f8;
+      box-shadow: 0 0 0 3px #fce7f3;
+    }
+    .service-card:hover { border-color: #f9a8d4; }
+
+    /* time buttons */
+    .time-btn { transition: all .15s; }
+    .time-btn.selected {
+      background: #ec4899;
+      color: #fff;
+      border-color: #ec4899;
+    }
+    .time-btn:hover:not(.selected) { border-color: #f9a8d4; background: #fdf2f8; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up { animation: fadeUp .28s ease forwards; }
+
     .step { display: none; }
     .step.active { display: block; }
-    .service-card.selected {
-      border-color: #ec4899;
-      background-color: #fdf2f8;
-    }
-    .time-btn.selected {
-      background-color: #ec4899;
-      color: white;
-      border-color: #ec4899;
-    }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-    .fade-in { animation: fadeIn 0.3s ease forwards; }
+
+    /* progress dot */
+    .dot-active  { background: #ec4899; color: #fff; }
+    .dot-done    { background: #ec4899; color: #fff; }
+    .dot-pending { background: #e5e7eb; color: #9ca3af; }
+    .line-done   { background: #ec4899; }
+    .line-pending{ background: #e5e7eb; }
+
+    .spinner-sm { width:20px;height:20px;border:3px solid #fce7f3;border-top-color:#ec4899;border-radius:50%;animation:spin .7s linear infinite;display:inline-block; }
+    @keyframes spin { to { transform:rotate(360deg); } }
   </style>
 </head>
 <body class="bg-gradient-to-b from-pink-50 via-white to-pink-50 min-h-screen">
 
-  <!-- Header -->
-  <header class="bg-white/80 backdrop-blur border-b sticky top-0 z-10">
-    <div class="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
-      <a href="index.html" class="text-gray-400 hover:text-pink-500 text-xl leading-none">←</a>
-      <h1 class="text-lg font-bold text-pink-600">จองคิว Ploy Spa</h1>
+<!-- Header -->
+<header class="bg-white/80 backdrop-blur border-b sticky top-0 z-20">
+  <div class="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
+    <button onclick="handleBack()" class="text-gray-400 hover:text-pink-500 text-xl leading-none">←</button>
+    <h1 class="text-lg font-bold text-pink-600">จองคิว Ploy Spa</h1>
+    <span class="ml-auto text-xs text-gray-400" id="step-label">1 / 4</span>
+  </div>
+</header>
+
+<main class="max-w-lg mx-auto px-4 py-5">
+
+  <!-- Progress -->
+  <div class="flex items-center gap-1 mb-7">
+    <div id="d1" class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold dot-active transition-all">1</div>
+    <div id="l12" class="flex-1 h-1 rounded line-pending transition-all"></div>
+    <div id="d2" class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold dot-pending transition-all">2</div>
+    <div id="l23" class="flex-1 h-1 rounded line-pending transition-all"></div>
+    <div id="d3" class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold dot-pending transition-all">3</div>
+    <div id="l34" class="flex-1 h-1 rounded line-pending transition-all"></div>
+    <div id="d4" class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold dot-pending transition-all">4</div>
+  </div>
+
+  <!-- ===== STEP 1: เลือกหมอ ===== -->
+  <div id="step1" class="step active fade-up">
+    <h2 class="text-xl font-bold text-gray-800 mb-1">เลือกน้องหมอ</h2>
+    <p class="text-gray-400 text-sm mb-4">กดที่การ์ดน้องหมอที่ต้องการค่ะ</p>
+
+    <div id="therapist-loading" class="text-center py-10 text-gray-400">
+      <div class="spinner-sm mx-auto mb-2"></div>กำลังโหลด...
     </div>
-  </header>
+    <div id="therapist-grid" class="grid grid-cols-2 gap-3 hidden"></div>
 
-  <main class="max-w-lg mx-auto px-4 py-6">
+    <button onclick="goStep(2)" id="btn1"
+      class="mt-5 w-full py-3 bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-xl shadow disabled:opacity-40 transition"
+      disabled>
+      ถัดไป →
+    </button>
+  </div>
 
-    <!-- Progress bar -->
-    <div class="flex items-center gap-1 mb-8">
-      <div id="dot1" class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-pink-500 text-white transition-all">1</div>
-      <div id="line12" class="flex-1 h-1 bg-pink-200 rounded transition-all"></div>
-      <div id="dot2" class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-gray-200 text-gray-400 transition-all">2</div>
-      <div id="line23" class="flex-1 h-1 bg-gray-200 rounded transition-all"></div>
-      <div id="dot3" class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-gray-200 text-gray-400 transition-all">3</div>
-      <div id="line34" class="flex-1 h-1 bg-gray-200 rounded transition-all"></div>
-      <div id="dot4" class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-gray-200 text-gray-400 transition-all">4</div>
-    </div>
-
-    <!-- ===== STEP 1: เลือกบริการ ===== -->
-    <div id="step1" class="step active fade-in">
-      <h2 class="text-xl font-bold text-gray-800 mb-1">เลือกบริการ</h2>
-      <p class="text-gray-500 text-sm mb-4">ราคารวมค่าห้องแล้ว ไม่มีค่าใช้จ่ายเพิ่มเติม ✨</p>
-
-      <div class="space-y-3" id="service-list">
-        <!-- Populated by JS -->
-      </div>
-
-      <button onclick="goStep(2)" id="btn-step1"
-        class="mt-6 w-full py-3 bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-xl shadow disabled:opacity-40 transition"
-        disabled>
-        ถัดไป →
-      </button>
-    </div>
-
-    <!-- ===== STEP 2: วันและเวลา ===== -->
-    <div id="step2" class="step fade-in">
-      <h2 class="text-xl font-bold text-gray-800 mb-1">เลือกวันและเวลา</h2>
-      <p class="text-gray-500 text-sm mb-4">เลือกช่วงเวลาที่สะดวกค่ะ</p>
-
-      <!-- วัน -->
-      <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-2">วันที่</label>
-        <input type="date" id="booking-date"
-          class="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-pink-300 outline-none"
-          min="" />
-      </div>
-
-      <!-- เวลาแนะนำ -->
-      <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-2">เวลาที่ต้องการ</label>
-        <div class="grid grid-cols-4 gap-2 mb-3" id="time-buttons">
-          <!-- Populated by JS -->
-        </div>
-        <input type="text" id="booking-time" placeholder="หรือพิมพ์เวลา เช่น 15:30"
-          class="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-pink-300 outline-none text-sm"
-          maxlength="5" />
-      </div>
-
-      <div class="flex gap-3 mt-6">
-        <button onclick="goStep(1)" class="flex-1 py-3 border border-gray-300 text-gray-600 font-semibold rounded-xl hover:bg-gray-50 transition">
-          ← ย้อนกลับ
-        </button>
-        <button onclick="goStep(3)" id="btn-step2"
-          class="flex-1 py-3 bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-xl shadow disabled:opacity-40 transition"
-          disabled>
-          ถัดไป →
-        </button>
-      </div>
+  <!-- ===== STEP 2: เลือกบริการ ===== -->
+  <div id="step2" class="step fade-up">
+    <div id="step2-header" class="mb-4">
+      <h2 class="text-xl font-bold text-gray-800 mb-0.5">เลือกบริการ</h2>
+      <p class="text-pink-500 text-sm font-medium" id="step2-therapist-name"></p>
     </div>
 
-    <!-- ===== STEP 3: ข้อมูลติดต่อ ===== -->
-    <div id="step3" class="step fade-in">
-      <h2 class="text-xl font-bold text-gray-800 mb-1">ข้อมูลของคุณ</h2>
-      <p class="text-gray-500 text-sm mb-4">เพื่อให้ร้านโทรยืนยันนัดหมายกลับค่ะ</p>
+    <div class="space-y-3" id="service-list"></div>
 
-      <div class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">ชื่อ – นามสกุล <span class="text-pink-500">*</span></label>
-          <input type="text" id="customer-name" placeholder="เช่น สมชาย ใจดี"
-            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-pink-300 outline-none" />
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">เบอร์โทรศัพท์ <span class="text-pink-500">*</span></label>
-          <input type="tel" id="customer-phone" placeholder="เช่น 081-234-5678"
-            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-pink-300 outline-none" />
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">หมายเหตุ (ถ้ามี)</label>
-          <textarea id="booking-note" rows="2" placeholder="เช่น ขอหมอที่ชำนาญนวดไทย..."
-            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-pink-300 outline-none resize-none text-sm"></textarea>
-        </div>
-      </div>
+    <button onclick="goStep(3)" id="btn2"
+      class="mt-5 w-full py-3 bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-xl shadow disabled:opacity-40 transition"
+      disabled>
+      ถัดไป →
+    </button>
+  </div>
 
-      <div class="flex gap-3 mt-6">
-        <button onclick="goStep(2)" class="flex-1 py-3 border border-gray-300 text-gray-600 font-semibold rounded-xl hover:bg-gray-50 transition">
-          ← ย้อนกลับ
-        </button>
-        <button onclick="goStep(4)" id="btn-step3"
-          class="flex-1 py-3 bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-xl shadow disabled:opacity-40 transition"
-          disabled>
-          ยืนยัน →
-        </button>
-      </div>
+  <!-- ===== STEP 3: เวลา + ชื่อ ===== -->
+  <div id="step3" class="step fade-up">
+    <h2 class="text-xl font-bold text-gray-800 mb-1">เวลาและชื่อ</h2>
+    <p class="text-gray-400 text-sm mb-4">จองสำหรับวันนี้ค่ะ</p>
+
+    <!-- เวลา -->
+    <div class="mb-5">
+      <label class="block text-sm font-semibold text-gray-700 mb-2">⏰ เวลาที่ต้องการเข้ามา</label>
+      <div class="grid grid-cols-4 gap-2 mb-3" id="time-grid"></div>
+      <input type="text" id="custom-time" placeholder="หรือพิมพ์เอง เช่น 15:30"
+        class="w-full border border-gray-200 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-pink-300 outline-none text-sm"
+        maxlength="5" />
     </div>
 
-    <!-- ===== STEP 4: ยืนยัน ===== -->
-    <div id="step4" class="step fade-in">
-      <h2 class="text-xl font-bold text-gray-800 mb-1">ยืนยันการจอง</h2>
-      <p class="text-gray-500 text-sm mb-5">กรุณาตรวจสอบข้อมูลให้ถูกต้องก่อนยืนยันค่ะ</p>
+    <!-- ชื่อ -->
+    <div class="mb-2">
+      <label class="block text-sm font-semibold text-gray-700 mb-2">👤 ชื่อของคุณ</label>
+      <input type="text" id="customer-name" placeholder="ชื่อเพื่อการจอง"
+        class="w-full border border-gray-200 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-pink-300 outline-none" />
+    </div>
 
-      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3 mb-6">
-        <div class="flex justify-between text-sm">
-          <span class="text-gray-500">บริการ</span>
-          <span class="font-semibold text-gray-800" id="confirm-service">—</span>
-        </div>
-        <div class="flex justify-between text-sm">
-          <span class="text-gray-500">ราคา</span>
-          <span class="font-semibold text-pink-600" id="confirm-price">—</span>
-        </div>
-        <div class="border-t border-gray-100"></div>
-        <div class="flex justify-between text-sm">
-          <span class="text-gray-500">วันที่</span>
-          <span class="font-semibold text-gray-800" id="confirm-date">—</span>
-        </div>
-        <div class="flex justify-between text-sm">
-          <span class="text-gray-500">เวลา</span>
-          <span class="font-semibold text-gray-800" id="confirm-time">—</span>
-        </div>
-        <div class="border-t border-gray-100"></div>
-        <div class="flex justify-between text-sm">
-          <span class="text-gray-500">ชื่อ</span>
-          <span class="font-semibold text-gray-800" id="confirm-name">—</span>
-        </div>
-        <div class="flex justify-between text-sm">
-          <span class="text-gray-500">เบอร์โทร</span>
-          <span class="font-semibold text-gray-800" id="confirm-phone">—</span>
-        </div>
-        <div id="confirm-note-row" class="flex justify-between text-sm hidden">
-          <span class="text-gray-500">หมายเหตุ</span>
-          <span class="font-semibold text-gray-800 text-right max-w-[60%]" id="confirm-note">—</span>
-        </div>
+    <button onclick="goStep(4)" id="btn3"
+      class="mt-5 w-full py-3 bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-xl shadow disabled:opacity-40 transition"
+      disabled>
+      ถัดไป →
+    </button>
+  </div>
+
+  <!-- ===== STEP 4: ยืนยัน ===== -->
+  <div id="step4" class="step fade-up">
+    <h2 class="text-xl font-bold text-gray-800 mb-1">ยืนยันการจอง</h2>
+    <p class="text-gray-400 text-sm mb-5">ตรวจสอบข้อมูลให้ถูกต้องก่อนยืนยันค่ะ</p>
+
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-6">
+      <!-- รูปหมอ banner -->
+      <div id="confirm-photo-wrap" class="h-32 bg-pink-50 flex items-center justify-center overflow-hidden hidden">
+        <img id="confirm-photo" src="" alt="" class="w-full h-full object-cover object-top" />
+      </div>
+      <div id="confirm-no-photo" class="h-20 bg-gradient-to-r from-pink-100 to-pink-50 flex items-center px-5 gap-3">
+        <span class="text-4xl">💆‍♀️</span>
+        <span class="font-bold text-pink-600 text-lg" id="confirm-therapist2">—</span>
       </div>
 
-      <div id="submit-error" class="hidden mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600"></div>
-
-      <div class="flex gap-3">
-        <button onclick="goStep(3)" id="btn-back4" class="flex-1 py-3 border border-gray-300 text-gray-600 font-semibold rounded-xl hover:bg-gray-50 transition">
-          ← ย้อนกลับ
-        </button>
-        <button onclick="submitBooking()" id="btn-submit"
-          class="flex-1 py-3 bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-xl shadow transition">
-          ยืนยันการจอง 🎉
-        </button>
+      <div class="p-5 space-y-3">
+        <row label="น้องหมอ"  id="confirm-therapist"></row>
+        <div class="flex justify-between text-sm"><span class="text-gray-400">บริการ</span><span class="font-semibold text-gray-800" id="confirm-service">—</span></div>
+        <div class="flex justify-between text-sm"><span class="text-gray-400">ราคา</span><span class="font-semibold text-pink-600" id="confirm-price">—</span></div>
+        <div class="border-t border-gray-100 my-1"></div>
+        <div class="flex justify-between text-sm"><span class="text-gray-400">วันที่</span><span class="font-semibold text-gray-800">วันนี้</span></div>
+        <div class="flex justify-between text-sm"><span class="text-gray-400">เวลา</span><span class="font-semibold text-gray-800" id="confirm-time">—</span></div>
+        <div class="border-t border-gray-100 my-1"></div>
+        <div class="flex justify-between text-sm"><span class="text-gray-400">ชื่อ</span><span class="font-semibold text-gray-800" id="confirm-name">—</span></div>
       </div>
     </div>
 
-    <!-- ===== SUCCESS ===== -->
-    <div id="step-success" class="step fade-in text-center py-8">
-      <div class="text-6xl mb-4">🎉</div>
-      <h2 class="text-2xl font-bold text-gray-800 mb-2">จองคิวสำเร็จแล้วค่ะ!</h2>
-      <p class="text-gray-500 mb-6" id="success-msg">ทางร้านจะโทรยืนยันนัดหมายกลับไปในเร็วๆ นี้ค่ะ</p>
+    <div id="err" class="hidden mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600"></div>
 
-      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-left space-y-2 mb-8">
-        <p class="text-sm text-gray-500">เลขที่การจอง</p>
-        <p class="font-mono text-xs text-gray-400" id="booking-id-display">—</p>
-      </div>
+    <button onclick="submitBooking()" id="btn-submit"
+      class="w-full py-3 bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-xl shadow transition text-base">
+      ยืนยันการจอง 🎉
+    </button>
+    <button onclick="goStep(3)" class="mt-2 w-full py-2.5 text-gray-500 text-sm hover:text-pink-500 transition">
+      ← แก้ไขข้อมูล
+    </button>
+  </div>
 
-      <a href="index.html"
-         class="inline-flex items-center gap-2 px-6 py-3 bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-full shadow transition">
-        ← กลับหน้าหลัก
-      </a>
+  <!-- ===== SUCCESS ===== -->
+  <div id="step-success" class="step fade-up text-center py-10">
+    <div class="text-6xl mb-4">🎉</div>
+    <h2 class="text-2xl font-bold text-gray-800 mb-2">จองคิวสำเร็จแล้วค่ะ!</h2>
+    <p class="text-gray-500 mb-8" id="success-msg">ทางร้านจะยืนยันนัดหมายกลับในเร็วๆ นี้ค่ะ</p>
+
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-left mb-8 space-y-2">
+      <div class="flex justify-between text-sm"><span class="text-gray-400">น้องหมอ</span><span class="font-semibold" id="s-therapist">—</span></div>
+      <div class="flex justify-between text-sm"><span class="text-gray-400">บริการ</span><span class="font-semibold" id="s-service">—</span></div>
+      <div class="flex justify-between text-sm"><span class="text-gray-400">เวลา</span><span class="font-semibold" id="s-time">—</span></div>
+      <div class="flex justify-between text-sm"><span class="text-gray-400">ชื่อ</span><span class="font-semibold" id="s-name">—</span></div>
     </div>
 
-  </main>
+    <a href="index.html"
+       class="inline-flex items-center gap-2 px-6 py-3 bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-full shadow transition">
+      ← กลับหน้าหลัก
+    </a>
+  </div>
 
-  <footer class="text-center py-6 text-xs text-gray-400">
-    <p>© Ploy Spa · 085-395-5458</p>
-  </footer>
+</main>
 
-  <script type="module">
-    import {
-      db, collection, addDoc, serverTimestamp
-    } from "./js/firebase-config.js";
+<footer class="text-center py-6 text-xs text-gray-400">© Ploy Spa · 085-395-5458</footer>
 
-    // =========================================================
-    // ข้อมูลบริการ
-    // =========================================================
-    const SERVICES = [
-      { id: "full_60",  name: "Full Course 1 ชม.",    price: 1800, duration: 60  },
-      { id: "full_90",  name: "Full Course 1.5 ชม.",  price: 2300, duration: 90  },
-      { id: "full_120", name: "Full Course 2 ชม.",    price: 2900, duration: 120 },
-      { id: "hand_60",  name: "มือ + ปาก 1 ชม.",      price: 1400, duration: 60  },
-      { id: "hand_90",  name: "มือ + ปาก 1.5 ชม.",    price: 1800, duration: 90  },
-    ];
+<script type="module">
+import {
+  db, collection, getDocs, addDoc, query, orderBy, serverTimestamp
+} from "./js/firebase-config.js";
 
-    const SUGGESTED_TIMES = ["11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00"];
+// =========================================================
+// ข้อมูล
+// =========================================================
+const SERVICES = [
+  { id: "full_60",  name: "Full Course 1 ชม.",    price: 1800, duration: 60  },
+  { id: "full_90",  name: "Full Course 1.5 ชม.",  price: 2300, duration: 90  },
+  { id: "full_120", name: "Full Course 2 ชม.",    price: 2900, duration: 120 },
+  { id: "hand_60",  name: "มือ + ปาก 1 ชม.",      price: 1400, duration: 60  },
+  { id: "hand_90",  name: "มือ + ปาก 1.5 ชม.",    price: 1800, duration: 90  },
+];
 
-    // =========================================================
-    // State
-    // =========================================================
-    let state = {
-      currentStep: 1,
-      selectedService: null,
-      bookingDate: "",
-      bookingTime: "",
-      customerName: "",
-      customerPhone: "",
-      bookingNote: "",
-    };
+const TIME_SLOTS = [
+  "11:00","12:00","13:00","14:00","15:00",
+  "16:00","17:00","18:00","19:00","20:00","21:00","22:00",
+];
 
-    // =========================================================
-    // Init
-    // =========================================================
-    window.addEventListener("DOMContentLoaded", () => {
-      renderServices();
-      renderTimeButtons();
-      setMinDate();
-      setupValidation();
+// =========================================================
+// State
+// =========================================================
+const state = {
+  step: 1,
+  therapist:    null,   // { id, nameTh, nameEn, nickname, photoUrl, specialties }
+  service:      null,   // { id, name, price, duration }
+  time:         "",
+  customerName: "",
+};
+
+// =========================================================
+// Init
+// =========================================================
+window.addEventListener("DOMContentLoaded", () => {
+  loadTherapists();
+  renderServices();
+  renderTimeSlots();
+  setupInputListeners();
+});
+
+// =========================================================
+// Load therapists from Firestore
+// =========================================================
+async function loadTherapists() {
+  try {
+    const snap = await getDocs(query(collection(db, "therapists"), orderBy("code")));
+    const statSnap = await getDocs(collection(db, "statuses"));
+    const statuses = {};
+    statSnap.docs.forEach(d => { statuses[d.id] = d.data(); });
+
+    const all = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(t => t.active !== false);
+
+    // เรียงหมอว่างขึ้นก่อน
+    all.sort((a, b) => {
+      const sa = statuses[a.id]?.status, sb = statuses[b.id]?.status;
+      const rank = s => s === "ready" ? 0 : s === "ready_at" ? 1 : s === "busy" ? 2 : 3;
+      return rank(sa) - rank(sb);
     });
 
-    function renderServices() {
-      const list = document.getElementById("service-list");
-      list.innerHTML = SERVICES.map((s, i) => `
-        <button type="button" onclick="selectService(${i})"
-          id="svc-${i}"
-          class="service-card w-full text-left p-4 bg-white border-2 border-gray-100 rounded-2xl hover:border-pink-300 transition flex items-center justify-between">
-          <div>
-            <div class="font-semibold text-gray-800">${s.name}</div>
-            <div class="text-xs text-gray-400 mt-0.5">${s.duration} นาที</div>
+    document.getElementById("therapist-loading").classList.add("hidden");
+    const grid = document.getElementById("therapist-grid");
+    grid.classList.remove("hidden");
+
+    grid.innerHTML = all.map(t => {
+      const s = statuses[t.id];
+      const name = t.nameTh || t.nameEn || t.nickname || t.code;
+      const badge = statusBadge(s);
+      const photo = t.photoUrl
+        ? `<img src="${t.photoUrl}" alt="${name}" class="w-full h-full object-cover" />`
+        : `<div class="w-full h-full bg-pink-50 flex items-center justify-center text-4xl">👤</div>`;
+
+      return `
+        <button type="button" onclick="selectTherapist('${t.id}')"
+          id="tc-${t.id}"
+          class="therapist-card text-left bg-white border-2 border-gray-100 rounded-2xl overflow-hidden">
+          <div class="aspect-[3/4] relative">
+            ${photo}
+            <span class="absolute bottom-2 left-2 right-2 inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full bg-white/90 backdrop-blur border ${badge.cls}">
+              ${badge.text}
+            </span>
           </div>
-          <div class="text-pink-600 font-bold text-lg">${s.price.toLocaleString()} ฿</div>
-        </button>
-      `).join("");
+          <div class="p-2.5">
+            <div class="font-semibold text-gray-800 text-sm truncate">${name}</div>
+            ${t.specialties ? `<div class="text-xs text-gray-400 truncate mt-0.5">${t.specialties}</div>` : ""}
+          </div>
+        </button>`;
+    }).join("");
+
+  } catch (e) {
+    console.error("loadTherapists:", e);
+    document.getElementById("therapist-loading").textContent = "โหลดข้อมูลไม่ได้ กรุณาลองใหม่";
+  }
+}
+
+function statusBadge(s) {
+  if (!s) return { text: "ไม่ระบุสถานะ",   cls: "border-gray-200 text-gray-500" };
+  if (s.status === "ready")    return { text: "🟢 พร้อมบริการ",  cls: "border-green-200 text-green-700" };
+  if (s.status === "ready_at") return { text: `⏰ พร้อม ${s.readyAt} น.`, cls: "border-yellow-200 text-yellow-700" };
+  if (s.status === "busy")     return { text: `🟡 ว่าง ~${s.readyAt || "เร็วๆ นี้"} น.`, cls: "border-orange-200 text-orange-700" };
+  return { text: "ไม่พร้อม", cls: "border-red-200 text-red-400" };
+}
+
+// =========================================================
+// Render services
+// =========================================================
+function renderServices() {
+  document.getElementById("service-list").innerHTML = SERVICES.map((s, i) => `
+    <button type="button" onclick="selectService(${i})" id="sv-${i}"
+      class="service-card w-full text-left p-4 bg-white border-2 border-gray-100 rounded-2xl flex items-center justify-between">
+      <div>
+        <div class="font-semibold text-gray-800">${s.name}</div>
+        <div class="text-xs text-gray-400 mt-0.5">${s.duration} นาที</div>
+      </div>
+      <div class="text-pink-600 font-bold text-lg shrink-0 ml-3">${s.price.toLocaleString()} ฿</div>
+    </button>
+  `).join("");
+}
+
+// =========================================================
+// Render time slots
+// =========================================================
+function renderTimeSlots() {
+  document.getElementById("time-grid").innerHTML = TIME_SLOTS.map(t => `
+    <button type="button" onclick="selectTime('${t}')" id="tm-${t.replace(":","")}"
+      class="time-btn border border-gray-200 rounded-xl py-2 text-sm font-medium text-gray-700">
+      ${t}
+    </button>
+  `).join("");
+}
+
+// =========================================================
+// Input listeners (custom time + name)
+// =========================================================
+function setupInputListeners() {
+  document.getElementById("custom-time").addEventListener("input", e => {
+    const v = e.target.value.trim();
+    const parsed = parseTime(v);
+    if (parsed) {
+      state.time = parsed;
+      // clear button selection
+      document.querySelectorAll(".time-btn").forEach(b => b.classList.remove("selected"));
+    } else {
+      state.time = "";
     }
+    checkStep3();
+  });
 
-    function renderTimeButtons() {
-      const container = document.getElementById("time-buttons");
-      container.innerHTML = SUGGESTED_TIMES.map((t) => `
-        <button type="button" onclick="selectTime('${t}')"
-          id="time-${t.replace(":", "")}"
-          class="time-btn py-2 border border-gray-200 rounded-xl text-sm font-medium hover:border-pink-300 transition text-gray-700">
-          ${t}
-        </button>
-      `).join("");
-    }
+  document.getElementById("customer-name").addEventListener("input", e => {
+    state.customerName = e.target.value.trim();
+    checkStep3();
+  });
+}
 
-    function setMinDate() {
-      const today = new Date();
-      const yyyy = today.getFullYear();
-      const mm = String(today.getMonth() + 1).padStart(2, "0");
-      const dd = String(today.getDate()).padStart(2, "0");
-      document.getElementById("booking-date").min = `${yyyy}-${mm}-${dd}`;
-      document.getElementById("booking-date").value = `${yyyy}-${mm}-${dd}`;
-      state.bookingDate = `${yyyy}-${mm}-${dd}`;
-    }
+// =========================================================
+// Select handlers
+// =========================================================
+window.selectTherapist = function(id) {
+  // หาข้อมูลจาก DOM
+  const btn = document.getElementById("tc-" + id);
+  const nameEl = btn.querySelector(".font-semibold");
+  const imgEl  = btn.querySelector("img");
+  const name   = nameEl ? nameEl.textContent.trim() : id;
+  const photo  = imgEl ? imgEl.src : null;
 
-    // =========================================================
-    // User interactions
-    // =========================================================
-    window.selectService = function(idx) {
-      state.selectedService = SERVICES[idx];
-      document.querySelectorAll(".service-card").forEach((el, i) => {
-        el.classList.toggle("selected", i === idx);
-      });
-      document.getElementById("btn-step1").disabled = false;
-    };
+  state.therapist = { id, name, photoUrl: photo };
 
-    window.selectTime = function(time) {
-      state.bookingTime = time;
-      document.getElementById("booking-time").value = time;
-      document.querySelectorAll(".time-btn").forEach((el) => el.classList.remove("selected"));
-      const btn = document.getElementById("time-" + time.replace(":", ""));
-      if (btn) btn.classList.add("selected");
-      checkStep2Valid();
-    };
+  document.querySelectorAll(".therapist-card").forEach(c => c.classList.remove("selected"));
+  btn.classList.add("selected");
+  document.getElementById("btn1").disabled = false;
+};
 
-    function setupValidation() {
-      document.getElementById("booking-date").addEventListener("change", (e) => {
-        state.bookingDate = e.target.value;
-        checkStep2Valid();
-      });
-      document.getElementById("booking-time").addEventListener("input", (e) => {
-        state.bookingTime = e.target.value;
-        // Clear button selection if typed manually
-        document.querySelectorAll(".time-btn").forEach((el) => el.classList.remove("selected"));
-        checkStep2Valid();
-      });
-      document.getElementById("customer-name").addEventListener("input", (e) => {
-        state.customerName = e.target.value.trim();
-        checkStep3Valid();
-      });
-      document.getElementById("customer-phone").addEventListener("input", (e) => {
-        state.customerPhone = e.target.value.trim();
-        checkStep3Valid();
-      });
-      document.getElementById("booking-note").addEventListener("input", (e) => {
-        state.bookingNote = e.target.value.trim();
-      });
-    }
+window.selectService = function(idx) {
+  state.service = SERVICES[idx];
+  document.querySelectorAll(".service-card").forEach((c, i) => {
+    c.classList.toggle("selected", i === idx);
+  });
+  document.getElementById("btn2").disabled = false;
+};
 
-    function checkStep2Valid() {
-      const valid = state.bookingDate && state.bookingTime && state.bookingTime.length >= 4;
-      document.getElementById("btn-step2").disabled = !valid;
-    }
+window.selectTime = function(t) {
+  state.time = t;
+  document.getElementById("custom-time").value = t;
+  document.querySelectorAll(".time-btn").forEach(b => b.classList.remove("selected"));
+  const btn = document.getElementById("tm-" + t.replace(":", ""));
+  if (btn) btn.classList.add("selected");
+  checkStep3();
+};
 
-    function checkStep3Valid() {
-      const valid = state.customerName.length >= 2 && state.customerPhone.length >= 9;
-      document.getElementById("btn-step3").disabled = !valid;
-    }
+function checkStep3() {
+  document.getElementById("btn3").disabled = !(state.time && state.customerName.length >= 2);
+}
 
-    // =========================================================
-    // Step navigation
-    // =========================================================
-    window.goStep = function(step) {
-      // Validate before advancing
-      if (step === 2 && !state.selectedService) return;
-      if (step === 3 && (!state.bookingDate || !state.bookingTime)) return;
-      if (step === 4) {
-        state.customerName = document.getElementById("customer-name").value.trim();
-        state.customerPhone = document.getElementById("customer-phone").value.trim();
-        state.bookingNote  = document.getElementById("booking-note").value.trim();
-        if (state.customerName.length < 2 || state.customerPhone.length < 9) return;
-        populateConfirm();
-      }
+// =========================================================
+// Step navigation
+// =========================================================
+window.goStep = function(s) {
+  if (s === 2 && !state.therapist) return;
+  if (s === 3 && !state.service)   return;
+  if (s === 4) {
+    state.customerName = document.getElementById("customer-name").value.trim();
+    if (!state.time || state.customerName.length < 2) return;
+    populateConfirm();
+  }
 
-      // Hide all steps
-      document.querySelectorAll(".step").forEach((el) => el.classList.remove("active"));
-      const el = document.getElementById("step" + step);
-      if (el) { el.classList.add("active"); el.classList.add("fade-in"); }
+  document.querySelectorAll(".step").forEach(el => el.classList.remove("active"));
+  const el = document.getElementById("step" + s);
+  if (!el) return;
+  el.classList.add("active");
+  el.classList.add("fade-up");
 
-      state.currentStep = step;
-      updateProgress(step);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    };
+  // เติมชื่อหมอใน step 2
+  if (s === 2 && state.therapist) {
+    document.getElementById("step2-therapist-name").textContent = `💆‍♀️ จองกับ ${state.therapist.name}`;
+  }
 
-    function updateProgress(step) {
-      const dots = [1, 2, 3, 4];
-      dots.forEach((d) => {
-        const dot = document.getElementById("dot" + d);
-        if (!dot) return;
-        if (d < step) {
-          dot.className = "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-pink-500 text-white transition-all";
-          dot.textContent = "✓";
-        } else if (d === step) {
-          dot.className = "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-pink-500 text-white transition-all";
-          dot.textContent = d;
-        } else {
-          dot.className = "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-gray-200 text-gray-400 transition-all";
-          dot.textContent = d;
-        }
-      });
-      // Lines
-      [["line12", 2], ["line23", 3], ["line34", 4]].forEach(([id, threshold]) => {
-        const el = document.getElementById(id);
-        if (el) el.className = `flex-1 h-1 rounded transition-all ${step >= threshold ? "bg-pink-400" : "bg-gray-200"}`;
-      });
-    }
+  state.step = s;
+  updateProgress(s);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+};
 
-    function populateConfirm() {
-      const s = state;
-      document.getElementById("confirm-service").textContent = s.selectedService?.name || "—";
-      document.getElementById("confirm-price").textContent   = s.selectedService ? s.selectedService.price.toLocaleString() + " บาท" : "—";
-      document.getElementById("confirm-date").textContent    = formatDate(s.bookingDate);
-      document.getElementById("confirm-time").textContent    = s.bookingTime + " น.";
-      document.getElementById("confirm-name").textContent    = s.customerName;
-      document.getElementById("confirm-phone").textContent   = s.customerPhone;
-      const noteRow = document.getElementById("confirm-note-row");
-      if (s.bookingNote) {
-        noteRow.classList.remove("hidden");
-        document.getElementById("confirm-note").textContent = s.bookingNote;
-      } else {
-        noteRow.classList.add("hidden");
-      }
-    }
+window.handleBack = function() {
+  if (state.step > 1) goStep(state.step - 1);
+  else window.location.href = "index.html";
+};
 
-    function formatDate(dateStr) {
-      if (!dateStr) return "—";
-      const d = new Date(dateStr + "T00:00:00");
-      return d.toLocaleDateString("th-TH", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
-    }
+function updateProgress(s) {
+  [1,2,3,4].forEach(d => {
+    const dot  = document.getElementById("d" + d);
+    if (d < s)       { dot.className = "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold dot-done transition-all";    dot.textContent = "✓"; }
+    else if (d === s){ dot.className = "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold dot-active transition-all";   dot.textContent = d; }
+    else             { dot.className = "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold dot-pending transition-all"; dot.textContent = d; }
+  });
+  [["l12",2],["l23",3],["l34",4]].forEach(([id, thr]) => {
+    const el = document.getElementById(id);
+    el.className = `flex-1 h-1 rounded transition-all ${s >= thr ? "line-done" : "line-pending"}`;
+  });
+  document.getElementById("step-label").textContent = `${s} / 4`;
+}
 
-    // =========================================================
-    // Submit
-    // =========================================================
-    window.submitBooking = async function() {
-      const btn = document.getElementById("btn-submit");
-      const errEl = document.getElementById("submit-error");
-      btn.disabled = true;
-      btn.textContent = "กำลังบันทึก...";
-      errEl.classList.add("hidden");
+function populateConfirm() {
+  const { therapist, service, time, customerName } = state;
 
-      try {
-        const s = state;
-        const ref = await addDoc(collection(db, "bookings"), {
-          customerName:       s.customerName,
-          customerPhone:      s.customerPhone,
-          serviceId:          s.selectedService.id,
-          serviceName:        s.selectedService.name,
-          servicePrice:       s.selectedService.price,
-          bookingDate:        s.bookingDate,
-          bookingTime:        s.bookingTime,
-          preferredDatetime:  `${formatDate(s.bookingDate)} ${s.bookingTime} น.`,
-          note:               s.bookingNote,
-          source:             "web",
-          status:             "pending",
-          createdAt:          serverTimestamp(),
-        });
+  // รูปหมอ
+  if (therapist?.photoUrl && !therapist.photoUrl.includes("👤")) {
+    document.getElementById("confirm-photo-wrap").classList.remove("hidden");
+    document.getElementById("confirm-no-photo").classList.add("hidden");
+    document.getElementById("confirm-photo").src = therapist.photoUrl;
+  } else {
+    document.getElementById("confirm-photo-wrap").classList.add("hidden");
+    document.getElementById("confirm-no-photo").classList.remove("hidden");
+  }
 
-        // Show success
-        document.getElementById("booking-id-display").textContent = ref.id;
-        document.getElementById("success-msg").textContent =
-          `ทางร้านจะโทรยืนยันนัดหมายกลับไปที่ ${s.customerPhone} ในเร็วๆ นี้ค่ะ`;
-        document.querySelectorAll(".step").forEach((el) => el.classList.remove("active"));
-        document.getElementById("step-success").classList.add("active");
-        document.getElementById("step-success").classList.add("fade-in");
-        window.scrollTo({ top: 0, behavior: "smooth" });
+  document.getElementById("confirm-therapist2").textContent = therapist?.name || "—";
+  document.getElementById("confirm-service").textContent    = service?.name || "—";
+  document.getElementById("confirm-price").textContent      = service ? service.price.toLocaleString() + " บาท" : "—";
+  document.getElementById("confirm-time").textContent       = time ? time + " น." : "—";
+  document.getElementById("confirm-name").textContent       = customerName || "—";
+}
 
-      } catch (err) {
-        console.error("Booking error:", err);
-        errEl.textContent = "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง หรือโทร 085-395-5458 ค่ะ";
-        errEl.classList.remove("hidden");
-        btn.disabled = false;
-        btn.textContent = "ยืนยันการจอง 🎉";
-      }
-    };
-  </script>
+// =========================================================
+// Submit
+// =========================================================
+window.submitBooking = async function() {
+  const btn = document.getElementById("btn-submit");
+  const errEl = document.getElementById("err");
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spinner-sm"></span>`;
+  errEl.classList.add("hidden");
+
+  try {
+    const today = getTodayDateTH();
+    const ref = await addDoc(collection(db, "bookings"), {
+      customerName:      state.customerName,
+      therapistId:       state.therapist?.id   || null,
+      therapistName:     state.therapist?.name || null,
+      serviceId:         state.service.id,
+      serviceName:       state.service.name,
+      servicePrice:      state.service.price,
+      bookingDate:       today,
+      bookingTime:       state.time,
+      preferredDatetime: `วันนี้ (${today}) เวลา ${state.time} น.`,
+      source:            "web",
+      status:            "pending_confirmation",
+      createdAt:         serverTimestamp(),
+    });
+
+    // หน้า success
+    document.getElementById("s-therapist").textContent = state.therapist?.name || "—";
+    document.getElementById("s-service").textContent   = state.service.name;
+    document.getElementById("s-time").textContent      = state.time + " น.";
+    document.getElementById("s-name").textContent      = state.customerName;
+    document.getElementById("success-msg").textContent =
+      `ทางร้านจะยืนยันนัดหมายผ่านทาง LINE ในเร็วๆ นี้ค่ะ`;
+
+    document.querySelectorAll(".step").forEach(el => el.classList.remove("active"));
+    document.getElementById("step-success").classList.add("active");
+    document.querySelector("header").classList.add("hidden");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+
+  } catch (err) {
+    console.error(err);
+    errEl.textContent = "เกิดข้อผิดพลาด กรุณาลองใหม่ หรือโทร 085-395-5458 ค่ะ";
+    errEl.classList.remove("hidden");
+    btn.disabled = false;
+    btn.textContent = "ยืนยันการจอง 🎉";
+  }
+};
+
+// =========================================================
+// Helpers
+// =========================================================
+function getTodayDateTH() {
+  const now = new Date();
+  const thai = new Date(now.getTime() + 7 * 60 * 60000);
+  return thai.toISOString().split("T")[0];
+}
+
+function parseTime(t) {
+  let m = t.match(/^(\d{1,2})[:.：](\d{2})$/);
+  if (m) {
+    const h = +m[1], min = +m[2];
+    if (h >= 0 && h <= 23 && min >= 0 && min <= 59)
+      return `${String(h).padStart(2,"0")}:${String(min).padStart(2,"0")}`;
+  }
+  m = t.match(/^(\d{1,2})$/);
+  if (m) {
+    const h = +m[1];
+    if (h >= 11 && h <= 23) return `${String(h).padStart(2,"0")}:00`;
+  }
+  return null;
+}
+</script>
 </body>
 </html>
