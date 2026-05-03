@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ploy Spa - Our Therapists</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="bg-gradient-to-b from-pink-50 via-white to-pink-50 min-h-screen">
+  <!-- Header -->
+  <header class="bg-white/80 backdrop-blur border-b sticky top-0 z-10">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div>
+        <h1 class="text-xl font-bold text-pink-600" data-i18n="appName"></h1>
+      </div>
+      <div class="flex items-center gap-3">
+        <div id="lang-toggle" class="flex gap-1"></div>
+        <a href="admin.html" class="text-xs text-gray-400 hover:text-gray-600" data-i18n="adminLink"></a>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-6">
+    <!-- Title -->
+    <div class="text-center mb-6">
+      <h2 class="text-2xl sm:text-3xl font-bold text-gray-800" data-i18n="homeTitle"></h2>
+      <p class="text-gray-500 text-sm mt-1" data-i18n="homeSubtitle"></p>
+      <a href="booking.html"
+         class="inline-flex items-center gap-2 mt-4 px-5 py-2.5 bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-full shadow transition text-sm">
+        📅 <span data-i18n="bookNow"></span>
+      </a>
+    </div>
+
+    <!-- Branch filter -->
+    <div id="branch-filter" class="flex flex-wrap gap-2 mb-6 justify-center"></div>
+
+    <!-- Therapist groups -->
+    <div id="grid-wrapper">
+      <div class="text-center py-12">
+        <div class="spinner mx-auto"></div>
+      </div>
+    </div>
+
+    <div id="empty" class="hidden text-center py-16 text-gray-400">
+      <div class="text-5xl mb-3">😴</div>
+      <p data-i18n="noTherapistsAvailable"></p>
+    </div>
+  </main>
+
+  <footer class="text-center py-6 text-xs text-gray-400">
+    <p>© Ploy Spa</p>
+  </footer>
+
+  <script type="module">
+    import { watchTherapists, watchStatuses, statusLabel, statusBadgeClasses, badgeStyle, badgeLabel, escapeHtml, formatMeasurements } from "./js/helpers.js";
+    import { t, getLang, pickName } from "./js/i18n.js";
+
+    let therapists = [];
+    let statuses = {};
+    let activeBranch = "all";
+
+    function renderBranchFilter() {
+      const branches = [
+        { key: "all", label: t("allBranches") },
+        { key: "branch1", label: t("branch1") },
+        { key: "branch2", label: t("branch2") },
+      ];
+      document.getElementById("branch-filter").innerHTML = branches.map((b) => `
+        <button data-branch="${b.key}" class="px-4 py-1.5 rounded-full text-sm font-medium border transition ${
+          activeBranch === b.key ? "bg-pink-500 text-white border-pink-500" : "bg-white text-gray-600 border-gray-200 hover:border-pink-300"
+        }">${escapeHtml(b.label)}</button>
+      `).join("");
+      document.querySelectorAll("[data-branch]").forEach((b) => {
+        b.addEventListener("click", () => {
+          activeBranch = b.dataset.branch;
+          renderBranchFilter();
+          renderGrid();
+        });
+      });
+    }
+
+    // Badge priority for sort: top=0, rising=1, new=2, none=3 (lower = earlier)
+    function badgePriority(th) {
+      const b = th.badges || [];
+      if (b.includes("top")) return 0;
+      if (b.includes("rising")) return 1;
+      if (b.includes("new")) return 2;
+      return 3;
+    }
+
+    function sortByBadgeThenName(list) {
+      return list.slice().sort((a, b) => {
+        const pa = badgePriority(a);
+        const pb = badgePriority(b);
+        if (pa !== pb) return pa - pb;
+        return (a.nameTh || a.nameEn || "").localeCompare(b.nameTh || b.nameEn || "");
+      });
+    }
+
+    function renderCard(th) {
+      const status = statuses[th.id];
+      const lbl = statusLabel(status);
+      const photo = th.photoUrl
+        ? `<img src="${escapeHtml(th.photoUrl)}" alt="${escapeHtml(pickName(th))}" class="w-full h-full object-cover" loading="lazy" />`
+        : `<div class="w-full h-full bg-gray-100 flex items-center justify-center text-gray-300 text-4xl">👤</div>`;
+
+      const badges = (th.badges || []).map((b) => `
+        <span class="inline-block text-[10px] font-bold px-1.5 py-0.5 rounded ${badgeStyle(b)}">${escapeHtml(badgeLabel(b))}</span>
+      `).join("");
+
+      const pulseClass = lbl.color === "green" ? "pulse-green" : "";
+
+      return `
+        <a href="therapist.html?id=${encodeURIComponent(th.id)}" class="therapist-card block bg-white rounded-2xl overflow-hidden border border-gray-100 fade-in">
+          <div class="aspect-photo bg-gray-50 relative">
+            ${photo}
+            <div class="absolute top-2 left-2 flex flex-col gap-1">${badges}</div>
+            <div class="absolute bottom-2 left-2 right-2">
+              <span class="inline-flex items-center text-xs font-medium px-2 py-1 rounded-full border ${statusBadgeClasses(lbl.color)} ${pulseClass} bg-white/90 backdrop-blur">
+                ${escapeHtml(lbl.text)}
+              </span>
+            </div>
+          </div>
+          <div class="p-3">
+            <div class="text-xs text-gray-400 mb-1">${escapeHtml(t(th.branch || "branch1"))}</div>
+            <div class="font-semibold text-gray-800 truncate">
+              ${escapeHtml(pickName(th))}${formatMeasurements(th.measurements) ? ` <span class="text-pink-500 font-mono text-xs font-normal">${formatMeasurements(th.measurements)}</span>` : ""}
+            </div>
+            ${th.specialties ? `<div class="text-xs text-gray-500 truncate mt-0.5">${escapeHtml(th.specialties)}</div>` : ""}
+          </div>
+        </a>
+      `;
+    }
+
+    function renderGroup(list) {
+      return `<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+        ${list.map(renderCard).join("")}
+      </div>`;
+    }
+
+    function renderGrid() {
+      const filtered = therapists.filter((th) => {
+        if (th.active === false) return false;
+        if (activeBranch !== "all" && th.branch !== activeBranch) return false;
+        return true;
+      });
+
+      const wrapper = document.getElementById("grid-wrapper");
+      const empty = document.getElementById("empty");
+
+      if (filtered.length === 0) {
+        wrapper.innerHTML = "";
+        empty.classList.remove("hidden");
+        return;
+      }
+      empty.classList.add("hidden");
+
+      // Group by status: ready → ready_at → busy → others
+      const ready = [], readyAt = [], busy = [], others = [];
+      filtered.forEach((th) => {
+        const s = statuses[th.id]?.status;
+        if (s === "ready")    ready.push(th);
+        else if (s === "ready_at") readyAt.push(th);
+        else if (s === "busy") busy.push(th);
+        else others.push(th);
+      });
+
+      const readySorted   = sortByBadgeThenName(ready);
+      const readyAtSorted = sortByBadgeThenName(readyAt);
+      const busySorted    = sortByBadgeThenName(busy);
+      const othersSorted  = sortByBadgeThenName(others);
+
+      // Available group = ready + ready_at + busy
+      const availableGroup = [...readySorted, ...readyAtSorted, ...busySorted];
+
+      const sections = [];
+      if (availableGroup.length) sections.push(renderGroup(availableGroup));
+      if (availableGroup.length && othersSorted.length) {
+        sections.push(`<div class="my-8 border-t-2 border-dashed border-pink-200"></div>`);
+      }
+      if (othersSorted.length) sections.push(renderGroup(othersSorted));
+
+      wrapper.innerHTML = sections.join("");
+    }
+
+    watchTherapists((list) => {
+      therapists = list;
+      renderBranchFilter();
+      renderGrid();
+    });
+
+    watchStatuses((map) => {
+      statuses = map;
+      renderGrid();
+    });
+
+    document.addEventListener("langchange", () => {
+      renderBranchFilter();
+      renderGrid();
+    });
+  </script>
+</body>
+</html>

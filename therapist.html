@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ploy Spa - Therapist</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="bg-gradient-to-b from-pink-50 via-white to-pink-50 min-h-screen">
+  <header class="bg-white/80 backdrop-blur border-b sticky top-0 z-10">
+    <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
+      <a href="index.html" class="text-pink-600 hover:text-pink-700 text-sm font-medium" data-i18n="backToList"></a>
+      <div id="lang-toggle" class="flex gap-1"></div>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 py-6">
+    <div id="content">
+      <div class="text-center py-16"><div class="spinner mx-auto"></div></div>
+    </div>
+  </main>
+
+  <!-- Lightbox -->
+  <div id="lightbox" class="fixed inset-0 bg-black/90 z-50 hidden items-center justify-center p-4 cursor-pointer">
+    <img id="lightbox-img" class="max-w-full max-h-full rounded-lg" />
+  </div>
+
+  <script type="module">
+    import { getTherapist, watchStatuses, statusLabel, statusBadgeClasses, badgeStyle, badgeLabel, escapeHtml, qs, formatMeasurements } from "./js/helpers.js";
+    import { t, getLang, pickName } from "./js/i18n.js";
+    import { onAuth } from "./js/auth.js";
+
+    const id = qs("id");
+    let therapist = null;
+    let statuses = {};
+    let isAdmin = false;
+
+    onAuth((user) => {
+      isAdmin = !!user;
+      if (therapist) render();
+    });
+
+    if (!id) {
+      document.getElementById("content").innerHTML = `<div class="text-center py-12"><a href="index.html" class="text-pink-500">${t("backToList")}</a></div>`;
+    }
+
+    function row(label, value) {
+      if (!value && value !== 0) return "";
+      return `<div class="flex justify-between py-1.5 border-b border-gray-100">
+        <span class="text-gray-500 text-sm">${escapeHtml(label)}</span>
+        <span class="text-gray-800 text-sm font-medium">${escapeHtml(value)}</span>
+      </div>`;
+    }
+
+    function render() {
+      if (!therapist) return;
+      const th = therapist;
+      const status = statuses[th.id];
+      const lbl = statusLabel(status);
+      const pulseClass = lbl.color === "green" ? "pulse-green" : "";
+
+      const photo = th.photoUrl
+        ? `<img src="${escapeHtml(th.photoUrl)}" class="w-full h-full object-cover" />`
+        : `<div class="w-full h-full bg-gray-100 flex items-center justify-center text-6xl text-gray-300">👤</div>`;
+
+      const badges = (th.badges || []).map((b) =>
+        `<span class="text-xs font-bold px-2 py-1 rounded ${badgeStyle(b)}">${escapeHtml(badgeLabel(b))}</span>`
+      ).join(" ");
+
+      const measurementsStr = formatMeasurements(th.measurements);
+      const measurementsRows = measurementsStr
+        ? row(t("measurementsLabel"), measurementsStr)
+        : "";
+
+      const galleryHtml = (th.gallery || []).length
+        ? `<section class="mt-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-3">${t("photoGallery")}</h3>
+            <div class="grid grid-cols-3 gap-2">
+              ${(th.gallery || []).map((g) => `
+                <button type="button" data-img="${escapeHtml(g.url)}" class="aspect-square overflow-hidden rounded-lg bg-gray-100">
+                  <img src="${escapeHtml(g.url)}" class="w-full h-full object-cover hover:scale-105 transition" loading="lazy" />
+                </button>
+              `).join("")}
+            </div>
+          </section>` : "";
+
+      const reviewsHtml = (th.reviews || []).length
+        ? `<section class="mt-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-3">${t("customerReviews")}</h3>
+            <div class="grid grid-cols-3 gap-2">
+              ${(th.reviews || []).map((r) => `
+                <button type="button" data-img="${escapeHtml(r.url)}" class="aspect-square overflow-hidden rounded-lg bg-gray-100">
+                  <img src="${escapeHtml(r.url)}" class="w-full h-full object-cover hover:scale-105 transition" loading="lazy" />
+                </button>
+              `).join("")}
+            </div>
+          </section>` : "";
+
+      document.getElementById("content").innerHTML = `
+        <div class="bg-white rounded-2xl shadow-sm overflow-hidden fade-in">
+          <div class="aspect-[4/5] sm:aspect-[3/2] bg-gray-50 relative">
+            ${photo}
+            ${badges ? `<div class="absolute top-3 left-3 flex flex-wrap gap-1">${badges}</div>` : ""}
+            <div class="absolute bottom-3 left-3 right-3">
+              <span class="inline-flex items-center text-sm font-medium px-3 py-1.5 rounded-full border ${statusBadgeClasses(lbl.color)} ${pulseClass} bg-white/95 backdrop-blur">
+                ${escapeHtml(lbl.text)}
+              </span>
+            </div>
+          </div>
+
+          <div class="p-5">
+            <div class="text-xs text-gray-400 mb-1">${escapeHtml(t(th.branch || "branch1"))}</div>
+            <div class="flex items-start justify-between gap-3">
+              <h1 class="text-2xl font-bold text-gray-800">${escapeHtml(pickName(th))}</h1>
+              ${isAdmin ? `<a href="admin.html?edit=${encodeURIComponent(th.id)}" class="flex-shrink-0 inline-flex items-center gap-1 px-3 py-1.5 bg-pink-500 hover:bg-pink-600 text-white text-xs font-medium rounded-lg whitespace-nowrap">✏️ ${t("edit")}</a>` : ""}
+            </div>
+            ${th.specialties ? `<p class="text-pink-600 text-sm mt-1">${escapeHtml(th.specialties)}</p>` : ""}
+
+            ${th.note ? `<p class="text-gray-600 text-sm mt-3 leading-relaxed whitespace-pre-line">${escapeHtml(th.note)}</p>` : ""}
+
+            ${(th.age || measurementsRows) ? `
+              <section class="mt-5">
+                <h3 class="text-lg font-semibold text-gray-800 mb-2">${t("aboutTherapist")}</h3>
+                ${row(t("age"), th.age)}
+                ${measurementsRows}
+              </section>
+            ` : ""}
+
+            ${galleryHtml}
+            ${reviewsHtml}
+          </div>
+        </div>
+      `;
+
+      // Lightbox bindings
+      document.querySelectorAll("[data-img]").forEach((b) => {
+        b.addEventListener("click", () => openLightbox(b.dataset.img));
+      });
+    }
+
+    function openLightbox(url) {
+      const lb = document.getElementById("lightbox");
+      document.getElementById("lightbox-img").src = url;
+      lb.classList.remove("hidden");
+      lb.classList.add("flex");
+    }
+
+    document.getElementById("lightbox").addEventListener("click", () => {
+      document.getElementById("lightbox").classList.add("hidden");
+      document.getElementById("lightbox").classList.remove("flex");
+    });
+
+    if (id) {
+      getTherapist(id).then((th) => {
+        if (!th) {
+          document.getElementById("content").innerHTML = `<div class="text-center py-12"><a href="index.html" class="text-pink-500">${t("backToList")}</a></div>`;
+          return;
+        }
+        therapist = th;
+        document.title = `${pickName(th)} - Ploy Spa`;
+        render();
+      });
+
+      watchStatuses((map) => {
+        statuses = map;
+        render();
+      });
+    }
+
+    document.addEventListener("langchange", render);
+  </script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login - Ploy Spa</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="bg-gradient-to-b from-pink-50 via-white to-pink-50 min-h-screen flex items-center justify-center px-4">
+  <div class="w-full max-w-sm">
+    <div class="text-center mb-6">
+      <h1 class="text-3xl font-bold text-pink-600">Ploy Spa</h1>
+      <p class="text-gray-500 text-sm mt-1">Admin Login</p>
+    </div>
+
+    <form id="form" class="bg-white rounded-2xl shadow-sm p-6 space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+        <input type="email" id="email" required autocomplete="email"
+               class="w-full border rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-pink-300" />
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+        <input type="password" id="password" required autocomplete="current-password"
+               class="w-full border rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-pink-300" />
+      </div>
+
+      <div id="error" class="hidden text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2"></div>
+
+      <button id="btn-login" type="submit"
+              class="w-full bg-pink-500 hover:bg-pink-600 text-white font-semibold py-2.5 rounded-lg transition">
+        เข้าสู่ระบบ / Sign in
+      </button>
+
+      <div class="text-center">
+        <a href="index.html" class="text-xs text-gray-400 hover:text-gray-600">← กลับหน้าหลัก / Home</a>
+      </div>
+    </form>
+  </div>
+
+  <script type="module">
+    import { login, onAuth } from "./js/auth.js";
+
+    const $ = (id) => document.getElementById(id);
+
+    // If already logged in, go straight to next page
+    onAuth((user) => {
+      if (user) {
+        const next = new URLSearchParams(location.search).get("next") || "admin.html";
+        location.replace(next);
+      }
+    });
+
+    $("form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = $("btn-login");
+      const err = $("error");
+      err.classList.add("hidden");
+      btn.disabled = true;
+      btn.textContent = "...";
+      try {
+        await login($("email").value.trim(), $("password").value);
+      } catch (ex) {
+        const msg = ex.code === "auth/invalid-credential" || ex.code === "auth/wrong-password" || ex.code === "auth/user-not-found"
+          ? "อีเมลหรือรหัสผ่านไม่ถูกต้อง / Wrong email or password"
+          : ex.message;
+        err.textContent = msg;
+        err.classList.remove("hidden");
+        btn.disabled = false;
+        btn.textContent = "เข้าสู่ระบบ / Sign in";
+      }
+    });
+  </script>
+</body>
+</html>

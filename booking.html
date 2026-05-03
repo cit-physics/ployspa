@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>จองคิว – Ploy Spa</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    body { font-family: 'Sarabun', sans-serif; }
+    .step { display: none; }
+    .step.active { display: block; }
+    .service-card.selected {
+      border-color: #ec4899;
+      background-color: #fdf2f8;
+    }
+    .time-btn.selected {
+      background-color: #ec4899;
+      color: white;
+      border-color: #ec4899;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.3s ease forwards; }
+  </style>
+</head>
+<body class="bg-gradient-to-b from-pink-50 via-white to-pink-50 min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-white/80 backdrop-blur border-b sticky top-0 z-10">
+    <div class="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
+      <a href="index.html" class="text-gray-400 hover:text-pink-500 text-xl leading-none">←</a>
+      <h1 class="text-lg font-bold text-pink-600">จองคิว Ploy Spa</h1>
+    </div>
+  </header>
+
+  <main class="max-w-lg mx-auto px-4 py-6">
+
+    <!-- Progress bar -->
+    <div class="flex items-center gap-1 mb-8">
+      <div id="dot1" class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-pink-500 text-white transition-all">1</div>
+      <div id="line12" class="flex-1 h-1 bg-pink-200 rounded transition-all"></div>
+      <div id="dot2" class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-gray-200 text-gray-400 transition-all">2</div>
+      <div id="line23" class="flex-1 h-1 bg-gray-200 rounded transition-all"></div>
+      <div id="dot3" class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-gray-200 text-gray-400 transition-all">3</div>
+      <div id="line34" class="flex-1 h-1 bg-gray-200 rounded transition-all"></div>
+      <div id="dot4" class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-gray-200 text-gray-400 transition-all">4</div>
+    </div>
+
+    <!-- ===== STEP 1: เลือกบริการ ===== -->
+    <div id="step1" class="step active fade-in">
+      <h2 class="text-xl font-bold text-gray-800 mb-1">เลือกบริการ</h2>
+      <p class="text-gray-500 text-sm mb-4">ราคารวมค่าห้องแล้ว ไม่มีค่าใช้จ่ายเพิ่มเติม ✨</p>
+
+      <div class="space-y-3" id="service-list">
+        <!-- Populated by JS -->
+      </div>
+
+      <button onclick="goStep(2)" id="btn-step1"
+        class="mt-6 w-full py-3 bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-xl shadow disabled:opacity-40 transition"
+        disabled>
+        ถัดไป →
+      </button>
+    </div>
+
+    <!-- ===== STEP 2: วันและเวลา ===== -->
+    <div id="step2" class="step fade-in">
+      <h2 class="text-xl font-bold text-gray-800 mb-1">เลือกวันและเวลา</h2>
+      <p class="text-gray-500 text-sm mb-4">เลือกช่วงเวลาที่สะดวกค่ะ</p>
+
+      <!-- วัน -->
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-2">วันที่</label>
+        <input type="date" id="booking-date"
+          class="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-pink-300 outline-none"
+          min="" />
+      </div>
+
+      <!-- เวลาแนะนำ -->
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-2">เวลาที่ต้องการ</label>
+        <div class="grid grid-cols-4 gap-2 mb-3" id="time-buttons">
+          <!-- Populated by JS -->
+        </div>
+        <input type="text" id="booking-time" placeholder="หรือพิมพ์เวลา เช่น 15:30"
+          class="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-pink-300 outline-none text-sm"
+          maxlength="5" />
+      </div>
+
+      <div class="flex gap-3 mt-6">
+        <button onclick="goStep(1)" class="flex-1 py-3 border border-gray-300 text-gray-600 font-semibold rounded-xl hover:bg-gray-50 transition">
+          ← ย้อนกลับ
+        </button>
+        <button onclick="goStep(3)" id="btn-step2"
+          class="flex-1 py-3 bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-xl shadow disabled:opacity-40 transition"
+          disabled>
+          ถัดไป →
+        </button>
+      </div>
+    </div>
+
+    <!-- ===== STEP 3: ข้อมูลติดต่อ ===== -->
+    <div id="step3" class="step fade-in">
+      <h2 class="text-xl font-bold text-gray-800 mb-1">ข้อมูลของคุณ</h2>
+      <p class="text-gray-500 text-sm mb-4">เพื่อให้ร้านโทรยืนยันนัดหมายกลับค่ะ</p>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">ชื่อ – นามสกุล <span class="text-pink-500">*</span></label>
+          <input type="text" id="customer-name" placeholder="เช่น สมชาย ใจดี"
+            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-pink-300 outline-none" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">เบอร์โทรศัพท์ <span class="text-pink-500">*</span></label>
+          <input type="tel" id="customer-phone" placeholder="เช่น 081-234-5678"
+            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-pink-300 outline-none" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">หมายเหตุ (ถ้ามี)</label>
+          <textarea id="booking-note" rows="2" placeholder="เช่น ขอหมอที่ชำนาญนวดไทย..."
+            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-pink-300 outline-none resize-none text-sm"></textarea>
+        </div>
+      </div>
+
+      <div class="flex gap-3 mt-6">
+        <button onclick="goStep(2)" class="flex-1 py-3 border border-gray-300 text-gray-600 font-semibold rounded-xl hover:bg-gray-50 transition">
+          ← ย้อนกลับ
+        </button>
+        <button onclick="goStep(4)" id="btn-step3"
+          class="flex-1 py-3 bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-xl shadow disabled:opacity-40 transition"
+          disabled>
+          ยืนยัน →
+        </button>
+      </div>
+    </div>
+
+    <!-- ===== STEP 4: ยืนยัน ===== -->
+    <div id="step4" class="step fade-in">
+      <h2 class="text-xl font-bold text-gray-800 mb-1">ยืนยันการจอง</h2>
+      <p class="text-gray-500 text-sm mb-5">กรุณาตรวจสอบข้อมูลให้ถูกต้องก่อนยืนยันค่ะ</p>
+
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3 mb-6">
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-500">บริการ</span>
+          <span class="font-semibold text-gray-800" id="confirm-service">—</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-500">ราคา</span>
+          <span class="font-semibold text-pink-600" id="confirm-price">—</span>
+        </div>
+        <div class="border-t border-gray-100"></div>
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-500">วันที่</span>
+          <span class="font-semibold text-gray-800" id="confirm-date">—</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-500">เวลา</span>
+          <span class="font-semibold text-gray-800" id="confirm-time">—</span>
+        </div>
+        <div class="border-t border-gray-100"></div>
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-500">ชื่อ</span>
+          <span class="font-semibold text-gray-800" id="confirm-name">—</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-500">เบอร์โทร</span>
+          <span class="font-semibold text-gray-800" id="confirm-phone">—</span>
+        </div>
+        <div id="confirm-note-row" class="flex justify-between text-sm hidden">
+          <span class="text-gray-500">หมายเหตุ</span>
+          <span class="font-semibold text-gray-800 text-right max-w-[60%]" id="confirm-note">—</span>
+        </div>
+      </div>
+
+      <div id="submit-error" class="hidden mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600"></div>
+
+      <div class="flex gap-3">
+        <button onclick="goStep(3)" id="btn-back4" class="flex-1 py-3 border border-gray-300 text-gray-600 font-semibold rounded-xl hover:bg-gray-50 transition">
+          ← ย้อนกลับ
+        </button>
+        <button onclick="submitBooking()" id="btn-submit"
+          class="flex-1 py-3 bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-xl shadow transition">
+          ยืนยันการจอง 🎉
+        </button>
+      </div>
+    </div>
+
+    <!-- ===== SUCCESS ===== -->
+    <div id="step-success" class="step fade-in text-center py-8">
+      <div class="text-6xl mb-4">🎉</div>
+      <h2 class="text-2xl font-bold text-gray-800 mb-2">จองคิวสำเร็จแล้วค่ะ!</h2>
+      <p class="text-gray-500 mb-6" id="success-msg">ทางร้านจะโทรยืนยันนัดหมายกลับไปในเร็วๆ นี้ค่ะ</p>
+
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-left space-y-2 mb-8">
+        <p class="text-sm text-gray-500">เลขที่การจอง</p>
+        <p class="font-mono text-xs text-gray-400" id="booking-id-display">—</p>
+      </div>
+
+      <a href="index.html"
+         class="inline-flex items-center gap-2 px-6 py-3 bg-pink-500 hover:bg-pink-600 text-white font-semibold rounded-full shadow transition">
+        ← กลับหน้าหลัก
+      </a>
+    </div>
+
+  </main>
+
+  <footer class="text-center py-6 text-xs text-gray-400">
+    <p>© Ploy Spa · 085-395-5458</p>
+  </footer>
+
+  <script type="module">
+    import {
+      db, collection, addDoc, serverTimestamp
+    } from "./js/firebase-config.js";
+
+    // =========================================================
+    // ข้อมูลบริการ
+    // =========================================================
+    const SERVICES = [
+      { id: "full_60",  name: "Full Course 1 ชม.",    price: 1800, duration: 60  },
+      { id: "full_90",  name: "Full Course 1.5 ชม.",  price: 2300, duration: 90  },
+      { id: "full_120", name: "Full Course 2 ชม.",    price: 2900, duration: 120 },
+      { id: "hand_60",  name: "มือ + ปาก 1 ชม.",      price: 1400, duration: 60  },
+      { id: "hand_90",  name: "มือ + ปาก 1.5 ชม.",    price: 1800, duration: 90  },
+    ];
+
+    const SUGGESTED_TIMES = ["11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00","22:00"];
+
+    // =========================================================
+    // State
+    // =========================================================
+    let state = {
+      currentStep: 1,
+      selectedService: null,
+      bookingDate: "",
+      bookingTime: "",
+      customerName: "",
+      customerPhone: "",
+      bookingNote: "",
+    };
+
+    // =========================================================
+    // Init
+    // =========================================================
+    window.addEventListener("DOMContentLoaded", () => {
+      renderServices();
+      renderTimeButtons();
+      setMinDate();
+      setupValidation();
+    });
+
+    function renderServices() {
+      const list = document.getElementById("service-list");
+      list.innerHTML = SERVICES.map((s, i) => `
+        <button type="button" onclick="selectService(${i})"
+          id="svc-${i}"
+          class="service-card w-full text-left p-4 bg-white border-2 border-gray-100 rounded-2xl hover:border-pink-300 transition flex items-center justify-between">
+          <div>
+            <div class="font-semibold text-gray-800">${s.name}</div>
+            <div class="text-xs text-gray-400 mt-0.5">${s.duration} นาที</div>
+          </div>
+          <div class="text-pink-600 font-bold text-lg">${s.price.toLocaleString()} ฿</div>
+        </button>
+      `).join("");
+    }
+
+    function renderTimeButtons() {
+      const container = document.getElementById("time-buttons");
+      container.innerHTML = SUGGESTED_TIMES.map((t) => `
+        <button type="button" onclick="selectTime('${t}')"
+          id="time-${t.replace(":", "")}"
+          class="time-btn py-2 border border-gray-200 rounded-xl text-sm font-medium hover:border-pink-300 transition text-gray-700">
+          ${t}
+        </button>
+      `).join("");
+    }
+
+    function setMinDate() {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, "0");
+      const dd = String(today.getDate()).padStart(2, "0");
+      document.getElementById("booking-date").min = `${yyyy}-${mm}-${dd}`;
+      document.getElementById("booking-date").value = `${yyyy}-${mm}-${dd}`;
+      state.bookingDate = `${yyyy}-${mm}-${dd}`;
+    }
+
+    // =========================================================
+    // User interactions
+    // =========================================================
+    window.selectService = function(idx) {
+      state.selectedService = SERVICES[idx];
+      document.querySelectorAll(".service-card").forEach((el, i) => {
+        el.classList.toggle("selected", i === idx);
+      });
+      document.getElementById("btn-step1").disabled = false;
+    };
+
+    window.selectTime = function(time) {
+      state.bookingTime = time;
+      document.getElementById("booking-time").value = time;
+      document.querySelectorAll(".time-btn").forEach((el) => el.classList.remove("selected"));
+      const btn = document.getElementById("time-" + time.replace(":", ""));
+      if (btn) btn.classList.add("selected");
+      checkStep2Valid();
+    };
+
+    function setupValidation() {
+      document.getElementById("booking-date").addEventListener("change", (e) => {
+        state.bookingDate = e.target.value;
+        checkStep2Valid();
+      });
+      document.getElementById("booking-time").addEventListener("input", (e) => {
+        state.bookingTime = e.target.value;
+        // Clear button selection if typed manually
+        document.querySelectorAll(".time-btn").forEach((el) => el.classList.remove("selected"));
+        checkStep2Valid();
+      });
+      document.getElementById("customer-name").addEventListener("input", (e) => {
+        state.customerName = e.target.value.trim();
+        checkStep3Valid();
+      });
+      document.getElementById("customer-phone").addEventListener("input", (e) => {
+        state.customerPhone = e.target.value.trim();
+        checkStep3Valid();
+      });
+      document.getElementById("booking-note").addEventListener("input", (e) => {
+        state.bookingNote = e.target.value.trim();
+      });
+    }
+
+    function checkStep2Valid() {
+      const valid = state.bookingDate && state.bookingTime && state.bookingTime.length >= 4;
+      document.getElementById("btn-step2").disabled = !valid;
+    }
+
+    function checkStep3Valid() {
+      const valid = state.customerName.length >= 2 && state.customerPhone.length >= 9;
+      document.getElementById("btn-step3").disabled = !valid;
+    }
+
+    // =========================================================
+    // Step navigation
+    // =========================================================
+    window.goStep = function(step) {
+      // Validate before advancing
+      if (step === 2 && !state.selectedService) return;
+      if (step === 3 && (!state.bookingDate || !state.bookingTime)) return;
+      if (step === 4) {
+        state.customerName = document.getElementById("customer-name").value.trim();
+        state.customerPhone = document.getElementById("customer-phone").value.trim();
+        state.bookingNote  = document.getElementById("booking-note").value.trim();
+        if (state.customerName.length < 2 || state.customerPhone.length < 9) return;
+        populateConfirm();
+      }
+
+      // Hide all steps
+      document.querySelectorAll(".step").forEach((el) => el.classList.remove("active"));
+      const el = document.getElementById("step" + step);
+      if (el) { el.classList.add("active"); el.classList.add("fade-in"); }
+
+      state.currentStep = step;
+      updateProgress(step);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    function updateProgress(step) {
+      const dots = [1, 2, 3, 4];
+      dots.forEach((d) => {
+        const dot = document.getElementById("dot" + d);
+        if (!dot) return;
+        if (d < step) {
+          dot.className = "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-pink-500 text-white transition-all";
+          dot.textContent = "✓";
+        } else if (d === step) {
+          dot.className = "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-pink-500 text-white transition-all";
+          dot.textContent = d;
+        } else {
+          dot.className = "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-gray-200 text-gray-400 transition-all";
+          dot.textContent = d;
+        }
+      });
+      // Lines
+      [["line12", 2], ["line23", 3], ["line34", 4]].forEach(([id, threshold]) => {
+        const el = document.getElementById(id);
+        if (el) el.className = `flex-1 h-1 rounded transition-all ${step >= threshold ? "bg-pink-400" : "bg-gray-200"}`;
+      });
+    }
+
+    function populateConfirm() {
+      const s = state;
+      document.getElementById("confirm-service").textContent = s.selectedService?.name || "—";
+      document.getElementById("confirm-price").textContent   = s.selectedService ? s.selectedService.price.toLocaleString() + " บาท" : "—";
+      document.getElementById("confirm-date").textContent    = formatDate(s.bookingDate);
+      document.getElementById("confirm-time").textContent    = s.bookingTime + " น.";
+      document.getElementById("confirm-name").textContent    = s.customerName;
+      document.getElementById("confirm-phone").textContent   = s.customerPhone;
+      const noteRow = document.getElementById("confirm-note-row");
+      if (s.bookingNote) {
+        noteRow.classList.remove("hidden");
+        document.getElementById("confirm-note").textContent = s.bookingNote;
+      } else {
+        noteRow.classList.add("hidden");
+      }
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return "—";
+      const d = new Date(dateStr + "T00:00:00");
+      return d.toLocaleDateString("th-TH", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    }
+
+    // =========================================================
+    // Submit
+    // =========================================================
+    window.submitBooking = async function() {
+      const btn = document.getElementById("btn-submit");
+      const errEl = document.getElementById("submit-error");
+      btn.disabled = true;
+      btn.textContent = "กำลังบันทึก...";
+      errEl.classList.add("hidden");
+
+      try {
+        const s = state;
+        const ref = await addDoc(collection(db, "bookings"), {
+          customerName:       s.customerName,
+          customerPhone:      s.customerPhone,
+          serviceId:          s.selectedService.id,
+          serviceName:        s.selectedService.name,
+          servicePrice:       s.selectedService.price,
+          bookingDate:        s.bookingDate,
+          bookingTime:        s.bookingTime,
+          preferredDatetime:  `${formatDate(s.bookingDate)} ${s.bookingTime} น.`,
+          note:               s.bookingNote,
+          source:             "web",
+          status:             "pending",
+          createdAt:          serverTimestamp(),
+        });
+
+        // Show success
+        document.getElementById("booking-id-display").textContent = ref.id;
+        document.getElementById("success-msg").textContent =
+          `ทางร้านจะโทรยืนยันนัดหมายกลับไปที่ ${s.customerPhone} ในเร็วๆ นี้ค่ะ`;
+        document.querySelectorAll(".step").forEach((el) => el.classList.remove("active"));
+        document.getElementById("step-success").classList.add("active");
+        document.getElementById("step-success").classList.add("fade-in");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+
+      } catch (err) {
+        console.error("Booking error:", err);
+        errEl.textContent = "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง หรือโทร 085-395-5458 ค่ะ";
+        errEl.classList.remove("hidden");
+        btn.disabled = false;
+        btn.textContent = "ยืนยันการจอง 🎉";
+      }
+    };
+  </script>
+</body>
+</html>
