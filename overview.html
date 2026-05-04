@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ภาพรวมหมอวันนี้ — PloySpa Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" />
+  <style>
+    body { font-family: 'Sarabun', sans-serif; }
+
+    .stage-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    .stage-line {
+      flex: 1; height: 2px;
+      background: #e5e7eb;
+    }
+    .stage-line.done { background: #10b981; }
+
+    /* pulse สำหรับ busy */
+    @keyframes pulse-ring {
+      0%   { transform: scale(1); opacity: 0.8; }
+      100% { transform: scale(1.9); opacity: 0; }
+    }
+    .pulse-busy::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 9999px;
+      background: #f97316;
+      animation: pulse-ring 1.4s ease-out infinite;
+    }
+    .pulse-dot { position: relative; display: inline-flex; align-items: center; justify-content: center; }
+
+    .card-enter { animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+<!-- Header -->
+<header class="bg-white border-b sticky top-0 z-10 shadow-sm">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <a href="admin.html" class="text-gray-400 hover:text-gray-600 text-sm">← Admin</a>
+      <h1 class="text-lg font-bold text-gray-800">📋 ภาพรวมหมอวันนี้</h1>
+      <span id="today-date" class="text-xs text-gray-400"></span>
+    </div>
+    <div class="flex items-center gap-3">
+      <span id="live-clock" class="text-sm font-mono text-gray-500"></span>
+      <span id="last-updated" class="text-xs text-gray-400"></span>
+      <span class="inline-flex items-center gap-1 text-xs text-green-600">
+        <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse inline-block"></span> Live
+      </span>
+    </div>
+  </div>
+</header>
+
+<!-- Summary Bar -->
+<div class="bg-white border-b">
+  <div class="max-w-6xl mx-auto px-4 py-2 flex gap-6 text-sm overflow-x-auto">
+    <div class="flex items-center gap-1.5 whitespace-nowrap">
+      <span class="w-3 h-3 rounded-full bg-orange-400 inline-block"></span>
+      <span class="text-gray-600">กำลังให้บริการ</span>
+      <span id="count-busy" class="font-bold text-gray-800">0</span>
+    </div>
+    <div class="flex items-center gap-1.5 whitespace-nowrap">
+      <span class="w-3 h-3 rounded-full bg-green-400 inline-block"></span>
+      <span class="text-gray-600">ว่าง</span>
+      <span id="count-ready" class="font-bold text-gray-800">0</span>
+    </div>
+    <div class="flex items-center gap-1.5 whitespace-nowrap">
+      <span class="w-3 h-3 rounded-full bg-blue-400 inline-block"></span>
+      <span class="text-gray-600">มีจอง</span>
+      <span id="count-booked" class="font-bold text-gray-800">0</span>
+    </div>
+    <div class="flex items-center gap-1.5 whitespace-nowrap">
+      <span class="w-3 h-3 rounded-full bg-yellow-400 inline-block"></span>
+      <span class="text-gray-600">รอสักครู่</span>
+      <span id="count-readyat" class="font-bold text-gray-800">0</span>
+    </div>
+    <div class="flex items-center gap-1.5 whitespace-nowrap">
+      <span class="w-3 h-3 rounded-full bg-gray-300 inline-block"></span>
+      <span class="text-gray-600">ยังไม่มา</span>
+      <span id="count-none" class="font-bold text-gray-800">0</span>
+    </div>
+  </div>
+</div>
+
+<!-- Branch Filter -->
+<div class="max-w-6xl mx-auto px-4 pt-4 pb-1 flex gap-2">
+  <button data-branch="all"     class="branch-btn px-3 py-1 rounded-full text-sm font-medium border transition">ทุกสาขา</button>
+  <button data-branch="branch1" class="branch-btn px-3 py-1 rounded-full text-sm font-medium border transition">สาขา 1</button>
+  <button data-branch="branch2" class="branch-btn px-3 py-1 rounded-full text-sm font-medium border transition">สาขา 2</button>
+</div>
+
+<!-- Main Grid -->
+<main class="max-w-6xl mx-auto px-4 py-4">
+  <div id="loading" class="text-center py-16 text-gray-400">
+    <div class="inline-block w-8 h-8 border-4 border-pink-300 border-t-pink-500 rounded-full animate-spin mb-3"></div>
+    <p>กำลังโหลดข้อมูล…</p>
+  </div>
+  <div id="grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 hidden"></div>
+</main>
+
+<script type="module">
+import {
+  db, collection, query, where, onSnapshot, orderBy
+} from "./js/firebase-config.js";
+
+// =========================================================
+// State
+// =========================================================
+let therapists = [];
+let statuses   = {};
+let sessions   = {};   // therapistId → active session doc
+let bookings   = {};   // therapistId → latest today booking
+let checkins   = {};   // therapistId → checkin doc
+let activeBranch = "all";
+
+// =========================================================
+// Firestore Listeners
+// =========================================================
+function getTodayDate() {
+  const now = new Date();
+  const thai = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+  return thai.toISOString().split("T")[0];
+}
+
+const today = getTodayDate();
+
+// 1. Therapists
+onSnapshot(
+  query(collection(db, "therapists"), orderBy("code")),
+  snap => {
+    therapists = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(t => t.active !== false);
+    render();
+  }
+);
+
+// 2. Statuses
+onSnapshot(collection(db, "statuses"), snap => {
+  statuses = {};
+  snap.docs.forEach(d => { statuses[d.id] = d.data(); });
+  render();
+});
+
+// 3. Sessions (today, active)
+onSnapshot(
+  query(collection(db, "sessions"), where("date", "==", today)),
+  snap => {
+    sessions = {};
+    snap.docs.forEach(d => {
+      const s = { id: d.id, ...d.data() };
+      // เก็บ session ที่ active หรือ session ล่าสุด
+      if (!sessions[s.therapistId] || s.status === "active") {
+        sessions[s.therapistId] = s;
+      }
+    });
+    render();
+  }
+);
+
+// 4. Bookings (today)
+onSnapshot(
+  query(collection(db, "bookings"), where("bookingDate", "==", today)),
+  snap => {
+    bookings = {};
+    snap.docs.forEach(d => {
+      const b = { id: d.id, ...d.data() };
+      if (!b.therapistId) return;
+      // ถ้ายังไม่มี หรือ pending ใหม่กว่า
+      if (!bookings[b.therapistId]) bookings[b.therapistId] = b;
+      else {
+        // priority: pending_confirmation > confirmed > others
+        const prev = bookings[b.therapistId];
+        const priority = s => s === "pending_confirmation" ? 0 : s === "confirmed" ? 1 : 2;
+        if (priority(b.status) < priority(prev.status)) bookings[b.therapistId] = b;
+      }
+    });
+    render();
+  }
+);
+
+// 5. Checkins (today)
+onSnapshot(
+  query(collection(db, "checkins"), where("date", "==", today)),
+  snap => {
+    checkins = {};
+    snap.docs.forEach(d => { checkins[d.id] = d.data(); });
+    render();
+  }
+);
+
+// =========================================================
+// Render
+// =========================================================
+function render() {
+  if (!therapists.length) return;
+  document.getElementById("loading").classList.add("hidden");
+  document.getElementById("grid").classList.remove("hidden");
+
+  const filtered = therapists.filter(t =>
+    activeBranch === "all" || t.branch === activeBranch
+  );
+
+  // เรียงตาม: busy → pending → confirmed → ready → ready_at → none
+  const sortPriority = (t) => {
+    const s = statuses[t.id]?.status;
+    const b = bookings[t.id]?.status;
+    const hasSession = sessions[t.id]?.status === "active";
+    if (s === "busy" && hasSession) return 0;
+    if (s === "busy")              return 1;
+    if (b === "pending_confirmation") return 2;
+    if (b === "confirmed")         return 3;
+    if (s === "ready")             return 4;
+    if (s === "ready_at")          return 5;
+    return 6;
+  };
+  filtered.sort((a, b) => sortPriority(a) - sortPriority(b));
+
+  // Summary counts
+  let cBusy=0, cReady=0, cBooked=0, cReadyAt=0, cNone=0;
+  therapists.forEach(t => {
+    const s = statuses[t.id]?.status;
+    const b = bookings[t.id];
+    if (s === "busy")        cBusy++;
+    else if (b)              cBooked++;
+    else if (s === "ready")  cReady++;
+    else if (s === "ready_at") cReadyAt++;
+    else                     cNone++;
+  });
+  document.getElementById("count-busy").textContent    = cBusy;
+  document.getElementById("count-ready").textContent   = cReady;
+  document.getElementById("count-booked").textContent  = cBooked;
+  document.getElementById("count-readyat").textContent = cReadyAt;
+  document.getElementById("count-none").textContent    = cNone;
+
+  document.getElementById("grid").innerHTML = filtered.map(t => renderCard(t)).join("");
+
+  // last updated
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2,"0");
+  const mm = String(now.getMinutes()).padStart(2,"0");
+  const ss = String(now.getSeconds()).padStart(2,"0");
+  document.getElementById("last-updated").textContent = `อัพเดท ${hh}:${mm}:${ss}`;
+}
+
+// =========================================================
+// Card
+// =========================================================
+function renderCard(t) {
+  const status  = statuses[t.id];
+  const session = sessions[t.id];
+  const booking = bookings[t.id];
+  const checkin = checkins[t.id];
+
+  const rawName = t.nameTh || t.nameEn || t.nickname || t.code || "—";
+  const name    = rawName.startsWith("น้อง") ? rawName : `น้อง${rawName}`;
+  const branch  = t.branch === "branch2" ? "สาขา 2" : "สาขา 1";
+  const photoEl = t.photoUrl
+    ? `<img src="${esc(t.photoUrl)}" class="w-12 h-12 rounded-full object-cover border-2 border-white shadow" />`
+    : `<div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-2xl border-2 border-white shadow">👤</div>`;
+
+  // --- ระบุ stage ปัจจุบัน ---
+  const st = status?.status;
+  const hasActiveSession  = session?.status === "active";
+  const hasPendingBooking = booking?.status === "pending_confirmation";
+  const hasConfirmedBooking = booking?.status === "confirmed";
+  const hasCheckin = !!checkin;
+
+  let stageKey, cardBg, badgeHtml, detailHtml;
+
+  if (st === "busy" && hasActiveSession) {
+    // กำลังให้บริการ — session กำลังรัน
+    stageKey = "session";
+    cardBg   = "border-orange-200 bg-orange-50";
+    badgeHtml = badge("🔴 กำลังให้บริการ", "bg-orange-100 text-orange-700 border-orange-300");
+    detailHtml = [
+      session.roomNumber ? row("🛏", `ห้อง ${session.roomNumber} (${session.branch || "?"})`) : "",
+      session.startTime  ? row("⏰", `${session.startTime}–${session.endTime || "?"} น.`) : "",
+      session.customerName ? row("👤", `คุณ${session.customerName}`) : "",
+      session.serviceName  ? row("🛎", session.serviceName) : "",
+    ].filter(Boolean).join("");
+
+  } else if (st === "busy") {
+    // busy แต่ไม่มี session (admin จอง)
+    stageKey = "booked_busy";
+    cardBg   = "border-orange-200 bg-orange-50";
+    badgeHtml = badge("🟡 จองแล้ว (รอเริ่ม)", "bg-yellow-100 text-yellow-700 border-yellow-300");
+    detailHtml = booking ? [
+      row("📅", `${booking.bookingTime} น.`),
+      row("👤", `คุณ${booking.customerName}`),
+      row("📍", `ว่างถึง ${status.readyAt || "?"} น.`),
+    ].join("") : row("📍", `ว่างถึง ${status.readyAt || "?"} น.`);
+
+  } else if (hasPendingBooking) {
+    stageKey = "pending";
+    cardBg   = "border-blue-200 bg-blue-50";
+    badgeHtml = badge("📅 มีจองรอยืนยัน", "bg-blue-100 text-blue-700 border-blue-300");
+    detailHtml = [
+      row("⏰", `${booking.bookingTime} น.`),
+      row("👤", `คุณ${booking.customerName}`),
+      booking.source === "admin_group" ? row("📌", "Admin จอง") : row("📌", "ลูกค้าจอง (LINE)"),
+      hasCheckin ? row("✅", `มาร้านแล้ว ${checkin.checkInTime} น.`) : "",
+    ].filter(Boolean).join("");
+
+  } else if (hasConfirmedBooking) {
+    stageKey = "confirmed";
+    cardBg   = "border-indigo-200 bg-indigo-50";
+    badgeHtml = badge("✅ ยืนยันแล้ว รอลูกค้า", "bg-indigo-100 text-indigo-700 border-indigo-300");
+    detailHtml = [
+      row("⏰", `${booking.bookingTime} น.`),
+      row("👤", `คุณ${booking.customerName}`),
+      hasCheckin ? row("🏠", `มาร้านแล้ว ${checkin.checkInTime} น.`) : "",
+    ].filter(Boolean).join("");
+
+  } else if (st === "ready") {
+    stageKey = "ready";
+    cardBg   = "border-green-200 bg-green-50";
+    badgeHtml = badge("🟢 ว่าง พร้อมบริการ", "bg-green-100 text-green-700 border-green-300");
+    detailHtml = hasCheckin ? row("🏠", `มาถึง ${checkin.checkInTime} น.`) : "";
+
+  } else if (st === "ready_at") {
+    stageKey = "ready_at";
+    cardBg   = "border-yellow-200 bg-yellow-50";
+    badgeHtml = badge(`⏰ พร้อม ${status.readyAt} น.`, "bg-yellow-100 text-yellow-700 border-yellow-300");
+    detailHtml = hasCheckin ? row("🏠", `มาถึง ${checkin.checkInTime} น.`) : "";
+
+  } else {
+    stageKey = "none";
+    cardBg   = "border-gray-200 bg-white";
+    badgeHtml = badge("⚪ ยังไม่มาร้าน", "bg-gray-100 text-gray-500 border-gray-300");
+    detailHtml = "";
+  }
+
+  // Pipeline steps
+  const pipelineHtml = renderPipeline(stageKey, hasCheckin);
+
+  return `
+    <div class="card-enter rounded-xl border ${cardBg} p-4 flex flex-col gap-3 shadow-sm">
+      <!-- Top row: photo + name + branch -->
+      <div class="flex items-center gap-3">
+        ${photoEl}
+        <div class="flex-1 min-w-0">
+          <div class="font-semibold text-gray-800 truncate">${esc(name)}</div>
+          <div class="text-xs text-gray-400">${esc(branch)}</div>
+        </div>
+        <div>${badgeHtml}</div>
+      </div>
+
+      <!-- Pipeline -->
+      ${pipelineHtml}
+
+      <!-- Details -->
+      ${detailHtml ? `<div class="bg-white/70 rounded-lg px-3 py-2 text-xs space-y-1 border border-gray-100">${detailHtml}</div>` : ""}
+    </div>
+  `;
+}
+
+// =========================================================
+// Pipeline
+// =========================================================
+function renderPipeline(stageKey, hasCheckin) {
+  // Steps: มาร้าน → มีจอง → เริ่มงาน → เสร็จงาน
+  const steps = [
+    { key: "checkin",  label: "มาร้าน" },
+    { key: "booked",   label: "มีจอง"  },
+    { key: "session",  label: "เริ่มงาน" },
+    { key: "done",     label: "เสร็จ"  },
+  ];
+
+  // ระบุว่าถึง step ไหนแล้ว
+  const reachMap = {
+    none:        { checkin: false, booked: false, session: false, done: false },
+    ready:       { checkin: true,  booked: false, session: false, done: false },
+    ready_at:    { checkin: true,  booked: false, session: false, done: false },
+    pending:     { checkin: hasCheckin, booked: true,  session: false, done: false },
+    confirmed:   { checkin: hasCheckin, booked: true,  session: false, done: false },
+    booked_busy: { checkin: true,  booked: true,  session: false, done: false },
+    session:     { checkin: true,  booked: true,  session: true,  done: false },
+  };
+  const reach = reachMap[stageKey] || reachMap.none;
+
+  const dots = steps.map((s, i) => {
+    const done   = reach[s.key];
+    const active = s.key === stageKey || (stageKey === "session" && s.key === "session")
+                || (stageKey === "ready" && s.key === "checkin")
+                || (stageKey === "pending" && s.key === "booked")
+                || (stageKey === "confirmed" && s.key === "booked")
+                || (stageKey === "booked_busy" && s.key === "booked");
+
+    const dotColor = done
+      ? (active ? "bg-orange-500" : "bg-emerald-500")
+      : "bg-gray-300";
+    const labelColor = done ? "text-gray-700" : "text-gray-400";
+    const lineHtml = i < steps.length - 1
+      ? `<div class="flex-1 h-0.5 ${done ? 'bg-emerald-400' : 'bg-gray-200'} mt-[-8px] mx-0.5"></div>`
+      : "";
+
+    return `
+      <div class="flex flex-col items-center gap-1 flex-shrink-0">
+        <div class="w-3 h-3 rounded-full ${dotColor} ${active ? 'ring-2 ring-offset-1 ring-orange-400' : ''}"></div>
+        <span class="text-[9px] ${labelColor} whitespace-nowrap">${s.label}</span>
+      </div>
+      ${lineHtml}
+    `;
+  });
+
+  return `
+    <div class="flex items-start gap-0 px-1">
+      ${dots.join("")}
+    </div>
+  `;
+}
+
+// =========================================================
+// Helpers
+// =========================================================
+function badge(text, cls) {
+  return `<span class="text-[11px] font-medium px-2 py-0.5 rounded-full border ${cls} whitespace-nowrap">${esc(text)}</span>`;
+}
+function row(icon, text) {
+  return `<div class="flex items-center gap-1.5"><span>${icon}</span><span class="text-gray-700">${esc(text)}</span></div>`;
+}
+function esc(s) {
+  if (s == null) return "";
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+// =========================================================
+// Branch Filter
+// =========================================================
+function updateBranchButtons() {
+  document.querySelectorAll(".branch-btn").forEach(btn => {
+    const active = btn.dataset.branch === activeBranch;
+    btn.className = `branch-btn px-3 py-1 rounded-full text-sm font-medium border transition ${
+      active ? "bg-pink-500 text-white border-pink-500" : "bg-white text-gray-600 border-gray-200 hover:border-pink-300"
+    }`;
+  });
+}
+document.querySelectorAll(".branch-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    activeBranch = btn.dataset.branch;
+    updateBranchButtons();
+    render();
+  });
+});
+updateBranchButtons();
+
+// =========================================================
+// Clock + Date
+// =========================================================
+function updateClock() {
+  const now = new Date();
+  const thai = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+  const hh = String(thai.getUTCHours()).padStart(2,"0");
+  const mm = String(thai.getUTCMinutes()).padStart(2,"0");
+  const ss = String(thai.getUTCSeconds()).padStart(2,"0");
+  document.getElementById("live-clock").textContent = `${hh}:${mm}:${ss}`;
+}
+document.getElementById("today-date").textContent = today;
+updateClock();
+setInterval(updateClock, 1000);
+</script>
+</body>
+</html>
