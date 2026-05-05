@@ -271,11 +271,13 @@
       if (!confirm(`${t("bulkConfirm")}: ${count} ${t("therapistsCount")}`)) return;
       const ids = Array.from(selected);
       try {
-        for (const id of ids) {
-          if (action === "ready") await setStatus(id, "ready");
-          else if (action === "not_ready") await setStatus(id, "not_ready");
-          else if (action === "clear") await clearStatus(id);
-        }
+        // Run all status updates in parallel for much faster bulk operations
+        await Promise.all(ids.map((id) => {
+          if (action === "ready") return setStatus(id, "ready");
+          if (action === "not_ready") return setStatus(id, "not_ready");
+          if (action === "clear") return clearStatus(id);
+          return Promise.resolve();
+        }));
         selected.clear();
         render();
       } catch (err) {
