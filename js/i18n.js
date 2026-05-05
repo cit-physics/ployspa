@@ -24,6 +24,7 @@ const translations = {
     // Status
     statusReady: "พร้อมบริการ",
     statusBusy: "กำลังให้บริการ",
+    statusBusyUntil: "ติดงาน ถึง",
     statusNotReady: "ไม่พร้อม",
     statusReadyAt: "พร้อมเวลา",
     statusBooked: "มีจอง",
@@ -149,6 +150,7 @@ const translations = {
     // Status
     statusReady: "Available",
     statusBusy: "In service",
+    statusBusyUntil: "Busy until",
     statusNotReady: "Unavailable",
     statusReadyAt: "Available at",
     statusBooked: "Booked",

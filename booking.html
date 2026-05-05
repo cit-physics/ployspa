@@ -317,7 +317,7 @@ function statusBadge(s) {
   if (!s) return { text: "ไม่ระบุสถานะ", cls: "border-gray-200 text-gray-500" };
   if (s.status === "ready")     return { text: "🟢 พร้อมบริการ", cls: "border-green-200 text-green-700" };
   if (s.status === "ready_at")  return { text: `⏰ พร้อม ${s.readyAt || ""} น.`, cls: "border-yellow-200 text-yellow-700" };
-  if (s.status === "busy")      return { text: s.readyAt ? `🔴 ติดงาน ~${s.readyAt} น.` : "🔴 กำลังให้บริการ", cls: "border-orange-200 text-orange-700" };
+  if (s.status === "busy")      return { text: s.readyAt ? `🔴 ติดงาน ถึง ${s.readyAt} น.` : "🔴 กำลังให้บริการ", cls: "border-orange-200 text-orange-700" };
   if (s.status === "booked") {
     const timeText = s.readyAt && s.bookingEndAt ? `${s.readyAt}-${s.bookingEndAt}` : (s.readyAt || "");
     return { text: timeText ? `📅 มีจอง ${timeText} น.` : "📅 มีจอง", cls: "border-indigo-200 text-indigo-700" };

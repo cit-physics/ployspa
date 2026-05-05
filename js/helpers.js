@@ -136,8 +136,13 @@ export function statusLabel(statusObj) {
   if (status === "ready") return { text: t("statusReady"), color: "green" };
   if (status === "ready_at" && readyAt)
     return { text: `${t("statusReadyAt")} ${readyAt}`, color: "yellow" };
-  if (status === "busy")
-    return { text: readyAt ? `${t("statusBusy")} ~${readyAt}` : t("statusBusy"), color: "orange" };
+  if (status === "busy") {
+    if (readyAt) {
+      const suffix = getLang() === "th" ? " น." : "";
+      return { text: `🔴 ${t("statusBusyUntil")} ${readyAt}${suffix}`, color: "orange" };
+    }
+    return { text: `🔴 ${t("statusBusy")}`, color: "orange" };
+  }
   if (status === "booked") {
     // Show range "17:00-18:00" if bookingEndAt is set, otherwise just start time
     const timeText = readyAt && bookingEndAt

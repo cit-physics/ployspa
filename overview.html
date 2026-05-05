@@ -581,7 +581,7 @@ function buildTable(list) {
 
     // status badge
     let badgeCls, badgeLbl;
-    if      (st === "busy")      { badgeCls = "badge-busy";     badgeLbl = "🔴 นวดอยู่"; }
+    if      (st === "busy")      { badgeCls = "badge-busy";     badgeLbl = statuses[t.id].readyAt ? `🔴 ติดงาน ถึง ${statuses[t.id].readyAt} น.` : "🔴 นวดอยู่"; }
     else if (st === "ready")     { badgeCls = "badge-ready";    badgeLbl = "🟢 ว่าง"; }
     else if (st === "ready_at")  { badgeCls = "badge-readyat";  badgeLbl = `⏰ ${statuses[t.id].readyAt}`; }
     else if (st === "booked")    {
