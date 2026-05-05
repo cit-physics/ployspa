@@ -390,13 +390,10 @@ $("session-form").addEventListener("submit", async e => {
       await addDoc(collection(db, "sessions"), { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
     }
 
-    // Sync statuses collection so customer page & dashboard update
-    if (therapistId && data.date === getTodayThai()) {
-      if (data.status === "active") {
-        await setStatus(therapistId, "busy", data.endTime || null);
-      } else if (data.status === "completed") {
-        await setStatus(therapistId, "ready");
-      }
+    // Sync statuses: only set "busy" for active sessions today
+    // Never auto-set "ready" — might override break/leave set elsewhere
+    if (therapistId && data.date === getTodayThai() && data.status === "active") {
+      await setStatus(therapistId, "busy", data.endTime || null);
     }
 
     closeModal();
