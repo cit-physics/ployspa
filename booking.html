@@ -128,10 +128,21 @@
     </div>
 
     <!-- ชื่อ -->
-    <div class="mb-2">
+    <div class="mb-3">
       <label class="block text-sm font-semibold text-gray-700 mb-2">👤 ชื่อของคุณ</label>
       <input type="text" id="customer-name" placeholder="ชื่อเพื่อการจอง"
         class="w-full border border-gray-200 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-pink-300 outline-none" />
+    </div>
+
+    <!-- เบอร์โทร -->
+    <div class="mb-2">
+      <label class="block text-sm font-semibold text-gray-700 mb-2">
+        📱 เบอร์โทร
+        <span class="text-xs text-gray-400 font-normal">(ไม่บังคับ — แต่ช่วยให้ทางร้านยืนยันได้เร็วขึ้น)</span>
+      </label>
+      <input type="tel" id="customer-phone" placeholder="08x-xxx-xxxx"
+        class="w-full border border-gray-200 rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-pink-300 outline-none"
+        maxlength="20" />
     </div>
 
     <button onclick="goStep(4)" id="btn3"
@@ -165,6 +176,7 @@
         <div class="flex justify-between text-sm"><span class="text-gray-400">เวลา</span><span class="font-semibold text-gray-800" id="confirm-time">—</span></div>
         <div class="border-t border-gray-100 my-1"></div>
         <div class="flex justify-between text-sm"><span class="text-gray-400">ชื่อ</span><span class="font-semibold text-gray-800" id="confirm-name">—</span></div>
+        <div class="flex justify-between text-sm" id="confirm-phone-row"><span class="text-gray-400">เบอร์โทร</span><span class="font-semibold text-gray-800" id="confirm-phone">—</span></div>
       </div>
     </div>
 
@@ -190,6 +202,7 @@
       <div class="flex justify-between text-sm"><span class="text-gray-400">บริการ</span><span class="font-semibold" id="s-service">—</span></div>
       <div class="flex justify-between text-sm"><span class="text-gray-400">เวลา</span><span class="font-semibold" id="s-time">—</span></div>
       <div class="flex justify-between text-sm"><span class="text-gray-400">ชื่อ</span><span class="font-semibold" id="s-name">—</span></div>
+      <div class="flex justify-between text-sm" id="s-phone-row"><span class="text-gray-400">เบอร์โทร</span><span class="font-semibold" id="s-phone">—</span></div>
     </div>
 
     <a href="index.html"
@@ -232,7 +245,8 @@ const state = {
   therapist:    null,   // { id, nameTh, nameEn, nickname, photoUrl, specialties }
   service:      null,   // { id, name, price, duration }
   time:         "",
-  customerName: "",
+  customerName:  "",
+  customerPhone: "",
 };
 
 // =========================================================
@@ -359,6 +373,11 @@ function setupInputListeners() {
     state.customerName = e.target.value.trim();
     checkStep3();
   });
+
+  document.getElementById("customer-phone").addEventListener("input", e => {
+    state.customerPhone = e.target.value.trim();
+    // phone is optional; no need to call checkStep3()
+  });
 }
 
 // =========================================================
@@ -448,7 +467,7 @@ function updateProgress(s) {
 }
 
 function populateConfirm() {
-  const { therapist, service, time, customerName } = state;
+  const { therapist, service, time, customerName, customerPhone } = state;
 
   // รูปหมอ
   if (therapist?.photoUrl && !therapist.photoUrl.includes("👤")) {
@@ -465,6 +484,15 @@ function populateConfirm() {
   document.getElementById("confirm-price").textContent      = service ? service.price.toLocaleString() + " บาท" : "—";
   document.getElementById("confirm-time").textContent       = time ? time + " น." : "—";
   document.getElementById("confirm-name").textContent       = customerName || "—";
+
+  // Phone row: hide entirely if customer didn't enter one
+  const phoneRow = document.getElementById("confirm-phone-row");
+  if (customerPhone) {
+    phoneRow.style.display = "";
+    document.getElementById("confirm-phone").textContent = customerPhone;
+  } else {
+    phoneRow.style.display = "none";
+  }
 }
 
 // =========================================================
@@ -481,6 +509,7 @@ window.submitBooking = async function() {
     const today = getTodayDateTH();
     const ref = await addDoc(collection(db, "bookings"), {
       customerName:      state.customerName,
+      customerPhone:     state.customerPhone || null,
       therapistId:       state.therapist?.id   || null,
       therapistName:     state.therapist?.name || null,
       serviceId:         state.service.id,
@@ -499,6 +528,13 @@ window.submitBooking = async function() {
     document.getElementById("s-service").textContent   = state.service.name;
     document.getElementById("s-time").textContent      = state.time + " น.";
     document.getElementById("s-name").textContent      = state.customerName;
+    const sPhoneRow = document.getElementById("s-phone-row");
+    if (state.customerPhone) {
+      sPhoneRow.style.display = "";
+      document.getElementById("s-phone").textContent = state.customerPhone;
+    } else {
+      sPhoneRow.style.display = "none";
+    }
     document.getElementById("success-msg").textContent =
       `ทางร้านจะยืนยันนัดหมายผ่านทาง LINE ในเร็วๆ นี้ค่ะ`;
 
