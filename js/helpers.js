@@ -60,12 +60,15 @@ export async function removeTherapist(id) {
 
 // --- Status ---
 
-export async function setStatus(therapistId, status, readyAt = null) {
-  await setDoc(doc(db, "statuses", therapistId), {
+export async function setStatus(therapistId, status, readyAt = null, bookingEndAt = null) {
+  const data = {
     status,
     readyAt,
     updatedAt: serverTimestamp(),
-  });
+  };
+  // Only include bookingEndAt when present (used for "booked" range display)
+  if (bookingEndAt) data.bookingEndAt = bookingEndAt;
+  await setDoc(doc(db, "statuses", therapistId), data);
 }
 
 export async function clearStatus(therapistId) {
@@ -129,14 +132,22 @@ export async function removePhoto(path) {
 
 export function statusLabel(statusObj) {
   if (!statusObj) return { text: t("statusUnknown"), color: "gray" };
-  const { status, readyAt } = statusObj;
+  const { status, readyAt, bookingEndAt } = statusObj;
   if (status === "ready") return { text: t("statusReady"), color: "green" };
   if (status === "ready_at" && readyAt)
     return { text: `${t("statusReadyAt")} ${readyAt}`, color: "yellow" };
   if (status === "busy")
     return { text: readyAt ? `${t("statusBusy")} ~${readyAt}` : t("statusBusy"), color: "orange" };
-  if (status === "booked")
-    return { text: readyAt ? `📅 ${t("statusBooked")} ${readyAt}` : `📅 ${t("statusBooked")}`, color: "indigo" };
+  if (status === "booked") {
+    // Show range "17:00-18:00" if bookingEndAt is set, otherwise just start time
+    const timeText = readyAt && bookingEndAt
+      ? `${readyAt}-${bookingEndAt}`
+      : (readyAt || "");
+    return {
+      text: timeText ? `📅 ${t("statusBooked")} ${timeText}` : `📅 ${t("statusBooked")}`,
+      color: "indigo",
+    };
+  }
   if (status === "not_ready") return { text: t("statusNotReady"), color: "red" };
   if (status === "break")  return { text: "☕ พักสักครู่", color: "blue" };
   if (status === "leave")  return { text: "🏖 ลาหยุดวันนี้", color: "purple" };

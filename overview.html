@@ -584,7 +584,13 @@ function buildTable(list) {
     if      (st === "busy")      { badgeCls = "badge-busy";     badgeLbl = "🔴 นวดอยู่"; }
     else if (st === "ready")     { badgeCls = "badge-ready";    badgeLbl = "🟢 ว่าง"; }
     else if (st === "ready_at")  { badgeCls = "badge-readyat";  badgeLbl = `⏰ ${statuses[t.id].readyAt}`; }
-    else if (st === "booked")    { badgeCls = "badge-booked";   badgeLbl = `📅 มีจอง${statuses[t.id].readyAt ? " " + statuses[t.id].readyAt : ""}`; }
+    else if (st === "booked")    {
+      const r = statuses[t.id].readyAt;
+      const e = statuses[t.id].bookingEndAt;
+      const timeStr = r && e ? `${r}-${e}` : (r || "");
+      badgeCls = "badge-booked";
+      badgeLbl = `📅 มีจอง${timeStr ? " " + timeStr : ""}`;
+    }
     else if (st === "break")     { badgeCls = "badge-break";    badgeLbl = "☕ พักสักครู่"; }
     else if (st === "leave")     { badgeCls = "badge-leave";    badgeLbl = "🏖 ลาหยุด"; }
     else if (st === "not_ready") { badgeCls = "badge-notready"; badgeLbl = "⛔ ไม่พร้อม"; }

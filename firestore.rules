@@ -20,7 +20,7 @@ service cloud.firestore {
       allow delete: if true;
       allow write: if
         request.resource.data.status in ['ready', 'not_ready', 'ready_at', 'break', 'leave', 'busy', 'booked']
-        && request.resource.data.keys().hasOnly(['status', 'readyAt', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['status', 'readyAt', 'bookingEndAt', 'updatedAt'])
         && (
           request.resource.data.status != 'ready_at'
           || (request.resource.data.readyAt is string

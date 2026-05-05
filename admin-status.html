@@ -57,8 +57,18 @@
     <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
       <h3 id="time-modal-title" class="text-lg font-semibold mb-3" data-i18n="setReadyAt"></h3>
       <p id="time-modal-name" class="text-sm text-gray-600 mb-3"></p>
-      <input type="time" id="time-modal-input" class="w-full border-2 border-yellow-300 rounded-lg px-3 py-2 text-lg mb-4" />
-      <div class="flex justify-end gap-2">
+
+      <!-- Start time (always shown) -->
+      <label id="time-modal-start-label" class="block text-xs text-gray-500 mb-1">เวลา</label>
+      <input type="time" id="time-modal-input" class="w-full border-2 border-yellow-300 rounded-lg px-3 py-2 text-lg" />
+
+      <!-- End time (shown only for "booked" mode) -->
+      <div id="time-modal-end-wrap" class="hidden mt-3">
+        <label class="block text-xs text-gray-500 mb-1">ถึงเวลา <span class="text-gray-400">(default = +1 ชม.)</span></label>
+        <input type="time" id="time-modal-end" class="w-full border-2 border-indigo-300 rounded-lg px-3 py-2 text-lg" />
+      </div>
+
+      <div class="flex justify-end gap-2 mt-4">
         <button id="time-modal-cancel" class="px-4 py-2 text-sm text-gray-600" data-i18n="cancel"></button>
         <button id="time-modal-confirm" class="px-4 py-2 bg-yellow-500 text-white text-sm rounded-lg" data-i18n="confirm"></button>
       </div>
@@ -228,25 +238,53 @@
       $("btn-bulk-clear").disabled = !enabled;
     }
 
-    // Time modal — used for both ready_at and booked
+    // Time modal — used for both ready_at (single time) and booked (time range)
     function openTimeModal(id, mode = "ready_at") {
       timeTargetId = id;
       timeTargetMode = mode;
       const th = therapists.find((x) => x.id === id);
       $("time-modal-name").textContent = th ? pickName(th) : "";
-      // Update title to reflect the mode
+
+      // Update title + labels based on mode
       const titleEl = $("time-modal-title");
-      if (titleEl) {
-        titleEl.textContent = mode === "booked"
-          ? `📅 ${t("statusBooked")} — ${t("setReadyAt")}`
-          : t("setReadyAt");
+      const startLbl = $("time-modal-start-label");
+      const endWrap = $("time-modal-end-wrap");
+      if (mode === "booked") {
+        if (titleEl) titleEl.textContent = `📅 ${t("statusBooked")} — ระบุเวลานัด`;
+        if (startLbl) startLbl.textContent = "ตั้งแต่เวลา";
+        endWrap.classList.remove("hidden");
+      } else {
+        if (titleEl) titleEl.textContent = t("setReadyAt");
+        if (startLbl) startLbl.textContent = "เวลา";
+        endWrap.classList.add("hidden");
       }
+
+      // Default start time = now + 30 min
       const now = new Date();
       now.setMinutes(now.getMinutes() + 30);
-      $("time-modal-input").value = now.toTimeString().slice(0, 5);
+      const startStr = now.toTimeString().slice(0, 5);
+      $("time-modal-input").value = startStr;
+
+      // Default end time = start + 60 min (only relevant in booked mode)
+      const endDate = new Date(now.getTime() + 60 * 60000);
+      $("time-modal-end").value = endDate.toTimeString().slice(0, 5);
+
       $("time-modal").classList.remove("hidden");
       $("time-modal").classList.add("flex");
     }
+
+    // When user changes start time in booked mode, auto-update end to start+60min
+    $("time-modal-input").addEventListener("change", () => {
+      if (timeTargetMode !== "booked") return;
+      const v = $("time-modal-input").value;
+      if (!v) return;
+      const [h, m] = v.split(":").map(Number);
+      const total = h * 60 + m + 60;
+      const newH = Math.floor(total / 60) % 24;
+      const newM = total % 60;
+      $("time-modal-end").value =
+        `${String(newH).padStart(2, "0")}:${String(newM).padStart(2, "0")}`;
+    });
 
     function closeTimeModal() {
       $("time-modal").classList.add("hidden");
@@ -260,8 +298,21 @@
       const time = $("time-modal-input").value;
       if (!time) return;
       try {
-        // timeTargetMode is "ready_at" or "booked" — set the corresponding status
-        await setStatus(timeTargetId, timeTargetMode, time);
+        if (timeTargetMode === "booked") {
+          // For booked, also pass end time (user can edit, default is start+60min)
+          let endTime = $("time-modal-end").value;
+          if (!endTime) {
+            // Fallback: compute start+60 if user cleared end
+            const [h, m] = time.split(":").map(Number);
+            const total = h * 60 + m + 60;
+            const newH = Math.floor(total / 60) % 24;
+            const newM = total % 60;
+            endTime = `${String(newH).padStart(2, "0")}:${String(newM).padStart(2, "0")}`;
+          }
+          await setStatus(timeTargetId, "booked", time, endTime);
+        } else {
+          await setStatus(timeTargetId, timeTargetMode, time);
+        }
         closeTimeModal();
       } catch (err) {
         alert(`${t("error")}: ${err.message}`);
