@@ -153,23 +153,25 @@
       }
       empty.classList.add("hidden");
 
-      // Group by status: ready → ready_at → busy → others
-      const ready = [], readyAt = [], busy = [], others = [];
+      // Group by status: ready → ready_at → busy → booked → others
+      const ready = [], readyAt = [], busy = [], booked = [], others = [];
       filtered.forEach((th) => {
         const s = statuses[th.id]?.status;
         if (s === "ready")    ready.push(th);
         else if (s === "ready_at") readyAt.push(th);
         else if (s === "busy") busy.push(th);
+        else if (s === "booked") booked.push(th);
         else others.push(th);
       });
 
       const readySorted   = sortByBadgeThenName(ready);
       const readyAtSorted = sortByBadgeThenName(readyAt);
       const busySorted    = sortByBadgeThenName(busy);
+      const bookedSorted  = sortByBadgeThenName(booked);
       const othersSorted  = sortByBadgeThenName(others);
 
-      // Available group = ready + ready_at + busy
-      const availableGroup = [...readySorted, ...readyAtSorted, ...busySorted];
+      // Available group = ready + ready_at + busy + booked
+      const availableGroup = [...readySorted, ...readyAtSorted, ...busySorted, ...bookedSorted];
 
       const sections = [];
       if (availableGroup.length) sections.push(renderGroup(availableGroup));

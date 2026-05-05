@@ -420,11 +420,11 @@ function updateSummary() {
   therapists.forEach(t => {
     const st = statuses[t.id]?.status;
     const bk = (allBookings[t.id] || []).find(b => ["pending_confirmation","confirmed"].includes(b.status));
-    if (st === "busy")                    busy++;
-    else if (bk)                          booked++;
-    else if (st === "ready")              ready++;
+    if (st === "busy")                          busy++;
+    else if (st === "booked" || bk)             booked++;
+    else if (st === "ready")                    ready++;
     else if (st === "ready_at" || st === "break") readyat++;
-    else                                  none++;  // not_ready, leave, missing
+    else                                        none++;  // not_ready, leave, missing
 
     // hours per branch
     const hrs = (allSessions[t.id] || []).reduce((acc, s) => acc + diffH(s.startTime, s.endTime), 0);
@@ -584,6 +584,7 @@ function buildTable(list) {
     if      (st === "busy")      { badgeCls = "badge-busy";     badgeLbl = "🔴 นวดอยู่"; }
     else if (st === "ready")     { badgeCls = "badge-ready";    badgeLbl = "🟢 ว่าง"; }
     else if (st === "ready_at")  { badgeCls = "badge-readyat";  badgeLbl = `⏰ ${statuses[t.id].readyAt}`; }
+    else if (st === "booked")    { badgeCls = "badge-booked";   badgeLbl = `📅 มีจอง${statuses[t.id].readyAt ? " " + statuses[t.id].readyAt : ""}`; }
     else if (st === "break")     { badgeCls = "badge-break";    badgeLbl = "☕ พักสักครู่"; }
     else if (st === "leave")     { badgeCls = "badge-leave";    badgeLbl = "🏖 ลาหยุด"; }
     else if (st === "not_ready") { badgeCls = "badge-notready"; badgeLbl = "⛔ ไม่พร้อม"; }
