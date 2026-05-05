@@ -161,6 +161,16 @@ await requireAuth();
 
 const $ = id => document.getElementById(id);
 
+// Reset therapist status to ready, but only if currently "busy".
+// Preserves break/leave/not_ready set by the therapist themselves.
+async function resetIfBusy(therapistId) {
+  if (!therapistId) return;
+  const snap = await getDoc(doc(db, "statuses", therapistId));
+  if (snap.exists() && snap.data().status === "busy") {
+    await setStatus(therapistId, "ready");
+  }
+}
+
 // ─── DATE ───────────────────────────────────────────
 function getTodayThai() {
   const now = new Date();
@@ -390,10 +400,15 @@ $("session-form").addEventListener("submit", async e => {
       await addDoc(collection(db, "sessions"), { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
     }
 
-    // Sync statuses: only set "busy" for active sessions today
-    // Never auto-set "ready" — might override break/leave set elsewhere
-    if (therapistId && data.date === getTodayThai() && data.status === "active") {
-      await setStatus(therapistId, "busy", data.endTime || null);
+    // Sync statuses for today's sessions
+    if (therapistId && data.date === getTodayThai()) {
+      if (data.status === "active") {
+        await setStatus(therapistId, "busy", data.endTime || null);
+      } else if (data.status === "completed" || data.status === "cancelled") {
+        // Reset to ready only if therapist is currently "busy" —
+        // don't override break/leave they may have set themselves.
+        await resetIfBusy(therapistId);
+      }
     }
 
     closeModal();
