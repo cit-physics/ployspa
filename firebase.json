@@ -6,14 +6,9 @@
       ".firebaserc",
       ".git/**",
       ".claude/**",
+      ".gitignore",
       "firestore.rules",
       "storage.rules"
-    ],
-    "rewrites": [
-      {
-        "source": "**",
-        "destination": "/index.html"
-      }
     ]
   }
 }
