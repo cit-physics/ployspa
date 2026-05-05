@@ -71,6 +71,22 @@
           <span class="text-2xl">❌</span>
           <span class="font-semibold text-red-800" data-i18n="statusNotReady"></span>
         </button>
+
+        <button data-status="break" class="status-btn w-full flex items-center gap-3 p-4 rounded-xl border-2 border-blue-200 hover:border-blue-400 bg-blue-50 transition">
+          <span class="text-2xl">☕</span>
+          <span class="flex-1 text-left">
+            <span class="font-semibold text-blue-800 block">พักสักครู่</span>
+            <span class="text-xs text-blue-600">ออกไปพักชั่วคราว จะกลับมา</span>
+          </span>
+        </button>
+
+        <button data-status="leave" class="status-btn w-full flex items-center gap-3 p-4 rounded-xl border-2 border-purple-200 hover:border-purple-400 bg-purple-50 transition">
+          <span class="text-2xl">🏖</span>
+          <span class="flex-1 text-left">
+            <span class="font-semibold text-purple-800 block">ลาหยุดวันนี้</span>
+            <span class="text-xs text-purple-600">ไม่ได้มาร้านวันนี้</span>
+          </span>
+        </button>
       </div>
     </section>
 
@@ -166,8 +182,10 @@
         await setStatus(pickedId, status, readyAt);
         const th = therapists.find((x) => x.id === pickedId);
         let text = "";
-        if (status === "ready") text = `✅ ${t("statusReady")}`;
+        if (status === "ready")    text = `✅ ${t("statusReady")}`;
         else if (status === "ready_at") text = `⏰ ${t("statusReadyAt")} ${readyAt}`;
+        else if (status === "break")  text = `☕ พักสักครู่`;
+        else if (status === "leave")  text = `🏖 ลาหยุดวันนี้`;
         else text = `❌ ${t("statusNotReady")}`;
         $("step-pick").classList.add("hidden");
         $("step-status").classList.add("hidden");

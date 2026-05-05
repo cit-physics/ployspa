@@ -136,6 +136,8 @@ export function statusLabel(statusObj) {
   if (status === "busy")
     return { text: readyAt ? `${t("statusBusy")} ~${readyAt}` : t("statusBusy"), color: "orange" };
   if (status === "not_ready") return { text: t("statusNotReady"), color: "red" };
+  if (status === "break")  return { text: "☕ พักสักครู่", color: "blue" };
+  if (status === "leave")  return { text: "🏖 ลาหยุดวันนี้", color: "purple" };
   return { text: t("statusUnknown"), color: "gray" };
 }
 
@@ -146,6 +148,8 @@ export function statusBadgeClasses(color) {
     orange: "bg-orange-100 text-orange-800 border-orange-300",
     red:    "bg-red-100 text-red-800 border-red-300",
     gray:   "bg-gray-100 text-gray-600 border-gray-300",
+    blue:   "bg-blue-100 text-blue-800 border-blue-300",
+    purple: "bg-purple-100 text-purple-800 border-purple-300",
   };
   return map[color] || map.gray;
 }

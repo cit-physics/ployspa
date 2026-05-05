@@ -166,6 +166,8 @@
             <button data-act="ready" data-id="${th.id}" title="${t("statusReady")}" class="w-9 h-9 flex items-center justify-center bg-green-100 hover:bg-green-200 text-green-700 rounded-lg text-base">✅</button>
             <button data-act="ready_at" data-id="${th.id}" title="${t("statusReadyAt")}" class="w-9 h-9 flex items-center justify-center bg-yellow-100 hover:bg-yellow-200 text-yellow-700 rounded-lg text-base">⏰</button>
             <button data-act="not_ready" data-id="${th.id}" title="${t("statusNotReady")}" class="w-9 h-9 flex items-center justify-center bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-base">❌</button>
+            <button data-act="break" data-id="${th.id}" title="พักสักครู่" class="w-9 h-9 flex items-center justify-center bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-base">☕</button>
+            <button data-act="leave" data-id="${th.id}" title="ลาหยุดวันนี้" class="w-9 h-9 flex items-center justify-center bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg text-base">🏖</button>
             <button data-act="clear" data-id="${th.id}" title="${t("clearStatus")}" class="w-9 h-9 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-base">🗑</button>
           </div>
         </div>
@@ -191,10 +193,12 @@
           const id = btn.dataset.id;
           const act = btn.dataset.act;
           try {
-            if (act === "ready") await setStatus(id, "ready");
+            if (act === "ready")      await setStatus(id, "ready");
             else if (act === "not_ready") await setStatus(id, "not_ready");
-            else if (act === "clear") await clearStatus(id);
-            else if (act === "ready_at") openTimeModal(id);
+            else if (act === "break")     await setStatus(id, "break");
+            else if (act === "leave")     await setStatus(id, "leave");
+            else if (act === "clear")     await clearStatus(id);
+            else if (act === "ready_at")  openTimeModal(id);
           } catch (err) {
             alert(`${t("error")}: ${err.message}`);
           }
