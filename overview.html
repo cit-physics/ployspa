@@ -3,137 +3,317 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ภาพรวมหมอวันนี้ — PloySpa Admin</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" />
+  <title>Dashboard — PloySpa Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    body { font-family: 'Sarabun', sans-serif; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Sarabun', sans-serif; background: #f0f7f4; color: #2d4a3e; font-size: 13px; min-height: 100vh; }
 
-    .stage-dot {
-      width: 10px; height: 10px;
-      border-radius: 50%;
-      display: inline-block;
-      flex-shrink: 0;
+    /* ── HEADER ── */
+    .header {
+      background: #fff;
+      border-bottom: 2px solid #c8e6d8;
+      padding: 10px 20px;
+      display: flex; align-items: center; gap: 12px;
+      position: sticky; top: 0; z-index: 50;
     }
-    .stage-line {
-      flex: 1; height: 2px;
-      background: #e5e7eb;
-    }
-    .stage-line.done { background: #10b981; }
+    .header-back { color: #6aaf8c; text-decoration: none; font-size: 12px; }
+    .header-back:hover { color: #2d6a4f; }
+    .header-title { font-size: 16px; font-weight: 700; color: #1a3a2e; flex: 1; }
+    .header-meta { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #6a9f8c; }
+    .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #4caf83; display: inline-block; animation: blink 1.4s ease-in-out infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
-    /* pulse สำหรับ busy */
-    @keyframes pulse-ring {
-      0%   { transform: scale(1); opacity: 0.8; }
-      100% { transform: scale(1.9); opacity: 0; }
+    /* ── SUMMARY BAR ── */
+    .summary-bar {
+      background: #fff;
+      border-bottom: 1px solid #d8eed8;
+      padding: 8px 20px;
+      display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
+      font-size: 12px;
     }
-    .pulse-busy::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: 9999px;
-      background: #f97316;
-      animation: pulse-ring 1.4s ease-out infinite;
+    .s-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: #f0f7f4; border-radius: 20px; padding: 3px 10px;
+      border: 1px solid #c8e6d8;
     }
-    .pulse-dot { position: relative; display: inline-flex; align-items: center; justify-content: center; }
+    .s-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+    .dot-busy     { background: #f5a623; }
+    .dot-ready    { background: #4caf83; }
+    .dot-booked   { background: #9b7ecb; }
+    .dot-readyat  { background: #f5c842; }
+    .dot-none     { background: #ccc; }
+    .s-chip strong { color: #1a3a2e; }
+    .branch-hours { margin-left: auto; display: flex; gap: 8px; }
+    .bh-chip { background: #e6f4ed; border-radius: 12px; padding: 3px 10px; font-size: 11px; color: #2d6a4f; font-weight: 600; }
 
-    .card-enter { animation: fadeIn 0.3s ease; }
-    @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+    /* ── FILTER TABS ── */
+    .tabs { padding: 10px 20px 0; display: flex; gap: 6px; }
+    .tab-btn {
+      padding: 4px 14px; border-radius: 20px; border: 1px solid #c8e6d8;
+      background: #fff; font-size: 12px; font-family: 'Sarabun', sans-serif;
+      color: #4a7c6f; cursor: pointer; transition: all .15s;
+    }
+    .tab-btn.active { background: #4caf83; color: #fff; border-color: #4caf83; }
+    .tab-btn:hover:not(.active) { border-color: #4caf83; color: #2d6a4f; }
+
+    /* ── GANTT SECTION ── */
+    .section { padding: 12px 20px 0; }
+    .section-title { font-size: 13px; font-weight: 700; color: #2d6a4f; margin-bottom: 8px; }
+
+    .gantt-wrap { overflow-x: auto; padding-bottom: 8px; }
+    .gantt-inner { min-width: 780px; }
+
+    .gantt-header { display: grid; grid-template-columns: 150px 1fr; margin-bottom: 2px; }
+    .gantt-name-col { font-size: 11px; font-weight: 700; color: #4a7c6f; padding-left: 4px; }
+    .time-axis { position: relative; height: 22px; border-left: 1px solid #b2d8c4; }
+    .time-tick {
+      position: absolute; transform: translateX(-50%);
+      font-size: 10px; color: #5a8f7c; font-weight: 600; white-space: nowrap;
+    }
+    .time-tick::after {
+      content: ''; position: absolute; bottom: -3px; left: 50%;
+      width: 1px; height: 5px; background: #b2d8c4;
+    }
+
+    /* Branch separator */
+    .branch-sep { display: grid; grid-template-columns: 150px 1fr; margin: 10px 0 3px; }
+    .branch-label-cell {
+      background: #4caf83; color: #fff; border-radius: 6px 0 0 6px;
+      padding: 2px 8px; font-size: 11px; font-weight: 700;
+      display: flex; align-items: center;
+    }
+    .branch-label-line { background: #c8e6d8; border-radius: 0 6px 6px 0; }
+
+    /* Gantt row */
+    .gantt-row { display: grid; grid-template-columns: 150px 1fr; margin-bottom: 4px; align-items: center; }
+    .g-name {
+      display: flex; align-items: center; gap: 6px;
+      padding: 0 6px 0 2px; overflow: hidden;
+    }
+    .g-avatar {
+      width: 26px; height: 26px; border-radius: 50%;
+      background: #c8e6d8; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: #2d6a4f;
+      overflow: hidden;
+    }
+    .g-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .g-name-text { font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .g-code { font-size: 9px; color: #6a9f8c; }
+
+    .g-bar-area {
+      position: relative; height: 32px;
+      background: #e8f5ee; border-radius: 6px;
+      border: 1px solid #c8e6d8; overflow: visible;
+    }
+    .grid-line {
+      position: absolute; top: 0; bottom: 0; width: 1px;
+      background: #c8e6d8; pointer-events: none; z-index: 0;
+    }
+    .bar {
+      position: absolute; top: 4px; bottom: 4px;
+      border-radius: 4px; display: flex; align-items: center;
+      justify-content: center; font-size: 10px; font-weight: 600;
+      overflow: hidden; white-space: nowrap; z-index: 2;
+      transition: opacity .15s;
+    }
+    .bar:hover { opacity: .85; }
+    .bar-active    { background: #4caf83; color: #fff; }
+    .bar-done      { background: #81c99e; color: #fff; }
+    .bar-booking   { background: rgba(155,126,203,.15); border: 2px dashed #9b7ecb; color: #6a4f9e; }
+    .bar-pending   { background: rgba(245,166,35,.15); border: 2px dashed #f5a623; color: #8a5c00; }
+
+    /* Current time line */
+    .now-line {
+      position: absolute; top: -26px; bottom: 0; width: 2px;
+      background: #e53935; z-index: 10; pointer-events: none;
+    }
+    .now-label {
+      position: absolute; top: -22px; transform: translateX(-50%);
+      background: #e53935; color: #fff; font-size: 9px; font-weight: 700;
+      padding: 1px 4px; border-radius: 3px; white-space: nowrap;
+    }
+    /* now-line on axis */
+    .axis-now {
+      position: absolute; top: 0; bottom: 0; width: 2px;
+      background: #e53935; z-index: 10;
+    }
+
+    /* ── DETAIL TABLE ── */
+    .table-wrap { overflow-x: auto; padding-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 6px rgba(0,0,0,.06); min-width: 680px; }
+    thead th {
+      background: #4caf83; color: #fff;
+      padding: 8px 10px; text-align: center;
+      font-size: 12px; font-weight: 600;
+    }
+    tbody td {
+      padding: 7px 10px; text-align: center;
+      border-bottom: 1px solid #e8f5ee; font-size: 12px;
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #f5fbf7; }
+    .tr-branch td {
+      background: #e6f4ed; font-weight: 700; color: #2d6a4f;
+      text-align: left; padding-left: 14px; font-size: 11px;
+    }
+    .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 10px;
+      font-size: 11px; font-weight: 600;
+    }
+    .badge-busy    { background: #fff3e0; color: #e65100; }
+    .badge-ready   { background: #e8f5e9; color: #2e7d32; }
+    .badge-booked  { background: #ede7f6; color: #5e35b1; }
+    .badge-readyat { background: #fffde7; color: #f57f17; }
+    .badge-none    { background: #f5f5f5; color: #9e9e9e; }
+
+    /* ── LOADING ── */
+    .loading { text-align: center; padding: 60px 20px; color: #6a9f8c; }
+    .spinner { width: 32px; height: 32px; border: 3px solid #c8e6d8; border-top-color: #4caf83; border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 12px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── SECTION GAP ── */
+    .gap { height: 12px; }
   </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body>
 
-<!-- Header -->
-<header class="bg-white border-b sticky top-0 z-10 shadow-sm">
-  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <a href="admin.html" class="text-gray-400 hover:text-gray-600 text-sm">← Admin</a>
-      <h1 class="text-lg font-bold text-gray-800">📋 ภาพรวมหมอวันนี้</h1>
-      <span id="today-date" class="text-xs text-gray-400"></span>
-    </div>
-    <div class="flex items-center gap-3">
-      <span id="live-clock" class="text-sm font-mono text-gray-500"></span>
-      <span id="last-updated" class="text-xs text-gray-400"></span>
-      <span class="inline-flex items-center gap-1 text-xs text-green-600">
-        <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse inline-block"></span> Live
-      </span>
-    </div>
+<!-- HEADER -->
+<header class="header">
+  <a href="admin.html" class="header-back">← Admin</a>
+  <span class="header-title">🌿 PloySpa Dashboard</span>
+  <div class="header-meta">
+    <span id="today-date"></span>
+    <span id="live-clock" style="font-variant-numeric:tabular-nums"></span>
+    <span class="live-dot"></span><span style="color:#4caf83;font-weight:600">Live</span>
+    <span id="last-updated" style="color:#aaa"></span>
   </div>
 </header>
 
-<!-- Summary Bar -->
-<div class="bg-white border-b">
-  <div class="max-w-6xl mx-auto px-4 py-2 flex gap-6 text-sm overflow-x-auto">
-    <div class="flex items-center gap-1.5 whitespace-nowrap">
-      <span class="w-3 h-3 rounded-full bg-orange-400 inline-block"></span>
-      <span class="text-gray-600">กำลังให้บริการ</span>
-      <span id="count-busy" class="font-bold text-gray-800">0</span>
-    </div>
-    <div class="flex items-center gap-1.5 whitespace-nowrap">
-      <span class="w-3 h-3 rounded-full bg-green-400 inline-block"></span>
-      <span class="text-gray-600">ว่าง</span>
-      <span id="count-ready" class="font-bold text-gray-800">0</span>
-    </div>
-    <div class="flex items-center gap-1.5 whitespace-nowrap">
-      <span class="w-3 h-3 rounded-full bg-blue-400 inline-block"></span>
-      <span class="text-gray-600">มีจอง</span>
-      <span id="count-booked" class="font-bold text-gray-800">0</span>
-    </div>
-    <div class="flex items-center gap-1.5 whitespace-nowrap">
-      <span class="w-3 h-3 rounded-full bg-yellow-400 inline-block"></span>
-      <span class="text-gray-600">รอสักครู่</span>
-      <span id="count-readyat" class="font-bold text-gray-800">0</span>
-    </div>
-    <div class="flex items-center gap-1.5 whitespace-nowrap">
-      <span class="w-3 h-3 rounded-full bg-gray-300 inline-block"></span>
-      <span class="text-gray-600">ยังไม่มา</span>
-      <span id="count-none" class="font-bold text-gray-800">0</span>
-    </div>
+<!-- SUMMARY BAR -->
+<div class="summary-bar">
+  <span class="s-chip"><span class="s-dot dot-busy"></span>นวดอยู่ <strong id="cnt-busy">0</strong></span>
+  <span class="s-chip"><span class="s-dot dot-ready"></span>ว่าง <strong id="cnt-ready">0</strong></span>
+  <span class="s-chip"><span class="s-dot dot-booked"></span>มีจอง <strong id="cnt-booked">0</strong></span>
+  <span class="s-chip"><span class="s-dot dot-readyat"></span>รอสักครู่ <strong id="cnt-readyat">0</strong></span>
+  <span class="s-chip"><span class="s-dot dot-none"></span>ยังไม่มา <strong id="cnt-none">0</strong></span>
+  <div class="branch-hours">
+    <span class="bh-chip" id="bh1">🏠 สาขา 1: — ชม.</span>
+    <span class="bh-chip" id="bh2">🏠 สาขา 2: — ชม.</span>
   </div>
 </div>
 
-<!-- Branch Filter -->
-<div class="max-w-6xl mx-auto px-4 pt-4 pb-1 flex gap-2">
-  <button data-branch="all"     class="branch-btn px-3 py-1 rounded-full text-sm font-medium border transition">ทุกสาขา</button>
-  <button data-branch="branch1" class="branch-btn px-3 py-1 rounded-full text-sm font-medium border transition">สาขา 1</button>
-  <button data-branch="branch2" class="branch-btn px-3 py-1 rounded-full text-sm font-medium border transition">สาขา 2</button>
+<!-- FILTER TABS -->
+<div class="tabs">
+  <button class="tab-btn active" data-branch="all">ทุกสาขา</button>
+  <button class="tab-btn" data-branch="branch1">สาขา 1</button>
+  <button class="tab-btn" data-branch="branch2">สาขา 2</button>
 </div>
 
-<!-- Main Grid -->
-<main class="max-w-6xl mx-auto px-4 py-4">
-  <div id="loading" class="text-center py-16 text-gray-400">
-    <div class="inline-block w-8 h-8 border-4 border-pink-300 border-t-pink-500 rounded-full animate-spin mb-3"></div>
-    <p>กำลังโหลดข้อมูล…</p>
+<!-- LOADING -->
+<div id="loading" class="loading">
+  <div class="spinner"></div>
+  <p>กำลังโหลดข้อมูล…</p>
+</div>
+
+<!-- MAIN CONTENT (hidden until data loads) -->
+<div id="main-content" style="display:none">
+
+  <!-- GANTT -->
+  <div class="section">
+    <div class="section-title">📊 Timeline วันนี้ (08:00 – 06:00)</div>
+    <div class="gantt-wrap">
+      <div class="gantt-inner">
+        <!-- header -->
+        <div class="gantt-header">
+          <div class="gantt-name-col">หมอ / สาขา</div>
+          <div class="time-axis" id="timeAxis"></div>
+        </div>
+        <!-- rows -->
+        <div id="ganttRows"></div>
+      </div>
+    </div>
   </div>
-  <div id="grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 hidden"></div>
-</main>
+
+  <div class="gap"></div>
+
+  <!-- DETAIL TABLE -->
+  <div class="section">
+    <div class="section-title">📋 รายละเอียดรอบวันนี้</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align:left;padding-left:14px">หมอ</th>
+            <th>สาขา</th>
+            <th>สถานะ</th>
+            <th>เริ่ม</th>
+            <th>จบ (กำหนด)</th>
+            <th>ชม.วันนี้</th>
+            <th>ต่อเวลา</th>
+            <th>จอง</th>
+            <th>ลงจริง</th>
+          </tr>
+        </thead>
+        <tbody id="detailBody"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="gap"></div>
+</div>
 
 <script type="module">
 import {
   db, collection, query, where, onSnapshot, orderBy
 } from "./js/firebase-config.js";
 
-// =========================================================
-// State
-// =========================================================
-let therapists = [];
-let statuses   = {};
-let sessions   = {};   // therapistId → active session doc
-let bookings   = {};   // therapistId → latest today booking
-let checkins   = {};   // therapistId → checkin doc
+// ─── TIMELINE CONSTANTS ───────────────────────────────
+const START_H = 8;
+const END_H   = 30;   // 06:00 next day
+const SPAN    = END_H - START_H; // 22 hrs
+const TICKS   = [8,10,12,14,16,18,20,22,24,26,28,30];
+
+function toDecH(hhmm) {
+  if (!hhmm) return null;
+  const [h, m] = hhmm.split(":").map(Number);
+  return (h < 6 ? h + 24 : h) + m / 60;
+}
+function pct(h) {
+  return Math.max(0, Math.min(100, (h - START_H) / SPAN * 100));
+}
+function hhmmLabel(decH) {
+  const h = Math.floor(decH) % 24;
+  const m = Math.round((decH % 1) * 60);
+  return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+}
+
+// ─── STATE ────────────────────────────────────────────
+let therapists   = [];
+let statuses     = {};
+let allSessions  = {}; // therapistId → [sessions]
+let allBookings  = {}; // therapistId → [bookings]
 let activeBranch = "all";
 
-// =========================================================
-// Firestore Listeners
-// =========================================================
+// ─── HELPERS ─────────────────────────────────────────
 function getTodayDate() {
-  const now = new Date();
+  const now  = new Date();
   const thai = new Date(now.getTime() + 7 * 60 * 60 * 1000);
   return thai.toISOString().split("T")[0];
+}
+function esc(s) {
+  if (s == null) return "";
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+function diffH(start, end) {
+  const s = toDecH(start), e = toDecH(end);
+  if (s == null || e == null) return 0;
+  return Math.max(0, e - s);
 }
 
 const today = getTodayDate();
 
-// 1. Therapists
+// ─── FIRESTORE LISTENERS ──────────────────────────────
 onSnapshot(
   query(collection(db, "therapists"), orderBy("code")),
   snap => {
@@ -142,330 +322,329 @@ onSnapshot(
   }
 );
 
-// 2. Statuses
 onSnapshot(collection(db, "statuses"), snap => {
   statuses = {};
   snap.docs.forEach(d => { statuses[d.id] = d.data(); });
   render();
 });
 
-// 3. Sessions (today, active)
 onSnapshot(
   query(collection(db, "sessions"), where("date", "==", today)),
   snap => {
-    sessions = {};
+    allSessions = {};
     snap.docs.forEach(d => {
       const s = { id: d.id, ...d.data() };
-      // เก็บ session ที่ active หรือ session ล่าสุด
-      if (!sessions[s.therapistId] || s.status === "active") {
-        sessions[s.therapistId] = s;
-      }
+      if (!allSessions[s.therapistId]) allSessions[s.therapistId] = [];
+      allSessions[s.therapistId].push(s);
+    });
+    // sort each therapist's sessions by startTime
+    Object.keys(allSessions).forEach(tid => {
+      allSessions[tid].sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
     });
     render();
   }
 );
 
-// 4. Bookings (today)
 onSnapshot(
   query(collection(db, "bookings"), where("bookingDate", "==", today)),
   snap => {
-    bookings = {};
+    allBookings = {};
     snap.docs.forEach(d => {
       const b = { id: d.id, ...d.data() };
       if (!b.therapistId) return;
-      // ถ้ายังไม่มี หรือ pending ใหม่กว่า
-      if (!bookings[b.therapistId]) bookings[b.therapistId] = b;
-      else {
-        // priority: pending_confirmation > confirmed > others
-        const prev = bookings[b.therapistId];
-        const priority = s => s === "pending_confirmation" ? 0 : s === "confirmed" ? 1 : 2;
-        if (priority(b.status) < priority(prev.status)) bookings[b.therapistId] = b;
-      }
+      if (!allBookings[b.therapistId]) allBookings[b.therapistId] = [];
+      allBookings[b.therapistId].push(b);
     });
     render();
   }
 );
 
-// 5. Checkins (today)
-onSnapshot(
-  query(collection(db, "checkins"), where("date", "==", today)),
-  snap => {
-    checkins = {};
-    snap.docs.forEach(d => { checkins[d.id] = d.data(); });
-    render();
-  }
-);
-
-// =========================================================
-// Render
-// =========================================================
+// ─── RENDER ───────────────────────────────────────────
+let rendered = false;
 function render() {
   if (!therapists.length) return;
-  document.getElementById("loading").classList.add("hidden");
-  document.getElementById("grid").classList.remove("hidden");
 
-  const filtered = therapists.filter(t =>
+  if (!rendered) {
+    document.getElementById("loading").style.display = "none";
+    document.getElementById("main-content").style.display = "block";
+    buildTimeAxis();
+    rendered = true;
+  }
+
+  // filter
+  const list = therapists.filter(t =>
     activeBranch === "all" || t.branch === activeBranch
   );
 
-  // เรียงตาม: busy → pending → confirmed → ready → ready_at → none
-  const sortPriority = (t) => {
+  // sort: branch1 → branch2 → no branch / absent last
+  const branchOrder = { branch1: 0, branch2: 1 };
+  const statusOrder = t => {
     const s = statuses[t.id]?.status;
-    const b = bookings[t.id]?.status;
-    const hasSession = sessions[t.id]?.status === "active";
-    if (s === "busy" && hasSession) return 0;
-    if (s === "busy")              return 1;
-    if (b === "pending_confirmation") return 2;
-    if (b === "confirmed")         return 3;
-    if (s === "ready")             return 4;
-    if (s === "ready_at")          return 5;
-    return 6;
+    const hasSess = (allSessions[t.id] || []).some(s => s.status === "active");
+    if (s === "busy" && hasSess) return 0;
+    if (s === "busy")            return 1;
+    if (s === "ready")           return 2;
+    if (s === "ready_at")        return 3;
+    return 4;
   };
-  filtered.sort((a, b) => sortPriority(a) - sortPriority(b));
+  list.sort((a, b) => {
+    const ba = branchOrder[a.branch] ?? 2;
+    const bb = branchOrder[b.branch] ?? 2;
+    if (ba !== bb) return ba - bb;
+    return statusOrder(a) - statusOrder(b);
+  });
 
-  // Summary counts
-  let cBusy=0, cReady=0, cBooked=0, cReadyAt=0, cNone=0;
+  updateSummary();
+  buildGantt(list);
+  buildTable(list);
+  updateClock();
+}
+
+// ─── SUMMARY BAR ─────────────────────────────────────
+function updateSummary() {
+  let busy=0, ready=0, booked=0, readyat=0, none=0;
+  let h1=0, h2=0;
+
   therapists.forEach(t => {
-    const s = statuses[t.id]?.status;
-    const b = bookings[t.id];
-    if (s === "busy")        cBusy++;
-    else if (b)              cBooked++;
-    else if (s === "ready")  cReady++;
-    else if (s === "ready_at") cReadyAt++;
-    else                     cNone++;
+    const st = statuses[t.id]?.status;
+    const bk = (allBookings[t.id] || []).find(b => ["pending_confirmation","confirmed"].includes(b.status));
+    if (st === "busy")          busy++;
+    else if (bk)                booked++;
+    else if (st === "ready")    ready++;
+    else if (st === "ready_at") readyat++;
+    else                        none++;
+
+    // hours per branch
+    const hrs = (allSessions[t.id] || []).reduce((acc, s) => acc + diffH(s.startTime, s.endTime), 0);
+    if (t.branch === "branch1") h1 += hrs;
+    else if (t.branch === "branch2") h2 += hrs;
   });
-  document.getElementById("count-busy").textContent    = cBusy;
-  document.getElementById("count-ready").textContent   = cReady;
-  document.getElementById("count-booked").textContent  = cBooked;
-  document.getElementById("count-readyat").textContent = cReadyAt;
-  document.getElementById("count-none").textContent    = cNone;
 
-  document.getElementById("grid").innerHTML = filtered.map(t => renderCard(t)).join("");
-
-  // last updated
-  const now = new Date();
-  const hh = String(now.getHours()).padStart(2,"0");
-  const mm = String(now.getMinutes()).padStart(2,"0");
-  const ss = String(now.getSeconds()).padStart(2,"0");
-  document.getElementById("last-updated").textContent = `อัพเดท ${hh}:${mm}:${ss}`;
+  document.getElementById("cnt-busy").textContent    = busy;
+  document.getElementById("cnt-ready").textContent   = ready;
+  document.getElementById("cnt-booked").textContent  = booked;
+  document.getElementById("cnt-readyat").textContent = readyat;
+  document.getElementById("cnt-none").textContent    = none;
+  document.getElementById("bh1").textContent = `🏠 สาขา 1: ${h1.toFixed(1)} ชม.`;
+  document.getElementById("bh2").textContent = `🏠 สาขา 2: ${h2.toFixed(1)} ชม.`;
 }
 
-// =========================================================
-// Card
-// =========================================================
-function renderCard(t) {
-  const status  = statuses[t.id];
-  const session = sessions[t.id];
-  const booking = bookings[t.id];
-  const checkin = checkins[t.id];
+// ─── TIME AXIS ────────────────────────────────────────
+function buildTimeAxis() {
+  const axis = document.getElementById("timeAxis");
+  axis.innerHTML = "";
+  TICKS.forEach(h => {
+    const tick = document.createElement("div");
+    tick.className = "time-tick";
+    tick.style.left = pct(h) + "%";
+    tick.textContent = hhmmLabel(h);
+    axis.appendChild(tick);
+  });
+  // now line on axis
+  const nl = document.createElement("div");
+  nl.className = "axis-now";
+  nl.id = "axis-now-line";
+  axis.appendChild(nl);
+}
 
-  const rawName = t.nameTh || t.nameEn || t.nickname || t.code || "—";
-  const name    = rawName.startsWith("น้อง") ? rawName : `น้อง${rawName}`;
-  const branch  = t.branch === "branch2" ? "สาขา 2" : "สาขา 1";
-  const photoEl = t.photoUrl
-    ? `<img src="${esc(t.photoUrl)}" class="w-12 h-12 rounded-full object-cover border-2 border-white shadow" />`
-    : `<div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-2xl border-2 border-white shadow">👤</div>`;
+// ─── GANTT ────────────────────────────────────────────
+function buildGantt(list) {
+  const container = document.getElementById("ganttRows");
+  container.innerHTML = "";
 
-  // --- ระบุ stage ปัจจุบัน ---
-  const st = status?.status;
-  const hasActiveSession  = session?.status === "active";
-  const hasPendingBooking = booking?.status === "pending_confirmation";
-  const hasConfirmedBooking = booking?.status === "confirmed";
-  const hasCheckin = !!checkin;
+  let lastBranch = null;
 
-  let stageKey, cardBg, badgeHtml, detailHtml;
+  list.forEach(t => {
+    // branch separator
+    if (t.branch !== lastBranch) {
+      lastBranch = t.branch;
+      const sep = document.createElement("div");
+      sep.className = "branch-sep";
+      const branchName = t.branch === "branch2" ? "สาขา 2" : "สาขา 1";
+      sep.innerHTML = `<div class="branch-label-cell">📍 ${esc(branchName)}</div><div class="branch-label-line"></div>`;
+      container.appendChild(sep);
+    }
 
-  if (st === "busy" && hasActiveSession) {
-    // กำลังให้บริการ — session กำลังรัน
-    stageKey = "session";
-    cardBg   = "border-orange-200 bg-orange-50";
-    badgeHtml = badge("🔴 กำลังให้บริการ", "bg-orange-100 text-orange-700 border-orange-300");
-    detailHtml = [
-      session.roomNumber ? row("🛏", `ห้อง ${session.roomNumber} (${session.branch || "?"})`) : "",
-      session.startTime  ? row("⏰", `${session.startTime}–${session.endTime || "?"} น.`) : "",
-      session.customerName ? row("👤", `คุณ${session.customerName}`) : "",
-      session.serviceName  ? row("🛎", session.serviceName) : "",
-    ].filter(Boolean).join("");
+    const row = document.createElement("div");
+    row.className = "gantt-row";
 
-  } else if (st === "busy") {
-    // busy แต่ไม่มี session (admin จอง)
-    stageKey = "booked_busy";
-    cardBg   = "border-orange-200 bg-orange-50";
-    badgeHtml = badge("🟡 จองแล้ว (รอเริ่ม)", "bg-yellow-100 text-yellow-700 border-yellow-300");
-    detailHtml = booking ? [
-      row("📅", `${booking.bookingTime} น.`),
-      row("👤", `คุณ${booking.customerName}`),
-      row("📍", `ว่างถึง ${status.readyAt || "?"} น.`),
-    ].join("") : row("📍", `ว่างถึง ${status.readyAt || "?"} น.`);
+    // name col
+    const initial = (t.nameTh || t.nameEn || t.code || "?")[0];
+    const photoHtml = t.photoUrl
+      ? `<img src="${esc(t.photoUrl)}" alt="">`
+      : initial;
+    const nameDiv = document.createElement("div");
+    nameDiv.className = "g-name";
+    nameDiv.innerHTML = `
+      <div class="g-avatar">${t.photoUrl ? `<img src="${esc(t.photoUrl)}" alt="">` : esc(initial)}</div>
+      <div>
+        <div class="g-name-text">${esc(t.nameTh || t.nameEn || t.code)}</div>
+        <div class="g-code">${esc(t.code || "")}</div>
+      </div>`;
 
-  } else if (hasPendingBooking) {
-    stageKey = "pending";
-    cardBg   = "border-blue-200 bg-blue-50";
-    badgeHtml = badge("📅 มีจองรอยืนยัน", "bg-blue-100 text-blue-700 border-blue-300");
-    detailHtml = [
-      row("⏰", `${booking.bookingTime} น.`),
-      row("👤", `คุณ${booking.customerName}`),
-      booking.source === "admin_group" ? row("📌", "Admin จอง") : row("📌", "ลูกค้าจอง (LINE)"),
-      hasCheckin ? row("✅", `มาร้านแล้ว ${checkin.checkInTime} น.`) : "",
-    ].filter(Boolean).join("");
+    // bar area
+    const area = document.createElement("div");
+    area.className = "g-bar-area";
 
-  } else if (hasConfirmedBooking) {
-    stageKey = "confirmed";
-    cardBg   = "border-indigo-200 bg-indigo-50";
-    badgeHtml = badge("✅ ยืนยันแล้ว รอลูกค้า", "bg-indigo-100 text-indigo-700 border-indigo-300");
-    detailHtml = [
-      row("⏰", `${booking.bookingTime} น.`),
-      row("👤", `คุณ${booking.customerName}`),
-      hasCheckin ? row("🏠", `มาร้านแล้ว ${checkin.checkInTime} น.`) : "",
-    ].filter(Boolean).join("");
+    // grid lines
+    TICKS.forEach(h => {
+      const gl = document.createElement("div");
+      gl.className = "grid-line";
+      gl.style.left = pct(h) + "%";
+      area.appendChild(gl);
+    });
 
-  } else if (st === "ready") {
-    stageKey = "ready";
-    cardBg   = "border-green-200 bg-green-50";
-    badgeHtml = badge("🟢 ว่าง พร้อมบริการ", "bg-green-100 text-green-700 border-green-300");
-    detailHtml = hasCheckin ? row("🏠", `มาถึง ${checkin.checkInTime} น.`) : "";
+    // session bars
+    (allSessions[t.id] || []).forEach(s => {
+      if (!s.startTime) return;
+      const sh = toDecH(s.startTime);
+      const eh = s.endTime ? toDecH(s.endTime) : sh + 2; // default 2h if no end
+      const bar = document.createElement("div");
+      bar.className = "bar " + (s.status === "active" ? "bar-active" : "bar-done");
+      bar.style.left  = pct(sh) + "%";
+      bar.style.width = Math.max(0.5, pct(eh) - pct(sh)) + "%";
+      const label = `${s.startTime}${s.endTime ? "–" + s.endTime : ""}`;
+      bar.textContent = label;
+      bar.title = `${esc(s.customerName || "")} | ${esc(s.serviceName || "")}`;
+      area.appendChild(bar);
+    });
 
-  } else if (st === "ready_at") {
-    stageKey = "ready_at";
-    cardBg   = "border-yellow-200 bg-yellow-50";
-    badgeHtml = badge(`⏰ พร้อม ${status.readyAt} น.`, "bg-yellow-100 text-yellow-700 border-yellow-300");
-    detailHtml = hasCheckin ? row("🏠", `มาถึง ${checkin.checkInTime} น.`) : "";
+    // booking bars
+    (allBookings[t.id] || []).forEach(b => {
+      if (!b.bookingTime) return;
+      const sh = toDecH(b.bookingTime);
+      const eh = sh + 2; // assume 2h
+      const bar = document.createElement("div");
+      bar.className = "bar " + (b.status === "pending_confirmation" ? "bar-pending" : "bar-booking");
+      bar.style.left  = pct(sh) + "%";
+      bar.style.width = Math.max(1, pct(eh) - pct(sh)) + "%";
+      bar.textContent = `จอง ${b.bookingTime}`;
+      bar.title = `คุณ${esc(b.customerName || "")} | ${b.status}`;
+      area.appendChild(bar);
+    });
 
-  } else {
-    stageKey = "none";
-    cardBg   = "border-gray-200 bg-white";
-    badgeHtml = badge("⚪ ยังไม่มาร้าน", "bg-gray-100 text-gray-500 border-gray-300");
-    detailHtml = "";
-  }
+    // current time line
+    const nowLine = document.createElement("div");
+    nowLine.className = "now-line";
+    nowLine.dataset.tid = t.id;
+    area.appendChild(nowLine);
 
-  // Pipeline steps
-  const pipelineHtml = renderPipeline(stageKey, hasCheckin);
+    row.appendChild(nameDiv);
+    row.appendChild(area);
+    container.appendChild(row);
+  });
+}
 
-  return `
-    <div class="card-enter rounded-xl border ${cardBg} p-4 flex flex-col gap-3 shadow-sm">
-      <!-- Top row: photo + name + branch -->
-      <div class="flex items-center gap-3">
-        ${photoEl}
-        <div class="flex-1 min-w-0">
-          <div class="font-semibold text-gray-800 truncate">${esc(name)}</div>
-          <div class="text-xs text-gray-400">${esc(branch)}</div>
+// ─── DETAIL TABLE ─────────────────────────────────────
+function buildTable(list) {
+  const tbody = document.getElementById("detailBody");
+  tbody.innerHTML = "";
+
+  let lastBranch = null;
+
+  list.forEach(t => {
+    if (t.branch !== lastBranch) {
+      lastBranch = t.branch;
+      const branchName = t.branch === "branch2" ? "📍 สาขา 2" : "📍 สาขา 1";
+      const tr = document.createElement("tr");
+      tr.className = "tr-branch";
+      tr.innerHTML = `<td colspan="9">${esc(branchName)}</td>`;
+      tbody.appendChild(tr);
+    }
+
+    const st    = statuses[t.id]?.status;
+    const sess  = allSessions[t.id] || [];
+    const bks   = allBookings[t.id] || [];
+    const activeBk = bks.find(b => ["pending_confirmation","confirmed"].includes(b.status));
+
+    // summary fields
+    const firstStart = sess[0]?.startTime || "–";
+    const lastEnd    = sess.slice(-1)[0]?.endTime || "–";
+    const totalH     = sess.reduce((a, s) => a + diffH(s.startTime, s.endTime), 0);
+    const hasExt     = sess.some(s => s.extended === true);
+    const bookingStr = activeBk ? activeBk.bookingTime : "–";
+    // last completed session's endTime = actual end
+    const doneSess   = sess.filter(s => s.status !== "active");
+    const actualEnd  = doneSess.slice(-1)[0]?.endTime || "–";
+
+    // status badge
+    const badgeCls = st === "busy" ? "badge-busy" : st === "ready" ? "badge-ready" : st === "ready_at" ? "badge-readyat" : activeBk ? "badge-booked" : "badge-none";
+    const badgeLbl = st === "busy" ? "🔴 นวดอยู่" : st === "ready" ? "🟢 ว่าง" : st === "ready_at" ? `⏰ ${statuses[t.id].readyAt}` : activeBk ? "📅 มีจอง" : "⚪ ยังไม่มา";
+
+    const name = t.nameTh || t.nameEn || t.code || "–";
+    const initial = name[0];
+    const branchLabel = t.branch === "branch2" ? "2" : "1";
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td style="text-align:left">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="g-avatar" style="width:24px;height:24px;font-size:10px;flex-shrink:0">
+            ${t.photoUrl ? `<img src="${esc(t.photoUrl)}" alt="">` : esc(initial)}
+          </div>
+          <span style="font-weight:600">${esc(name)}</span>
         </div>
-        <div>${badgeHtml}</div>
-      </div>
-
-      <!-- Pipeline -->
-      ${pipelineHtml}
-
-      <!-- Details -->
-      ${detailHtml ? `<div class="bg-white/70 rounded-lg px-3 py-2 text-xs space-y-1 border border-gray-100">${detailHtml}</div>` : ""}
-    </div>
-  `;
-}
-
-// =========================================================
-// Pipeline
-// =========================================================
-function renderPipeline(stageKey, hasCheckin) {
-  // Steps: มาร้าน → มีจอง → เริ่มงาน → เสร็จงาน
-  const steps = [
-    { key: "checkin",  label: "มาร้าน" },
-    { key: "booked",   label: "มีจอง"  },
-    { key: "session",  label: "เริ่มงาน" },
-    { key: "done",     label: "เสร็จ"  },
-  ];
-
-  // ระบุว่าถึง step ไหนแล้ว
-  const reachMap = {
-    none:        { checkin: false, booked: false, session: false, done: false },
-    ready:       { checkin: true,  booked: false, session: false, done: false },
-    ready_at:    { checkin: true,  booked: false, session: false, done: false },
-    pending:     { checkin: hasCheckin, booked: true,  session: false, done: false },
-    confirmed:   { checkin: hasCheckin, booked: true,  session: false, done: false },
-    booked_busy: { checkin: true,  booked: true,  session: false, done: false },
-    session:     { checkin: true,  booked: true,  session: true,  done: false },
-  };
-  const reach = reachMap[stageKey] || reachMap.none;
-
-  const dots = steps.map((s, i) => {
-    const done   = reach[s.key];
-    const active = s.key === stageKey || (stageKey === "session" && s.key === "session")
-                || (stageKey === "ready" && s.key === "checkin")
-                || (stageKey === "pending" && s.key === "booked")
-                || (stageKey === "confirmed" && s.key === "booked")
-                || (stageKey === "booked_busy" && s.key === "booked");
-
-    const dotColor = done
-      ? (active ? "bg-orange-500" : "bg-emerald-500")
-      : "bg-gray-300";
-    const labelColor = done ? "text-gray-700" : "text-gray-400";
-    const lineHtml = i < steps.length - 1
-      ? `<div class="flex-1 h-0.5 ${done ? 'bg-emerald-400' : 'bg-gray-200'} mt-[-8px] mx-0.5"></div>`
-      : "";
-
-    return `
-      <div class="flex flex-col items-center gap-1 flex-shrink-0">
-        <div class="w-3 h-3 rounded-full ${dotColor} ${active ? 'ring-2 ring-offset-1 ring-orange-400' : ''}"></div>
-        <span class="text-[9px] ${labelColor} whitespace-nowrap">${s.label}</span>
-      </div>
-      ${lineHtml}
+      </td>
+      <td>สาขา ${esc(branchLabel)}</td>
+      <td><span class="badge ${badgeCls}">${esc(badgeLbl)}</span></td>
+      <td>${esc(firstStart)}</td>
+      <td>${esc(lastEnd)}</td>
+      <td>${totalH > 0 ? totalH.toFixed(1) : "–"}</td>
+      <td>${hasExt ? "✅" : "–"}</td>
+      <td>${esc(bookingStr)}</td>
+      <td>${esc(actualEnd)}</td>
     `;
-  });
-
-  return `
-    <div class="flex items-start gap-0 px-1">
-      ${dots.join("")}
-    </div>
-  `;
-}
-
-// =========================================================
-// Helpers
-// =========================================================
-function badge(text, cls) {
-  return `<span class="text-[11px] font-medium px-2 py-0.5 rounded-full border ${cls} whitespace-nowrap">${esc(text)}</span>`;
-}
-function row(icon, text) {
-  return `<div class="flex items-center gap-1.5"><span>${icon}</span><span class="text-gray-700">${esc(text)}</span></div>`;
-}
-function esc(s) {
-  if (s == null) return "";
-  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-}
-
-// =========================================================
-// Branch Filter
-// =========================================================
-function updateBranchButtons() {
-  document.querySelectorAll(".branch-btn").forEach(btn => {
-    const active = btn.dataset.branch === activeBranch;
-    btn.className = `branch-btn px-3 py-1 rounded-full text-sm font-medium border transition ${
-      active ? "bg-pink-500 text-white border-pink-500" : "bg-white text-gray-600 border-gray-200 hover:border-pink-300"
-    }`;
+    tbody.appendChild(tr);
   });
 }
-document.querySelectorAll(".branch-btn").forEach(btn => {
+
+// ─── CLOCK & CURRENT TIME LINE ────────────────────────
+function updateClock() {
+  const now  = new Date();
+  const bkk  = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
+  const h    = bkk.getHours(), m = bkk.getMinutes(), s = bkk.getSeconds();
+  const decH = h < 6 ? h + 24 : h;
+  const p    = pct(decH + m / 60);
+  const hhmm = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+  const hhmmss = hhmm + ":" + String(s).padStart(2,"0");
+
+  document.getElementById("live-clock").textContent = hhmmss;
+  document.getElementById("today-date").textContent = today;
+
+  const now2 = new Date();
+  const hh2 = String(now2.getHours()).padStart(2,"0");
+  const mm2 = String(now2.getMinutes()).padStart(2,"0");
+  const ss2 = String(now2.getSeconds()).padStart(2,"0");
+  document.getElementById("last-updated").textContent = `อัพเดท ${hh2}:${mm2}:${ss2}`;
+
+  // axis now line
+  const axisLine = document.getElementById("axis-now-line");
+  if (axisLine) axisLine.style.left = p + "%";
+
+  // row now lines
+  document.querySelectorAll(".now-line").forEach(el => {
+    el.style.left = p + "%";
+    let lbl = el.querySelector(".now-label");
+    if (!lbl) {
+      lbl = document.createElement("div");
+      lbl.className = "now-label";
+      el.appendChild(lbl);
+    }
+    lbl.textContent = hhmm;
+  });
+}
+
+setInterval(updateClock, 1000);
+
+// ─── BRANCH TABS ─────────────────────────────────────
+document.querySelectorAll(".tab-btn").forEach(btn => {
   btn.addEventListener("click", () => {
     activeBranch = btn.dataset.branch;
-    updateBranchButtons();
-    render();
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    if (therapists.length) render();
   });
 });
-updateBranchButtons();
-
-// =========================================================
-// Clock + Date
-// =========================================================
-function updateClock() {
-  const now = new Date();
-  const thai = new Date(now.getTime() + 7 * 60 * 60 * 1000);
-  const hh = String(thai.getUTCHours()).padStart(2,"0");
-  const mm = String(thai.getUTCMinutes()).padStart(2,"0");
-  const ss = String(thai.getUTCSeconds()).padStart(2,"0");
-  document.getElementById("live-clock").textContent = `${hh}:${mm}:${ss}`;
-}
-document.getElementById("today-date").textContent = today;
-updateClock();
-setInterval(updateClock, 1000);
 </script>
 </body>
 </html>
