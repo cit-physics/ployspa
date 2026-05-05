@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>จัดการ Session — PloySpa Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Sarabun', sans-serif; }
+    .spinner { width:28px; height:28px; border:3px solid #fce7f3; border-top-color:#ec4899; border-radius:50%; animation:spin .7s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+<!-- HEADER -->
+<header class="bg-white border-b sticky top-0 z-20 shadow-sm">
+  <div class="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
+    <a href="admin.html" class="text-pink-500 hover:text-pink-600 text-sm">← Admin</a>
+    <span class="text-gray-300">|</span>
+    <h1 class="text-base font-bold text-gray-800 flex-1">🗂 จัดการ Session</h1>
+    <input type="date" id="date-picker" class="border rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-pink-300" />
+    <button id="btn-add-session" class="px-4 py-2 bg-pink-500 text-white text-sm font-medium rounded-lg hover:bg-pink-600">
+      + เพิ่ม Session
+    </button>
+  </div>
+</header>
+
+<!-- SUMMARY -->
+<div class="max-w-4xl mx-auto px-4 pt-4">
+  <div id="summary-bar" class="flex gap-4 text-sm text-gray-600 bg-white rounded-xl px-4 py-3 border mb-4 flex-wrap">
+    <span>📅 วันที่: <strong id="summary-date">—</strong></span>
+    <span>👥 หมอที่มี session: <strong id="summary-therapists">0</strong> คน</span>
+    <span>🕐 รอบทั้งหมด: <strong id="summary-total">0</strong> รอบ</span>
+    <span>⏱ ชั่วโมงรวม: <strong id="summary-hours">0</strong> ชม.</span>
+  </div>
+</div>
+
+<!-- SESSION LIST -->
+<main class="max-w-4xl mx-auto px-4 pb-10">
+  <div id="loading" class="text-center py-16 text-gray-400">
+    <div class="spinner mx-auto mb-3"></div>
+    <p>กำลังโหลด…</p>
+  </div>
+  <div id="session-list" class="space-y-2 hidden"></div>
+  <div id="empty" class="hidden text-center py-16 text-gray-400">
+    <div class="text-4xl mb-3">📭</div>
+    <p>ไม่มี session ในวันนี้</p>
+    <button onclick="document.getElementById('btn-add-session').click()" class="mt-3 text-pink-500 text-sm hover:underline">+ เพิ่ม Session แรก</button>
+  </div>
+</main>
+
+<!-- ADD/EDIT MODAL -->
+<div id="modal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-xl max-w-md w-full">
+    <div class="px-6 py-4 border-b flex items-center justify-between">
+      <h2 id="modal-title" class="text-base font-bold text-gray-800">เพิ่ม Session</h2>
+      <button id="btn-close-modal" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+    </div>
+    <form id="session-form" class="p-6 space-y-4">
+      <!-- Therapist -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">หมอ <span class="text-red-500">*</span></label>
+        <select id="f-therapist" required class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300">
+          <option value="">— เลือกหมอ —</option>
+        </select>
+      </div>
+
+      <!-- Time -->
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">เวลาเริ่ม <span class="text-red-500">*</span></label>
+          <input type="time" id="f-start" required class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">เวลาจบ <span class="text-red-500">*</span></label>
+          <input type="time" id="f-end" required class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300" />
+        </div>
+      </div>
+
+      <!-- Branch + Room -->
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">สาขา</label>
+          <select id="f-branch" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300">
+            <option value="พ1">พ1 — สาขา 1</option>
+            <option value="พ2">พ2 — สาขา 2</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">ห้อง</label>
+          <select id="f-room" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300">
+            <option value="">— ไม่ระบุ —</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Customer -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">ชื่อลูกค้า</label>
+        <input type="text" id="f-customer" placeholder="ไม่บังคับ" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300" />
+      </div>
+
+      <!-- Service -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">บริการ</label>
+        <input type="text" id="f-service" placeholder="เช่น นวดไทย 60 นาที" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300" />
+      </div>
+
+      <!-- Payment -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">ชำระเงิน</label>
+        <select id="f-payment" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300">
+          <option value="ไม่ระบุ">ไม่ระบุ</option>
+          <option value="โอน">โอน</option>
+          <option value="เงินสด">เงินสด</option>
+        </select>
+      </div>
+
+      <!-- Status -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">สถานะ</label>
+        <select id="f-status" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300">
+          <option value="active">กำลังดำเนินการ (active)</option>
+          <option value="completed">เสร็จแล้ว (completed)</option>
+          <option value="cancelled">ยกเลิก (cancelled)</option>
+        </select>
+      </div>
+
+      <!-- Note -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">หมายเหตุ</label>
+        <input type="text" id="f-note" placeholder="ไม่บังคับ" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300" />
+      </div>
+
+      <div class="flex justify-end gap-3 pt-2 border-t">
+        <button type="button" id="btn-cancel-modal" class="px-4 py-2 text-gray-600 text-sm">ยกเลิก</button>
+        <button type="submit" id="btn-save-session" class="px-5 py-2 bg-pink-500 text-white text-sm font-medium rounded-lg hover:bg-pink-600">บันทึก</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script type="module">
+import {
+  db, auth,
+  collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
+  query, where, orderBy, serverTimestamp,
+  onAuthStateChanged, signInWithEmailAndPassword,
+} from "./js/firebase-config.js";
+import { listTherapists, escapeHtml } from "./js/helpers.js";
+import { requireAuth } from "./js/auth.js";
+
+await requireAuth();
+
+const $ = id => document.getElementById(id);
+
+// ─── DATE ───────────────────────────────────────────
+function getTodayThai() {
+  const now = new Date();
+  const thai = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+  return thai.toISOString().split("T")[0];
+}
+
+let selectedDate = getTodayThai();
+$("date-picker").value = selectedDate;
+$("date-picker").addEventListener("change", e => {
+  selectedDate = e.target.value;
+  loadSessions();
+});
+
+// ─── THERAPISTS ─────────────────────────────────────
+let therapists = [];
+async function loadTherapists() {
+  therapists = (await listTherapists()).filter(t => t.active !== false);
+  const sel = $("f-therapist");
+  sel.innerHTML = '<option value="">— เลือกหมอ —</option>' +
+    therapists.map(t => `<option value="${t.id}">${escapeHtml(t.nameTh || t.nameEn || t.code)}</option>`).join("");
+}
+
+// ─── SESSIONS ───────────────────────────────────────
+let sessions = [];
+async function loadSessions() {
+  $("loading").classList.remove("hidden");
+  $("session-list").classList.add("hidden");
+  $("empty").classList.add("hidden");
+
+  const snap = await getDocs(
+    query(collection(db, "sessions"), where("date", "==", selectedDate))
+  );
+  sessions = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
+
+  $("loading").classList.add("hidden");
+  renderSessions();
+}
+
+function diffH(s, e) {
+  if (!s || !e) return 0;
+  const toMin = t => { const [h,m] = t.split(":").map(Number); return h*60+m; };
+  return Math.max(0, (toMin(e) - toMin(s)) / 60);
+}
+
+function renderSessions() {
+  const list = $("session-list");
+
+  if (sessions.length === 0) {
+    $("empty").classList.remove("hidden");
+    list.classList.add("hidden");
+    updateSummary();
+    return;
+  }
+
+  list.classList.remove("hidden");
+  $("empty").classList.add("hidden");
+
+  list.innerHTML = sessions.map(s => {
+    const th = therapists.find(t => t.id === s.therapistId);
+    const name = s.therapistName || th?.nameTh || th?.nameEn || "—";
+    const photo = th?.photoUrl
+      ? `<img src="${escapeHtml(th.photoUrl)}" class="w-10 h-10 rounded-full object-cover flex-shrink-0" />`
+      : `<div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 flex-shrink-0 text-sm">${escapeHtml(name[0] || "?")}</div>`;
+
+    const statusCfg = {
+      active:    { cls: "bg-orange-100 text-orange-700", label: "🔴 กำลังนวด" },
+      completed: { cls: "bg-green-100 text-green-700",   label: "✅ เสร็จแล้ว" },
+      cancelled: { cls: "bg-gray-100 text-gray-500",     label: "❌ ยกเลิก" },
+    };
+    const sc = statusCfg[s.status] || statusCfg.completed;
+    const hrs = diffH(s.startTime, s.endTime);
+
+    return `
+      <div class="bg-white border rounded-xl p-4 flex items-center gap-3 ${s.status === 'cancelled' ? 'opacity-60' : ''}">
+        ${photo}
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-semibold text-gray-800">${escapeHtml(name)}</span>
+            <span class="text-xs px-2 py-0.5 rounded-full border ${sc.cls}">${sc.label}</span>
+          </div>
+          <div class="text-sm text-gray-600 mt-0.5">
+            ⏰ ${escapeHtml(s.startTime || "—")} – ${escapeHtml(s.endTime || "?")}
+            ${hrs > 0 ? `<span class="text-gray-400">(${hrs.toFixed(1)} ชม.)</span>` : ""}
+            ${s.branch ? `· ${escapeHtml(s.branch)}` : ""}
+            ${s.roomNumber ? `ห้อง ${s.roomNumber}` : ""}
+          </div>
+          ${s.customerName ? `<div class="text-xs text-gray-500 mt-0.5">👤 คุณ${escapeHtml(s.customerName)}${s.serviceName ? ` · ${escapeHtml(s.serviceName)}` : ""}</div>` : ""}
+          ${s.paymentType && s.paymentType !== "ไม่ระบุ" ? `<div class="text-xs text-gray-500">💳 ${escapeHtml(s.paymentType)}</div>` : ""}
+          ${s.adminNote ? `<div class="text-xs text-pink-500 mt-0.5">📝 ${escapeHtml(s.adminNote)}</div>` : ""}
+        </div>
+        <div class="flex gap-1 flex-shrink-0">
+          <button data-edit="${s.id}" class="px-2 py-1.5 text-xs border rounded-lg hover:bg-gray-50 text-gray-600">แก้ไข</button>
+          ${s.status !== 'cancelled'
+            ? `<button data-cancel="${s.id}" class="px-2 py-1.5 text-xs border border-yellow-200 text-yellow-600 rounded-lg hover:bg-yellow-50">ยกเลิก</button>`
+            : ""}
+          <button data-del="${s.id}" class="px-2 py-1.5 text-xs border border-red-200 text-red-600 rounded-lg hover:bg-red-50">ลบ</button>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  // bind events
+  list.querySelectorAll("[data-edit]").forEach(b => {
+    b.addEventListener("click", () => openModal(b.dataset.edit));
+  });
+  list.querySelectorAll("[data-cancel]").forEach(b => {
+    b.addEventListener("click", async () => {
+      if (!confirm("ยืนยันยกเลิก session นี้?")) return;
+      await updateDoc(doc(db, "sessions", b.dataset.cancel), { status: "cancelled" });
+      loadSessions();
+    });
+  });
+  list.querySelectorAll("[data-del]").forEach(b => {
+    b.addEventListener("click", async () => {
+      if (!confirm("ลบ session นี้ถาวรเลยไหม?")) return;
+      await deleteDoc(doc(db, "sessions", b.dataset.del));
+      loadSessions();
+    });
+  });
+
+  updateSummary();
+}
+
+function updateSummary() {
+  const active = sessions.filter(s => s.status !== "cancelled");
+  const therapistIds = new Set(active.map(s => s.therapistId));
+  const totalH = active.reduce((acc, s) => acc + diffH(s.startTime, s.endTime), 0);
+  $("summary-date").textContent = selectedDate;
+  $("summary-therapists").textContent = therapistIds.size;
+  $("summary-total").textContent = active.length;
+  $("summary-hours").textContent = totalH.toFixed(1);
+}
+
+// ─── MODAL ──────────────────────────────────────────
+let editingId = null;
+
+function openModal(sessionId = null) {
+  editingId = sessionId;
+  $("session-form").reset();
+
+  if (sessionId) {
+    $("modal-title").textContent = "แก้ไข Session";
+    const s = sessions.find(x => x.id === sessionId);
+    if (s) {
+      $("f-therapist").value = s.therapistId || "";
+      $("f-start").value = s.startTime || "";
+      $("f-end").value = s.endTime || "";
+      $("f-branch").value = s.branch || "พ1";
+      $("f-room").value = s.roomNumber || "";
+      $("f-customer").value = s.customerName || "";
+      $("f-service").value = s.serviceName || "";
+      $("f-payment").value = s.paymentType || "ไม่ระบุ";
+      $("f-status").value = s.status || "completed";
+      $("f-note").value = s.adminNote || "";
+    }
+  } else {
+    $("modal-title").textContent = "เพิ่ม Session";
+    $("f-status").value = "completed";
+    // default time = now
+    const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
+    const hh = String(now.getHours()).padStart(2,"0");
+    const mm = String(now.getMinutes()).padStart(2,"0");
+    $("f-start").value = `${hh}:${mm}`;
+  }
+
+  $("modal").classList.remove("hidden");
+  $("modal").classList.add("flex");
+}
+
+function closeModal() {
+  $("modal").classList.add("hidden");
+  $("modal").classList.remove("flex");
+  editingId = null;
+}
+
+$("btn-close-modal").addEventListener("click", closeModal);
+$("btn-cancel-modal").addEventListener("click", closeModal);
+$("btn-add-session").addEventListener("click", () => openModal());
+
+// Auto-set branch from therapist selection
+$("f-therapist").addEventListener("change", () => {
+  const th = therapists.find(t => t.id === $("f-therapist").value);
+  if (th?.branch) $("f-branch").value = th.branch === "branch2" ? "พ2" : "พ1";
+});
+
+// ─── SAVE ────────────────────────────────────────────
+$("session-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const btn = $("btn-save-session");
+  btn.disabled = true;
+  btn.textContent = "กำลังบันทึก…";
+
+  try {
+    const therapistId = $("f-therapist").value;
+    const th = therapists.find(t => t.id === therapistId);
+    const data = {
+      therapistId,
+      therapistName: th?.nameTh || th?.nameEn || "",
+      date: selectedDate,
+      startTime: $("f-start").value,
+      endTime: $("f-end").value,
+      branch: $("f-branch").value,
+      roomNumber: parseInt($("f-room").value) || null,
+      customerName: $("f-customer").value.trim() || null,
+      serviceName: $("f-service").value.trim() || null,
+      paymentType: $("f-payment").value,
+      status: $("f-status").value,
+      adminNote: $("f-note").value.trim() || null,
+      source: "admin_manual",
+    };
+
+    if (editingId) {
+      await updateDoc(doc(db, "sessions", editingId), { ...data, updatedAt: serverTimestamp() });
+    } else {
+      await addDoc(collection(db, "sessions"), { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    }
+
+    closeModal();
+    loadSessions();
+  } catch (err) {
+    alert("เกิดข้อผิดพลาด: " + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "บันทึก";
+  }
+});
+
+// ─── INIT ────────────────────────────────────────────
+await loadTherapists();
+loadSessions();
+</script>
+</body>
+</html>
