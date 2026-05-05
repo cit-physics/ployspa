@@ -154,7 +154,7 @@ import {
   query, where, orderBy, serverTimestamp,
   onAuthStateChanged, signInWithEmailAndPassword,
 } from "./js/firebase-config.js";
-import { listTherapists, escapeHtml } from "./js/helpers.js";
+import { listTherapists, escapeHtml, setStatus, clearStatus } from "./js/helpers.js";
 import { requireAuth } from "./js/auth.js";
 
 await requireAuth();
@@ -271,14 +271,24 @@ function renderSessions() {
   list.querySelectorAll("[data-cancel]").forEach(b => {
     b.addEventListener("click", async () => {
       if (!confirm("ยืนยันยกเลิก session นี้?")) return;
-      await updateDoc(doc(db, "sessions", b.dataset.cancel), { status: "cancelled" });
+      const s = sessions.find(x => x.id === b.dataset.cancel);
+      await updateDoc(doc(db, "sessions", b.dataset.cancel), { status: "cancelled", updatedAt: serverTimestamp() });
+      // If this was an active session today, reset therapist status to ready
+      if (s && s.status === "active" && s.date === getTodayThai() && s.therapistId) {
+        await setStatus(s.therapistId, "ready");
+      }
       loadSessions();
     });
   });
   list.querySelectorAll("[data-del]").forEach(b => {
     b.addEventListener("click", async () => {
       if (!confirm("ลบ session นี้ถาวรเลยไหม?")) return;
+      const s = sessions.find(x => x.id === b.dataset.del);
       await deleteDoc(doc(db, "sessions", b.dataset.del));
+      // If this was an active session today, reset therapist status to ready
+      if (s && s.status === "active" && s.date === getTodayThai() && s.therapistId) {
+        await setStatus(s.therapistId, "ready");
+      }
       loadSessions();
     });
   });
@@ -378,6 +388,15 @@ $("session-form").addEventListener("submit", async e => {
       await updateDoc(doc(db, "sessions", editingId), { ...data, updatedAt: serverTimestamp() });
     } else {
       await addDoc(collection(db, "sessions"), { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    }
+
+    // Sync statuses collection so customer page & dashboard update
+    if (therapistId && data.date === getTodayThai()) {
+      if (data.status === "active") {
+        await setStatus(therapistId, "busy", data.endTime || null);
+      } else if (data.status === "completed") {
+        await setStatus(therapistId, "ready");
+      }
     }
 
     closeModal();
