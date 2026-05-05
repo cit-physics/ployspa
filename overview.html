@@ -519,9 +519,12 @@ function buildGantt(list) {
       bar.className = "bar " + (s.status === "active" ? "bar-active" : "bar-done");
       bar.style.left  = pct(sh) + "%";
       bar.style.width = Math.max(0.5, pct(eh) - pct(sh)) + "%";
-      const label = `${s.startTime}${s.endTime ? "–" + s.endTime : ""}`;
+      // Show 📅 prefix if this session was linked to a booking
+      const prefix = s.bookingId ? "📅 " : "";
+      const label = `${prefix}${s.startTime}${s.endTime ? "–" + s.endTime : ""}`;
       bar.textContent = label;
-      bar.title = `${esc(s.customerName || "")} | ${esc(s.serviceName || "")}`;
+      const custForTitle = s.customerName || s.bookingCustomerName || "";
+      bar.title = (s.bookingId ? "📅 ลูกค้าจอง — " : "") + `${esc(custForTitle)} | ${esc(s.serviceName || "")}`;
       area.appendChild(bar);
     });
 

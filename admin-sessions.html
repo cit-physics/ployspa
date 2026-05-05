@@ -260,6 +260,7 @@ function renderSessions() {
             ${s.roomNumber ? `ห้อง ${s.roomNumber}` : ""}
           </div>
           ${s.customerName ? `<div class="text-xs text-gray-500 mt-0.5">👤 คุณ${escapeHtml(s.customerName)}${s.serviceName ? ` · ${escapeHtml(s.serviceName)}` : ""}</div>` : ""}
+          ${s.bookingId ? `<div class="text-xs text-indigo-600 mt-0.5 font-medium">📅 ลูกค้าจอง${s.bookingTime ? ` (${escapeHtml(s.bookingTime)})` : ""}${s.bookingCustomerName ? ` — คุณ${escapeHtml(s.bookingCustomerName)}` : ""}</div>` : ""}
           ${s.paymentType && s.paymentType !== "ไม่ระบุ" ? `<div class="text-xs text-gray-500">💳 ${escapeHtml(s.paymentType)}</div>` : ""}
           ${s.adminNote ? `<div class="text-xs text-pink-500 mt-0.5">📝 ${escapeHtml(s.adminNote)}</div>` : ""}
         </div>
