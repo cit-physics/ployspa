@@ -619,6 +619,13 @@ function buildTable(list) {
 
 // ─── CLOCK & CURRENT TIME LINE ────────────────────────
 function updateClock() {
+  // If the calendar date has rolled over (midnight crossing),
+  // reload the page so listeners re-subscribe to the new date.
+  if (getTodayDate() !== today) {
+    location.reload();
+    return;
+  }
+
   const now  = new Date();
   const bkk  = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
   const h    = bkk.getHours(), m = bkk.getMinutes(), s = bkk.getSeconds();
