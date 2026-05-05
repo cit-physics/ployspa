@@ -371,10 +371,13 @@
       status.textContent = t("uploadingPhoto");
       status.classList.remove("hidden");
       try {
-        if (pendingPhoto?.path) await removePhoto(pendingPhoto.path);
+        // Upload new photo FIRST, then delete the old one.
+        // This way, if upload fails, the old photo is still intact.
+        const oldPath = pendingPhoto?.path;
         const result = await uploadPhoto(file, "profiles");
         pendingPhoto = result;
         $("f-photo-preview").innerHTML = `<img src="${result.url}" class="w-full h-full object-cover" />`;
+        if (oldPath) await removePhoto(oldPath);
       } catch (err) {
         alert(`${t("error")}: ${err.message}`);
       } finally {
@@ -408,13 +411,26 @@
     // --- Save ---
     $("form").addEventListener("submit", async (e) => {
       e.preventDefault();
+
+      // Block duplicate code: another therapist (not the one we're editing)
+      // already uses this code.
+      const codeValue = $("f-code").value.trim();
+      const duplicate = cachedList.find(
+        (x) => (x.code || "").trim().toLowerCase() === codeValue.toLowerCase()
+                && x.id !== editingId
+      );
+      if (duplicate) {
+        alert(`รหัส "${codeValue}" ถูกใช้กับหมอ "${duplicate.nameTh || duplicate.nameEn || duplicate.id}" แล้ว — กรุณาใช้รหัสอื่น`);
+        return;
+      }
+
       const badges = [];
       if ($("f-badge-top").checked) badges.push("top");
       if ($("f-badge-new").checked) badges.push("new");
       if ($("f-badge-rising").checked) badges.push("rising");
 
       const data = {
-        code: $("f-code").value.trim(),
+        code: codeValue,
         nameTh: $("f-name-th").value.trim(),
         nameEn: $("f-name-en").value.trim(),
         branch: $("f-branch").value,
