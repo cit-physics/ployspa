@@ -3,7 +3,7 @@ rules_version = '2';
 // Production rules for Ploy Spa
 // - Public can READ therapist info and statuses (for customers and check-in)
 // - Public can WRITE statuses (staff press status without login)
-// - Only authenticated admin can write therapist data
+// - Only authenticated admin can write therapist data and sessions
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -17,14 +17,32 @@ service cloud.firestore {
     // Validate shape so people can't dump arbitrary data
     match /statuses/{therapistId} {
       allow read: if true;
+      allow delete: if true;
       allow write: if
-        request.resource.data.status in ['ready', 'not_ready', 'ready_at']
+        request.resource.data.status in ['ready', 'not_ready', 'ready_at', 'break', 'leave', 'busy']
         && request.resource.data.keys().hasOnly(['status', 'readyAt', 'updatedAt'])
         && (
           request.resource.data.status != 'ready_at'
           || (request.resource.data.readyAt is string
               && request.resource.data.readyAt.size() <= 5)
         );
+    }
+
+    // Sessions: public read, admin-only write/delete
+    match /sessions/{sessionId} {
+      allow read: if true;
+      allow write, delete: if request.auth != null;
+    }
+
+    // Bookings: public read, admin-only write
+    match /bookings/{bookingId} {
+      allow read: if true;
+      allow write, delete: if request.auth != null;
+    }
+
+    // Booking flow (LINE bot state): admin-only
+    match /bookingFlow/{docId} {
+      allow read, write, delete: if request.auth != null;
     }
   }
 }
