@@ -50,7 +50,7 @@
   </footer>
 
   <script type="module">
-    import { watchTherapists, watchStatuses, statusLabel, statusBadgeClasses, badgeStyle, badgeLabel, escapeHtml, formatMeasurements } from "./js/helpers.js";
+    import { watchTherapists, watchStatuses, statusLabel, statusBadgeClasses, badgeStyle, badgeLabel, escapeHtml, formatMeasurements, startReadyAtMonitor } from "./js/helpers.js";
     import { t, getLang, pickName } from "./js/i18n.js";
 
     let therapists = [];
@@ -193,6 +193,9 @@
       statuses = map;
       renderGrid();
     });
+
+    // Auto-promote any "ready_at HH:MM" → "ready" when the time passes
+    startReadyAtMonitor(() => statuses);
 
     document.addEventListener("langchange", () => {
       renderBranchFilter();

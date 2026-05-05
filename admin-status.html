@@ -84,6 +84,7 @@
       statusLabel,
       statusBadgeClasses,
       escapeHtml,
+      startReadyAtMonitor,
     } from "./js/helpers.js";
     import { t, pickName } from "./js/i18n.js";
     import { requireAuth, logout } from "./js/auth.js";
@@ -355,6 +356,9 @@
     // Live data
     watchTherapists((list) => { therapists = list; render(); });
     watchStatuses((map) => { statuses = map; render(); });
+
+    // Auto-promote any "ready_at HH:MM" → "ready" when the time passes
+    startReadyAtMonitor(() => statuses);
 
     document.addEventListener("langchange", render);
   </script>

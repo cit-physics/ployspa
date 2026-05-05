@@ -271,6 +271,7 @@ import {
   db, collection, query, where, onSnapshot, orderBy
 } from "./js/firebase-config.js";
 import { requireAuth } from "./js/auth.js";
+import { startReadyAtMonitor } from "./js/helpers.js";
 
 // Auth guard — redirect to login if not authenticated
 await requireAuth();
@@ -339,6 +340,9 @@ onSnapshot(collection(db, "statuses"), snap => {
   snap.docs.forEach(d => { statuses[d.id] = d.data(); });
   render();
 });
+
+// Auto-promote any "ready_at HH:MM" → "ready" when the time passes
+startReadyAtMonitor(() => statuses);
 
 onSnapshot(
   query(collection(db, "sessions"), where("date", "==", today)),

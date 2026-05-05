@@ -212,3 +212,43 @@ export function escapeHtml(s) {
 export function qs(name) {
   return new URLSearchParams(window.location.search).get(name);
 }
+
+// =========================================================
+// READY_AT AUTO-PROMOTE
+// =========================================================
+// When a therapist's status is "ready_at HH:MM" and the wall-clock
+// time passes HH:MM, promote them to "ready" automatically.
+// Pages that subscribe to statuses should call startReadyAtMonitor
+// once, passing a getter that returns the current statuses map.
+// The monitor only writes when it finds an actually-expired ready_at,
+// so even with multiple browsers open the cost stays close to one
+// write per expiry.
+
+function currentThaiHHMM() {
+  const now = new Date();
+  const offset = 7 * 60; // UTC+7
+  const thai = new Date(now.getTime() + offset * 60000);
+  const h = String(thai.getUTCHours()).padStart(2, "0");
+  const m = String(thai.getUTCMinutes()).padStart(2, "0");
+  return `${h}:${m}`;
+}
+
+let _readyAtMonitorTimer = null;
+export function startReadyAtMonitor(getStatusesMap) {
+  if (_readyAtMonitorTimer) clearInterval(_readyAtMonitorTimer);
+  const tick = async () => {
+    const map = (typeof getStatusesMap === "function" ? getStatusesMap() : null) || {};
+    const nowHHMM = currentThaiHHMM();
+    for (const [id, s] of Object.entries(map)) {
+      if (s?.status === "ready_at" && s?.readyAt && s.readyAt <= nowHHMM) {
+        try {
+          await setStatus(id, "ready");
+        } catch (e) {
+          console.warn("[ReadyAtMonitor] auto-promote failed", id, e.message);
+        }
+      }
+    }
+  };
+  tick();
+  _readyAtMonitorTimer = setInterval(tick, 30000);
+}
