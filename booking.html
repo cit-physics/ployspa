@@ -206,6 +206,7 @@
 import {
   db, collection, getDocs, addDoc, query, orderBy, serverTimestamp
 } from "./js/firebase-config.js";
+import { escapeHtml } from "./js/helpers.js";
 
 // =========================================================
 // ข้อมูล
@@ -272,7 +273,7 @@ async function loadTherapists() {
       const name = t.nameTh || t.nameEn || t.nickname || t.code;
       const badge = statusBadge(s);
       const photo = t.photoUrl
-        ? `<img src="${t.photoUrl}" alt="${name}" class="w-full h-full object-cover" />`
+        ? `<img src="${escapeHtml(t.photoUrl)}" alt="${escapeHtml(name)}" class="w-full h-full object-cover" />`
         : `<div class="w-full h-full bg-pink-50 flex items-center justify-center text-4xl">👤</div>`;
 
       return `
@@ -282,12 +283,12 @@ async function loadTherapists() {
           <div class="aspect-[3/4] relative">
             ${photo}
             <span class="absolute bottom-2 left-2 right-2 inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full bg-white/90 backdrop-blur border ${badge.cls}">
-              ${badge.text}
+              ${escapeHtml(badge.text)}
             </span>
           </div>
           <div class="p-2.5">
-            <div class="font-semibold text-gray-800 text-sm truncate">${name}</div>
-            ${t.specialties ? `<div class="text-xs text-gray-400 truncate mt-0.5">${t.specialties}</div>` : ""}
+            <div class="font-semibold text-gray-800 text-sm truncate">${escapeHtml(name)}</div>
+            ${t.specialties ? `<div class="text-xs text-gray-400 truncate mt-0.5">${escapeHtml(t.specialties)}</div>` : ""}
           </div>
         </button>`;
     }).join("");
@@ -299,11 +300,14 @@ async function loadTherapists() {
 }
 
 function statusBadge(s) {
-  if (!s) return { text: "ไม่ระบุสถานะ",   cls: "border-gray-200 text-gray-500" };
-  if (s.status === "ready")    return { text: "🟢 พร้อมบริการ",  cls: "border-green-200 text-green-700" };
-  if (s.status === "ready_at") return { text: `⏰ พร้อม ${s.readyAt} น.`, cls: "border-yellow-200 text-yellow-700" };
-  if (s.status === "busy")     return { text: `🟡 ว่าง ~${s.readyAt || "เร็วๆ นี้"} น.`, cls: "border-orange-200 text-orange-700" };
-  return { text: "ไม่พร้อม", cls: "border-red-200 text-red-400" };
+  if (!s) return { text: "ไม่ระบุสถานะ", cls: "border-gray-200 text-gray-500" };
+  if (s.status === "ready")     return { text: "🟢 พร้อมบริการ", cls: "border-green-200 text-green-700" };
+  if (s.status === "ready_at")  return { text: `⏰ พร้อม ${s.readyAt || ""} น.`, cls: "border-yellow-200 text-yellow-700" };
+  if (s.status === "busy")      return { text: s.readyAt ? `🔴 ติดงาน ~${s.readyAt} น.` : "🔴 กำลังให้บริการ", cls: "border-orange-200 text-orange-700" };
+  if (s.status === "break")     return { text: "☕ พักสักครู่", cls: "border-blue-200 text-blue-700" };
+  if (s.status === "leave")     return { text: "🏖 ลาหยุดวันนี้", cls: "border-purple-200 text-purple-700" };
+  if (s.status === "not_ready") return { text: "❌ ไม่พร้อม", cls: "border-red-200 text-red-400" };
+  return { text: "ไม่ระบุสถานะ", cls: "border-gray-200 text-gray-500" };
 }
 
 // =========================================================

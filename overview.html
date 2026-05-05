@@ -270,6 +270,10 @@
 import {
   db, collection, query, where, onSnapshot, orderBy
 } from "./js/firebase-config.js";
+import { requireAuth } from "./js/auth.js";
+
+// Auth guard — redirect to login if not authenticated
+await requireAuth();
 
 // ─── TIMELINE CONSTANTS ───────────────────────────────
 const START_H = 8;
