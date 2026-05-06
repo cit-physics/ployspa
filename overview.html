@@ -193,6 +193,19 @@
     tbody tr.row-cont td.cell-merged,
     tbody tr.row-end td.cell-merged  { /* placeholder for merged cells */ }
 
+    /* warning highlight on hours cell when value isn't a 0.5-hour multiple */
+    .cell-warn {
+      background: #fff8e1 !important;
+      color: #e65100;
+      font-weight: 700;
+      border-radius: 4px;
+      position: relative;
+    }
+    .cell-warn::after {
+      content: " ⚠️";
+      font-size: 11px;
+    }
+
     /* edit button */
     .btn-edit {
       padding: 3px 10px; border-radius: 6px; border: 1px solid #c8e6d8;
@@ -833,6 +846,16 @@ function buildTable(list) {
       const endStr   = s.endTime   || "–";
       const hours    = diffH(s.startTime, s.endTime);
       const hoursStr = hours > 0 ? hours.toFixed(1) : "–";
+      // ชั่วโมงควรเป็นทวีคูณของ 0.5 (1.0, 1.5, 2.0, 2.5, ...) — ถ้าไม่ใช่ ขึ้นเตือน
+      // ใช้เกณฑ์ขั้นต่ำ 1 ชม. (น้อยกว่านี้คือผิดปกติ ยกเว้น session ยกเลิก)
+      const isAbnormalHours = hours > 0 && (
+        hours < 1 ||                       // น้อยกว่า 1 ชม.
+        Math.abs((hours * 2) - Math.round(hours * 2)) > 0.01  // ไม่ใช่ทวีคูณของ 0.5
+      );
+      const hoursCellCls = isAbnormalHours ? "cell-warn" : "";
+      const hoursTitle   = isAbnormalHours
+        ? `title="ชั่วโมงผิดปกติ (${hoursStr}) ปกติเป็น 1, 1.5, 2, 2.5… กรุณาตรวจสอบ/แก้ไข"`
+        : "";
 
       // extension display
       let extStr = "–";
@@ -859,7 +882,7 @@ function buildTable(list) {
       }
       html += `<td>${esc(startStr)}</td>`;
       html += `<td>${esc(endStr)}</td>`;
-      html += `<td>${hoursStr}</td>`;
+      html += `<td class="${hoursCellCls}" ${hoursTitle}>${hoursStr}</td>`;
       html += `<td>${esc(extStr)}</td>`;
       if (isFirst) {
         html += bookingCell.replace("__RS__", RS);
