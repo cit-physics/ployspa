@@ -187,6 +187,66 @@
     .badge-notready{ background: #ffebee; color: #c62828; }
     .badge-none    { background: #f5f5f5; color: #9e9e9e; }
 
+    /* row separator: only between therapists, not between same-therapist sessions */
+    tbody tr.row-cont td { border-bottom: 1px dashed #eaf3ee; }
+    tbody tr.row-end td  { border-bottom: 1px solid #d8eed8; }
+    tbody tr.row-cont td.cell-merged,
+    tbody tr.row-end td.cell-merged  { /* placeholder for merged cells */ }
+
+    /* edit button */
+    .btn-edit {
+      padding: 3px 10px; border-radius: 6px; border: 1px solid #c8e6d8;
+      background: #fff; color: #4a7c6f; font-family: 'Sarabun', sans-serif;
+      font-size: 11px; cursor: pointer; transition: all .15s;
+    }
+    .btn-edit:hover { background: #4caf83; color: #fff; border-color: #4caf83; }
+
+    /* ── EDIT MODAL ── */
+    .ov-modal-bg {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      z-index: 100; display: none; align-items: center; justify-content: center;
+      padding: 16px;
+    }
+    .ov-modal-bg.show { display: flex; }
+    .ov-modal {
+      background: #fff; border-radius: 14px; box-shadow: 0 10px 40px rgba(0,0,0,.2);
+      max-width: 460px; width: 100%; max-height: 90vh; overflow-y: auto;
+    }
+    .ov-modal-head {
+      padding: 14px 20px; border-bottom: 1px solid #e8f5ee;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .ov-modal-head h3 { font-size: 15px; font-weight: 700; color: #1a3a2e; }
+    .ov-modal-close {
+      background: none; border: none; font-size: 22px; color: #aaa; cursor: pointer;
+      line-height: 1; padding: 0 4px;
+    }
+    .ov-modal-close:hover { color: #555; }
+    .ov-modal-body { padding: 18px 20px; }
+    .ov-form-row { margin-bottom: 12px; }
+    .ov-form-row label {
+      display: block; font-size: 12px; font-weight: 600; color: #2d4a3e; margin-bottom: 4px;
+    }
+    .ov-form-row input, .ov-form-row select, .ov-form-row textarea {
+      width: 100%; padding: 7px 10px; border-radius: 7px; border: 1px solid #c8e6d8;
+      font-family: 'Sarabun', sans-serif; font-size: 13px; background: #fff;
+    }
+    .ov-form-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .ov-modal-foot {
+      padding: 12px 20px; border-top: 1px solid #e8f5ee;
+      display: flex; gap: 8px; justify-content: flex-end;
+    }
+    .ov-btn {
+      padding: 7px 16px; border-radius: 7px; border: 1px solid transparent;
+      font-family: 'Sarabun', sans-serif; font-size: 13px; cursor: pointer; transition: all .15s;
+    }
+    .ov-btn-cancel { background: #fff; color: #666; border-color: #ddd; }
+    .ov-btn-cancel:hover { background: #f5f5f5; }
+    .ov-btn-save { background: #4caf83; color: #fff; }
+    .ov-btn-save:hover { background: #3d9970; }
+    .ov-btn-save:disabled { opacity: 0.5; cursor: wait; }
+    .ov-form-help { font-size: 11px; color: #888; margin-top: 3px; }
+
     /* ── LOADING ── */
     .loading { text-align: center; padding: 60px 20px; color: #6a9f8c; }
     .spinner { width: 32px; height: 32px; border: 3px solid #c8e6d8; border-top-color: #4caf83; border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 12px; }
@@ -271,14 +331,14 @@
         <thead>
           <tr>
             <th style="text-align:left;padding-left:14px">หมอ</th>
-            <th>สาขา</th>
             <th>สถานะ</th>
             <th>เริ่ม</th>
             <th>จบ (กำหนด)</th>
-            <th>ชม.วันนี้</th>
+            <th>ชม.</th>
             <th>ต่อเวลา</th>
             <th>จอง</th>
             <th>ลงจริง</th>
+            <th>แก้ไข</th>
           </tr>
         </thead>
         <tbody id="detailBody"></tbody>
@@ -288,9 +348,71 @@
   <div class="gap"></div>
 </div>
 
+<!-- EDIT SESSION MODAL -->
+<div id="ov-edit-modal" class="ov-modal-bg">
+  <div class="ov-modal">
+    <div class="ov-modal-head">
+      <h3 id="ov-modal-title">แก้ไข Session</h3>
+      <button class="ov-modal-close" id="ov-modal-close">&times;</button>
+    </div>
+    <form id="ov-edit-form" class="ov-modal-body">
+      <div id="ov-modal-info" style="font-size:12px;color:#4a7c6f;margin-bottom:10px;background:#f0f7f4;padding:8px 10px;border-radius:7px"></div>
+
+      <div class="ov-form-grid2">
+        <div class="ov-form-row">
+          <label>เวลาเริ่ม</label>
+          <input type="time" id="ov-f-start" required />
+        </div>
+        <div class="ov-form-row">
+          <label>เวลาจบ (กำหนด)</label>
+          <input type="time" id="ov-f-end" required />
+        </div>
+      </div>
+
+      <div class="ov-form-row">
+        <label>เวลาลงจริง <span style="color:#888;font-weight:400">(ถ้าหมอลงเวลาจริงต่างจากกำหนด)</span></label>
+        <input type="time" id="ov-f-actual-end" />
+        <div class="ov-form-help">เว้นว่างถ้าจบตามกำหนด</div>
+      </div>
+
+      <div class="ov-form-grid2">
+        <div class="ov-form-row">
+          <label>ต่อเวลา (นาที รวม)</label>
+          <input type="number" id="ov-f-ext-min" min="0" step="15" placeholder="0" />
+        </div>
+        <div class="ov-form-row">
+          <label>จำนวนครั้งที่ต่อ</label>
+          <input type="number" id="ov-f-ext-count" min="0" step="1" placeholder="0" />
+        </div>
+      </div>
+
+      <div class="ov-form-row">
+        <label>สถานะ</label>
+        <select id="ov-f-status">
+          <option value="active">กำลังนวด</option>
+          <option value="completed">เสร็จแล้ว</option>
+          <option value="cancelled">ยกเลิก</option>
+        </select>
+      </div>
+
+      <div class="ov-form-row">
+        <label>หมายเหตุ</label>
+        <input type="text" id="ov-f-note" placeholder="ไม่บังคับ" />
+      </div>
+
+      <div id="ov-form-error" style="color:#c62828;font-size:12px;margin-top:6px"></div>
+    </form>
+    <div class="ov-modal-foot">
+      <button type="button" class="ov-btn ov-btn-cancel" id="ov-modal-cancel">ยกเลิก</button>
+      <button type="button" class="ov-btn ov-btn-save" id="ov-modal-save">บันทึก</button>
+    </div>
+  </div>
+</div>
+
 <script type="module">
 import {
-  db, collection, query, where, onSnapshot, orderBy
+  db, collection, query, where, onSnapshot, orderBy,
+  doc, updateDoc, serverTimestamp
 } from "./js/firebase-config.js";
 import { requireAuth } from "./js/auth.js";
 import { startReadyAtMonitor } from "./js/helpers.js";
@@ -627,9 +749,13 @@ function buildGantt(list) {
 }
 
 // ─── DETAIL TABLE ─────────────────────────────────────
+// Cache map of session.id → session for the edit modal
+const sessionById = {};
+
 function buildTable(list) {
   const tbody = document.getElementById("detailBody");
   tbody.innerHTML = "";
+  Object.keys(sessionById).forEach(k => delete sessionById[k]);
 
   let lastBranch = null;
 
@@ -647,16 +773,7 @@ function buildTable(list) {
     const sess  = allSessions[t.id] || [];
     const bks   = allBookings[t.id] || [];
     const activeBk = bks.find(b => ["pending_confirmation","confirmed"].includes(b.status));
-
-    // summary fields
-    const firstStart = sess[0]?.startTime || "–";
-    const lastEnd    = sess.slice(-1)[0]?.endTime || "–";
-    const totalH     = sess.reduce((a, s) => a + diffH(s.startTime, s.endTime), 0);
-    const hasExt     = sess.some(s => s.extended === true);
     const bookingStr = activeBk ? activeBk.bookingTime : "–";
-    // last completed session's endTime = actual end
-    const doneSess   = sess.filter(s => s.status !== "active");
-    const actualEnd  = doneSess.slice(-1)[0]?.endTime || "–";
 
     // status badge
     let badgeCls, badgeLbl;
@@ -678,30 +795,184 @@ function buildTable(list) {
 
     const name = t.nameTh || t.nameEn || t.code || "–";
     const initial = name[0];
-    const branchLabel = t.branch === "branch2" ? "2" : "1";
 
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td style="text-align:left">
+    const nameCell = `
+      <td style="text-align:left" rowspan="__RS__">
         <div style="display:flex;align-items:center;gap:6px">
           <div class="g-avatar" style="width:24px;height:24px;font-size:10px;flex-shrink:0">
             ${t.photoUrl ? `<img src="${esc(t.photoUrl)}" alt="">` : esc(initial)}
           </div>
           <span style="font-weight:600">${esc(name)}</span>
         </div>
-      </td>
-      <td>สาขา ${esc(branchLabel)}</td>
-      <td><span class="badge ${badgeCls}">${esc(badgeLbl)}</span></td>
-      <td>${esc(firstStart)}</td>
-      <td>${esc(lastEnd)}</td>
-      <td>${totalH > 0 ? totalH.toFixed(1) : "–"}</td>
-      <td>${hasExt ? "✅" : "–"}</td>
-      <td>${esc(bookingStr)}</td>
-      <td>${esc(actualEnd)}</td>
-    `;
-    tbody.appendChild(tr);
+      </td>`;
+    const statusCell  = `<td rowspan="__RS__"><span class="badge ${badgeCls}">${esc(badgeLbl)}</span></td>`;
+    const bookingCell = `<td rowspan="__RS__">${esc(bookingStr)}</td>`;
+
+    if (sess.length === 0) {
+      // No sessions today — single row with placeholders
+      const tr = document.createElement("tr");
+      tr.className = "row-end";
+      tr.innerHTML =
+        nameCell.replace("__RS__", "1") +
+        statusCell.replace("__RS__", "1") +
+        `<td>–</td><td>–</td><td>–</td><td>–</td>` +
+        bookingCell.replace("__RS__", "1") +
+        `<td>–</td><td>–</td>`;
+      tbody.appendChild(tr);
+      return;
+    }
+
+    // 1 row per session, rowspan on therapist-level cells
+    const RS = String(sess.length);
+    sess.forEach((s, idx) => {
+      sessionById[s.id] = s;
+      const isFirst = idx === 0;
+      const isLast  = idx === sess.length - 1;
+
+      const startStr = s.startTime || "–";
+      const endStr   = s.endTime   || "–";
+      const hours    = diffH(s.startTime, s.endTime);
+      const hoursStr = hours > 0 ? hours.toFixed(1) : "–";
+
+      // extension display
+      let extStr = "–";
+      if (s.isExtension && s.extensionMinutes > 0) {
+        extStr = (s.extensionCount > 1 ? `${s.extensionCount}×・` : "") + `${s.extensionMinutes} น.`;
+      } else if (s.extended === true) {
+        extStr = "✅";
+      }
+
+      // actual end (if different)
+      let actualStr = "–";
+      if (s.actualEndTime && s.actualEndTime !== s.endTime) {
+        actualStr = s.actualEndTime + (s.isEarlyCheckout ? " ⏪" : "");
+      } else if (s.status === "completed" && s.endTime) {
+        actualStr = s.endTime;
+      }
+
+      const tr = document.createElement("tr");
+      tr.className = isLast ? "row-end" : "row-cont";
+      let html = "";
+      if (isFirst) {
+        html += nameCell.replace("__RS__", RS);
+        html += statusCell.replace("__RS__", RS);
+      }
+      html += `<td>${esc(startStr)}</td>`;
+      html += `<td>${esc(endStr)}</td>`;
+      html += `<td>${hoursStr}</td>`;
+      html += `<td>${esc(extStr)}</td>`;
+      if (isFirst) {
+        html += bookingCell.replace("__RS__", RS);
+      }
+      html += `<td>${esc(actualStr)}</td>`;
+      html += `<td><button class="btn-edit" data-edit-session="${esc(s.id)}">แก้ไข</button></td>`;
+      tr.innerHTML = html;
+      tbody.appendChild(tr);
+    });
+  });
+
+  // Wire up edit buttons
+  tbody.querySelectorAll("[data-edit-session]").forEach(btn => {
+    btn.addEventListener("click", () => openEditModal(btn.dataset.editSession));
   });
 }
+
+// ─── EDIT MODAL ──────────────────────────────────────
+let editingSessionId = null;
+const $$ = id => document.getElementById(id);
+
+function openEditModal(sessionId) {
+  const s = sessionById[sessionId];
+  if (!s) {
+    alert("ไม่พบ session นี้");
+    return;
+  }
+  editingSessionId = sessionId;
+
+  // Therapist name + branch info
+  const t = therapists.find(x => x.id === s.therapistId);
+  const tName = t?.nameTh || t?.nameEn || t?.code || s.therapistName || "–";
+  const branchLabel = (s.branch === "พ2" || t?.branch === "branch2") ? "สาขา 2" : "สาขา 1";
+  $$("ov-modal-info").innerHTML =
+    `👤 <b>${esc(tName)}</b> · 🏠 ${esc(branchLabel)} · 📅 ${esc(formatDateLabel(s.date || selectedDate))}`;
+
+  $$("ov-f-start").value      = s.startTime || "";
+  $$("ov-f-end").value        = s.endTime || "";
+  $$("ov-f-actual-end").value = s.actualEndTime || "";
+  $$("ov-f-ext-min").value    = s.extensionMinutes || "";
+  $$("ov-f-ext-count").value  = s.extensionCount || "";
+  $$("ov-f-status").value     = s.status || "completed";
+  $$("ov-f-note").value       = s.adminNote || "";
+  $$("ov-form-error").textContent = "";
+
+  $$("ov-edit-modal").classList.add("show");
+}
+
+function closeEditModal() {
+  $$("ov-edit-modal").classList.remove("show");
+  editingSessionId = null;
+}
+
+$$("ov-modal-close").addEventListener("click", closeEditModal);
+$$("ov-modal-cancel").addEventListener("click", closeEditModal);
+$$("ov-edit-modal").addEventListener("click", e => {
+  if (e.target.id === "ov-edit-modal") closeEditModal();
+});
+
+$$("ov-modal-save").addEventListener("click", async () => {
+  if (!editingSessionId) return;
+  const btn = $$("ov-modal-save");
+  const errEl = $$("ov-form-error");
+  errEl.textContent = "";
+
+  const startTime    = $$("ov-f-start").value;
+  const endTime      = $$("ov-f-end").value;
+  const actualEndRaw = $$("ov-f-actual-end").value;
+  const extMinRaw    = $$("ov-f-ext-min").value;
+  const extCntRaw    = $$("ov-f-ext-count").value;
+  const status       = $$("ov-f-status").value;
+  const note         = $$("ov-f-note").value.trim();
+
+  if (!startTime || !endTime) {
+    errEl.textContent = "กรอกเวลาเริ่ม + เวลาจบ ก่อนนะครับ";
+    return;
+  }
+
+  const extMin = extMinRaw === "" ? 0 : parseInt(extMinRaw, 10) || 0;
+  const extCnt = extCntRaw === "" ? 0 : parseInt(extCntRaw, 10) || 0;
+  const isExtension = extMin > 0;
+
+  const data = {
+    startTime,
+    endTime,
+    actualEndTime: actualEndRaw || null,
+    extensionMinutes: extMin,
+    extensionCount: extCnt,
+    isExtension,
+    status,
+    adminNote: note || null,
+    updatedAt: serverTimestamp(),
+  };
+
+  // If actualEndTime < endTime → mark early checkout
+  if (actualEndRaw && actualEndRaw < endTime) {
+    data.isEarlyCheckout = true;
+  } else if (actualEndRaw && actualEndRaw >= endTime) {
+    data.isEarlyCheckout = false;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "กำลังบันทึก…";
+  try {
+    await updateDoc(doc(db, "sessions", editingSessionId), data);
+    closeEditModal();
+  } catch (err) {
+    errEl.textContent = "บันทึกไม่สำเร็จ: " + (err.message || err);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "บันทึก";
+  }
+});
 
 // ─── CLOCK & CURRENT TIME LINE ────────────────────────
 function updateClock() {
