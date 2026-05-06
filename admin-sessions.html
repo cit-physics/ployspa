@@ -259,7 +259,7 @@ function renderSessions() {
             ${s.branch ? `· ${escapeHtml(s.branch)}` : ""}
             ${s.roomNumber ? `ห้อง ${s.roomNumber}` : ""}
           </div>
-          ${s.isExtension && s.extensionMinutes > 0 ? `<div class="text-xs text-blue-600 mt-0.5">🔁 ต่อเวลา ${s.extensionMinutes} นาที</div>` : ""}
+          ${s.isExtension && s.extensionMinutes > 0 ? `<div class="text-xs text-blue-600 mt-0.5">🔁 ต่อเวลา ${s.extensionCount > 1 ? `${s.extensionCount} ครั้ง · รวม ` : ""}${s.extensionMinutes} นาที</div>` : ""}
           ${s.actualEndTime && s.actualEndTime !== s.endTime ? `<div class="text-xs text-amber-600 mt-0.5">🛬 ลงจริง ${escapeHtml(s.actualEndTime)}${s.isEarlyCheckout ? ' (ก่อนเวลา)' : ''}</div>` : ""}
           ${s.customerName ? `<div class="text-xs text-gray-500 mt-0.5">👤 คุณ${escapeHtml(s.customerName)}${s.serviceName ? ` · ${escapeHtml(s.serviceName)}` : ""}</div>` : ""}
           ${s.bookingId ? `<div class="text-xs text-indigo-600 mt-0.5 font-medium">📅 ลูกค้าจอง${s.bookingTime ? ` (${escapeHtml(s.bookingTime)})` : ""}${s.bookingCustomerName ? ` — คุณ${escapeHtml(s.bookingCustomerName)}` : ""}</div>` : ""}
