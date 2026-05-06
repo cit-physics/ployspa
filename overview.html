@@ -24,6 +24,22 @@
     .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #4caf83; display: inline-block; animation: blink 1.4s ease-in-out infinite; }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
+    /* Date picker controls */
+    .date-nav-btn, .date-today-btn {
+      padding: 3px 9px; border-radius: 6px; border: 1px solid #c8e6d8;
+      background: #fff; color: #4a7c6f; cursor: pointer;
+      font-family: 'Sarabun', sans-serif; font-size: 11px; line-height: 1;
+      transition: all .15s;
+    }
+    .date-nav-btn:hover:not(:disabled), .date-today-btn:hover { border-color: #4caf83; color: #2d6a4f; }
+    .date-nav-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .date-today-btn { background: #e6f4ed; font-weight: 600; }
+    .date-input {
+      padding: 3px 6px; border-radius: 6px; border: 1px solid #c8e6d8;
+      font-family: 'Sarabun', sans-serif; font-size: 12px;
+      color: #2d4a3e; background: #fff;
+    }
+
     /* ── SUMMARY BAR ── */
     .summary-bar {
       background: #fff;
@@ -187,9 +203,15 @@
   <a href="admin.html" class="header-back">← Admin</a>
   <span class="header-title">🌿 PloySpa Dashboard</span>
   <div class="header-meta">
-    <span id="today-date"></span>
+    <button id="prev-day" class="date-nav-btn" title="วันก่อนหน้า">◀</button>
+    <input type="date" id="date-picker" class="date-input" />
+    <button id="next-day" class="date-nav-btn" title="วันถัดไป" disabled>▶</button>
+    <button id="today-btn" class="date-today-btn">วันนี้</button>
     <span id="live-clock" style="font-variant-numeric:tabular-nums"></span>
-    <span class="live-dot"></span><span style="color:#4caf83;font-weight:600">Live</span>
+    <span id="live-indicator">
+      <span class="live-dot"></span><span style="color:#4caf83;font-weight:600">Live</span>
+    </span>
+    <span id="historic-indicator" style="display:none;color:#9b7ecb;font-weight:600">📅 ดูย้อนหลัง</span>
     <span id="last-updated" style="color:#aaa"></span>
   </div>
 </header>
@@ -225,7 +247,7 @@
 
   <!-- GANTT -->
   <div class="section">
-    <div class="section-title">📊 Timeline วันนี้ (08:00 – 06:00)</div>
+    <div class="section-title" id="title-timeline">📊 Timeline วันนี้ (08:00 – 06:00)</div>
     <div class="gantt-wrap">
       <div class="gantt-inner">
         <!-- header -->
@@ -243,7 +265,7 @@
 
   <!-- DETAIL TABLE -->
   <div class="section">
-    <div class="section-title">📋 รายละเอียดรอบวันนี้</div>
+    <div class="section-title" id="title-detail">📋 รายละเอียดรอบวันนี้</div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -324,7 +346,26 @@ function diffH(start, end) {
   return Math.max(0, e - s);
 }
 
-const today = getTodayDate();
+// Date state
+let selectedDate   = getTodayDate();
+let isViewingToday = true;
+let unsubSessions  = null;
+let unsubBookings  = null;
+
+function shiftDate(dateStr, deltaDays) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + deltaDays);
+  return dt.toISOString().split("T")[0];
+}
+function formatDateLabel(dateStr) {
+  const today = getTodayDate();
+  if (dateStr === today)                     return "วันนี้";
+  if (dateStr === shiftDate(today, -1))      return "เมื่อวาน";
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const months = ["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+  return `${d} ${months[m-1]} ${y}`;
+}
 
 // ─── FIRESTORE LISTENERS ──────────────────────────────
 onSnapshot(
@@ -344,36 +385,65 @@ onSnapshot(collection(db, "statuses"), snap => {
 // Auto-promote any "ready_at HH:MM" → "ready" when the time passes
 startReadyAtMonitor(() => statuses);
 
-onSnapshot(
-  query(collection(db, "sessions"), where("date", "==", today)),
-  snap => {
-    allSessions = {};
-    snap.docs.forEach(d => {
-      const s = { id: d.id, ...d.data() };
-      if (!allSessions[s.therapistId]) allSessions[s.therapistId] = [];
-      allSessions[s.therapistId].push(s);
-    });
-    // sort each therapist's sessions by startTime
-    Object.keys(allSessions).forEach(tid => {
-      allSessions[tid].sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
-    });
-    render();
-  }
-);
+function subscribeToDate(date) {
+  if (unsubSessions) unsubSessions();
+  if (unsubBookings) unsubBookings();
+  allSessions = {};
+  allBookings = {};
 
-onSnapshot(
-  query(collection(db, "bookings"), where("bookingDate", "==", today)),
-  snap => {
-    allBookings = {};
-    snap.docs.forEach(d => {
-      const b = { id: d.id, ...d.data() };
-      if (!b.therapistId) return;
-      if (!allBookings[b.therapistId]) allBookings[b.therapistId] = [];
-      allBookings[b.therapistId].push(b);
-    });
-    render();
-  }
-);
+  unsubSessions = onSnapshot(
+    query(collection(db, "sessions"), where("date", "==", date)),
+    snap => {
+      allSessions = {};
+      snap.docs.forEach(d => {
+        const s = { id: d.id, ...d.data() };
+        if (!allSessions[s.therapistId]) allSessions[s.therapistId] = [];
+        allSessions[s.therapistId].push(s);
+      });
+      Object.keys(allSessions).forEach(tid => {
+        allSessions[tid].sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
+      });
+      render();
+    }
+  );
+
+  unsubBookings = onSnapshot(
+    query(collection(db, "bookings"), where("bookingDate", "==", date)),
+    snap => {
+      allBookings = {};
+      snap.docs.forEach(d => {
+        const b = { id: d.id, ...d.data() };
+        if (!b.therapistId) return;
+        if (!allBookings[b.therapistId]) allBookings[b.therapistId] = [];
+        allBookings[b.therapistId].push(b);
+      });
+      render();
+    }
+  );
+}
+
+function changeDate(newDate) {
+  if (!newDate) return;
+  const today = getTodayDate();
+  if (newDate > today) newDate = today;
+
+  selectedDate   = newDate;
+  isViewingToday = (selectedDate === today);
+
+  document.getElementById("date-picker").value = selectedDate;
+  document.getElementById("next-day").disabled = isViewingToday;
+
+  const dateLabel = formatDateLabel(selectedDate);
+  document.getElementById("title-timeline").textContent = `📊 Timeline ${dateLabel} (08:00 – 06:00)`;
+  document.getElementById("title-detail").textContent   = `📋 รายละเอียดรอบ${dateLabel}`;
+
+  document.getElementById("live-indicator").style.display     = isViewingToday ? "" : "none";
+  document.getElementById("historic-indicator").style.display = isViewingToday ? "none" : "";
+
+  subscribeToDate(selectedDate);
+}
+
+subscribeToDate(selectedDate);
 
 // ─── RENDER ───────────────────────────────────────────
 let rendered = false;
@@ -542,11 +612,13 @@ function buildGantt(list) {
       area.appendChild(bar);
     });
 
-    // current time line
-    const nowLine = document.createElement("div");
-    nowLine.className = "now-line";
-    nowLine.dataset.tid = t.id;
-    area.appendChild(nowLine);
+    // current time line — only when viewing today
+    if (isViewingToday) {
+      const nowLine = document.createElement("div");
+      nowLine.className = "now-line";
+      nowLine.dataset.tid = t.id;
+      area.appendChild(nowLine);
+    }
 
     row.appendChild(nameDiv);
     row.appendChild(area);
@@ -633,10 +705,10 @@ function buildTable(list) {
 
 // ─── CLOCK & CURRENT TIME LINE ────────────────────────
 function updateClock() {
-  // If the calendar date has rolled over (midnight crossing),
-  // reload the page so listeners re-subscribe to the new date.
-  if (getTodayDate() !== today) {
-    location.reload();
+  // If we were viewing "today" and the calendar date rolled over,
+  // re-subscribe to the new today.
+  if (isViewingToday && getTodayDate() !== selectedDate) {
+    changeDate(getTodayDate());
     return;
   }
 
@@ -649,7 +721,6 @@ function updateClock() {
   const hhmmss = hhmm + ":" + String(s).padStart(2,"0");
 
   document.getElementById("live-clock").textContent = hhmmss;
-  document.getElementById("today-date").textContent = today;
 
   const now2 = new Date();
   const hh2 = String(now2.getHours()).padStart(2,"0");
@@ -657,12 +728,17 @@ function updateClock() {
   const ss2 = String(now2.getSeconds()).padStart(2,"0");
   document.getElementById("last-updated").textContent = `อัพเดท ${hh2}:${mm2}:${ss2}`;
 
-  // axis now line
+  // axis now line — only show when viewing today
   const axisLine = document.getElementById("axis-now-line");
-  if (axisLine) axisLine.style.left = p + "%";
+  if (axisLine) {
+    axisLine.style.display = isViewingToday ? "" : "none";
+    if (isViewingToday) axisLine.style.left = p + "%";
+  }
 
-  // row now lines
+  // row now lines — only update/show when viewing today
   document.querySelectorAll(".now-line").forEach(el => {
+    if (!isViewingToday) { el.style.display = "none"; return; }
+    el.style.display = "";
     el.style.left = p + "%";
     let lbl = el.querySelector(".now-label");
     if (!lbl) {
@@ -684,6 +760,23 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
     btn.classList.add("active");
     if (therapists.length) render();
   });
+});
+
+// ─── DATE PICKER CONTROLS ────────────────────────────
+const datePickerEl = document.getElementById("date-picker");
+datePickerEl.value = selectedDate;
+datePickerEl.max   = getTodayDate();
+datePickerEl.addEventListener("change", e => changeDate(e.target.value));
+
+document.getElementById("prev-day").addEventListener("click", () => {
+  changeDate(shiftDate(selectedDate, -1));
+});
+document.getElementById("next-day").addEventListener("click", () => {
+  if (selectedDate >= getTodayDate()) return;
+  changeDate(shiftDate(selectedDate, 1));
+});
+document.getElementById("today-btn").addEventListener("click", () => {
+  changeDate(getTodayDate());
 });
 </script>
 </body>
