@@ -133,6 +133,24 @@
         </select>
       </div>
 
+      <!-- Booking section (optional — เผื่อ session นี้มาจากการจอง) -->
+      <details class="border rounded-lg">
+        <summary class="px-3 py-2 text-sm font-medium text-indigo-600 cursor-pointer">📅 ข้อมูลการจอง (ถ้ามี)</summary>
+        <div class="p-3 space-y-3 border-t">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">ชื่อผู้จอง</label>
+              <input type="text" id="f-booking-customer" placeholder="เช่น คุณโจ๊ก" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-300" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">เวลาที่จอง</label>
+              <input type="time" id="f-booking-time" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-300" />
+            </div>
+          </div>
+          <p class="text-xs text-gray-500">กรอกเฉพาะเมื่อ session นี้มาจากการจองล่วงหน้า — จะแสดงในคอลัมน์ "จอง" และ "ผู้จอง" บน Dashboard</p>
+        </div>
+      </details>
+
       <!-- Note -->
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">หมายเหตุ</label>
@@ -178,7 +196,9 @@ function getTodayThai() {
   return thai.toISOString().split("T")[0];
 }
 
-let selectedDate = getTodayThai();
+// อนุญาตให้ส่ง ?date=YYYY-MM-DD เพื่อโหลดวันอื่น (เช่น มาจาก dashboard)
+const urlDate = new URLSearchParams(location.search).get("date");
+let selectedDate = urlDate && /^\d{4}-\d{2}-\d{2}$/.test(urlDate) ? urlDate : getTodayThai();
 $("date-picker").value = selectedDate;
 $("date-picker").addEventListener("change", e => {
   selectedDate = e.target.value;
@@ -340,6 +360,8 @@ function openModal(sessionId = null) {
       $("f-payment").value = s.paymentType || "ไม่ระบุ";
       $("f-status").value = s.status || "completed";
       $("f-note").value = s.adminNote || "";
+      $("f-booking-customer").value = s.bookingCustomerName || "";
+      $("f-booking-time").value = s.bookingTime || "";
     }
   } else {
     $("modal-title").textContent = "เพิ่ม Session";
@@ -381,6 +403,8 @@ $("session-form").addEventListener("submit", async e => {
   try {
     const therapistId = $("f-therapist").value;
     const th = therapists.find(t => t.id === therapistId);
+    const bookingCust = $("f-booking-customer").value.trim();
+    const bookingTime = $("f-booking-time").value;
     const data = {
       therapistId,
       therapistName: th?.nameTh || th?.nameEn || "",
@@ -395,6 +419,11 @@ $("session-form").addEventListener("submit", async e => {
       status: $("f-status").value,
       adminNote: $("f-note").value.trim() || null,
       source: "admin_manual",
+      // booking fields — กรอกเมื่อ session นี้มาจากการจองล่วงหน้า
+      bookingCustomerName: bookingCust || null,
+      bookingTime: bookingTime || null,
+      // synthetic bookingId เพื่อให้ checks `s.bookingId` ใน dashboard เห็นว่าเป็น session-from-booking
+      bookingId: (bookingCust || bookingTime) ? (editingId ? sessions.find(x => x.id === editingId)?.bookingId || `manual_${Date.now()}` : `manual_${Date.now()}`) : null,
     };
 
     if (editingId) {

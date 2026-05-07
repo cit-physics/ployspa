@@ -234,6 +234,13 @@
       font-size: 11px; cursor: pointer; transition: all .15s;
     }
     .btn-edit:hover { background: #4caf83; color: #fff; border-color: #4caf83; }
+    .btn-add-session-link {
+      display: inline-block;
+      padding: 5px 14px; border-radius: 8px; background: #4caf83;
+      color: #fff; text-decoration: none; font-size: 12px; font-weight: 600;
+      transition: background .15s;
+    }
+    .btn-add-session-link:hover { background: #3d9970; }
 
     /* ── EDIT MODAL ── */
     .ov-modal-bg {
@@ -363,7 +370,10 @@
 
   <!-- DETAIL TABLE -->
   <div class="section">
-    <div class="section-title" id="title-detail">📋 รายละเอียดรอบวันนี้</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+      <div class="section-title" id="title-detail" style="margin:0">📋 รายละเอียดรอบวันนี้</div>
+      <a id="btn-add-session" href="admin-sessions.html" class="btn-add-session-link">+ เพิ่ม session</a>
+    </div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -746,6 +756,9 @@ function changeDate(newDate) {
   const dateLabel = formatDateLabel(selectedDate);
   document.getElementById("title-timeline").textContent = `📊 Timeline ${dateLabel} (08:00 – 06:00)`;
   document.getElementById("title-detail").textContent   = `📋 รายละเอียดรอบ${dateLabel}`;
+  // อัพเดต href ของปุ่มเพิ่ม session ให้พา date ไปยังหน้า admin-sessions
+  const addBtn = document.getElementById("btn-add-session");
+  if (addBtn) addBtn.href = `admin-sessions.html?date=${encodeURIComponent(selectedDate)}`;
 
   document.getElementById("live-indicator").style.display     = isViewingToday ? "" : "none";
   document.getElementById("historic-indicator").style.display = isViewingToday ? "none" : "";
@@ -1427,6 +1440,10 @@ const datePickerEl = document.getElementById("date-picker");
 datePickerEl.value = selectedDate;
 datePickerEl.max   = getBusinessDate();
 datePickerEl.addEventListener("change", e => changeDate(e.target.value));
+
+// Initial href for "+ เพิ่ม session" button
+const addBtnInit = document.getElementById("btn-add-session");
+if (addBtnInit) addBtnInit.href = `admin-sessions.html?date=${encodeURIComponent(selectedDate)}`;
 
 document.getElementById("prev-day").addEventListener("click", () => {
   changeDate(shiftDate(selectedDate, -1));
