@@ -117,6 +117,10 @@
     .g-avatar img { width: 100%; height: 100%; object-fit: cover; }
     .g-name-text { font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .g-code { font-size: 9px; color: #6a9f8c; }
+    .g-badge {
+      font-size: 9px; padding: 1px 5px; margin-top: 2px;
+      display: inline-block; line-height: 1.4;
+    }
 
     .g-bar-area {
       position: relative; height: 32px;
@@ -150,6 +154,7 @@
       background: #e53935; color: #fff; font-size: 9px; font-weight: 700;
       padding: 1px 4px; border-radius: 3px; white-space: nowrap;
     }
+    .now-label-bottom { top: auto; bottom: -18px; }
     /* now-line on axis */
     .axis-now {
       position: absolute; top: 0; bottom: 0; width: 2px;
@@ -345,12 +350,14 @@
           <tr>
             <th style="text-align:left;padding-left:14px">หมอ</th>
             <th>สถานะ</th>
+            <th>รอบ</th>
             <th>เริ่ม</th>
             <th>จบ (กำหนด)</th>
+            <th>ลงจริง</th>
             <th>ชม.</th>
             <th>ต่อเวลา</th>
             <th>จอง</th>
-            <th>ลงจริง</th>
+            <th>ผู้จอง</th>
             <th>แก้ไข</th>
           </tr>
         </thead>
@@ -373,11 +380,22 @@
 
       <div class="ov-form-grid2">
         <div class="ov-form-row">
+          <label>ชื่อลูกค้า</label>
+          <input type="text" id="ov-f-customer" placeholder="ไม่บังคับ" />
+        </div>
+        <div class="ov-form-row">
+          <label>บริการ</label>
+          <input type="text" id="ov-f-service" placeholder="เช่น นวดแผนไทย 1 ชม." />
+        </div>
+      </div>
+
+      <div class="ov-form-grid2">
+        <div class="ov-form-row">
           <label>เวลาเริ่ม</label>
           <input type="time" id="ov-f-start" required />
         </div>
         <div class="ov-form-row">
-          <label>เวลาจบ (กำหนด)</label>
+          <label>เวลาจบ <span style="color:#888;font-weight:400">(ก่อนต่อเวลา)</span></label>
           <input type="time" id="ov-f-end" required />
         </div>
       </div>
@@ -406,6 +424,36 @@
           <option value="completed">เสร็จแล้ว</option>
           <option value="cancelled">ยกเลิก</option>
         </select>
+      </div>
+
+      <div id="ov-section-booking" style="display:none">
+        <div style="border-top:1px solid #e8f5ee;margin:14px 0 10px;padding-top:8px;font-size:11px;color:#6a9f8c;font-weight:600">📅 ข้อมูลการจอง</div>
+        <div class="ov-form-grid2">
+          <div class="ov-form-row">
+            <label>ผู้จอง</label>
+            <input type="text" id="ov-f-booking-customer" />
+          </div>
+          <div class="ov-form-row">
+            <label>เวลาที่จอง</label>
+            <input type="time" id="ov-f-booking-time" />
+          </div>
+        </div>
+      </div>
+
+      <div style="border-top:1px solid #e8f5ee;margin:14px 0 10px;padding-top:8px;font-size:11px;color:#6a9f8c;font-weight:600">💰 ข้อมูลการเงิน</div>
+      <div class="ov-form-grid2">
+        <div class="ov-form-row">
+          <label>รายได้ (บาท)</label>
+          <input type="number" id="ov-f-revenue" min="0" step="1" placeholder="0" />
+        </div>
+        <div class="ov-form-row">
+          <label>วิธีจ่าย</label>
+          <select id="ov-f-payment">
+            <option value="">ไม่ระบุ</option>
+            <option value="โอน">โอน</option>
+            <option value="เงินสด">เงินสด</option>
+          </select>
+        </div>
       </div>
 
       <div class="ov-form-row">
@@ -452,6 +500,15 @@ function hhmmLabel(decH) {
   const m = Math.round((decH % 1) * 60);
   return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
 }
+function addMinutes(hhmm, n) {
+  if (!hhmm) return hhmm;
+  const [h, m] = hhmm.split(":").map(Number);
+  const total = h * 60 + m + (n || 0);
+  const wrap = ((total % 1440) + 1440) % 1440;  // handle 24h wrap + negatives
+  const hh = Math.floor(wrap / 60);
+  const mm = wrap % 60;
+  return `${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`;
+}
 
 // ─── STATE ────────────────────────────────────────────
 let therapists   = [];
@@ -461,10 +518,39 @@ let allBookings  = {}; // therapistId → [bookings]
 let activeBranch = "all";
 
 // ─── HELPERS ─────────────────────────────────────────
-function getTodayDate() {
-  const now  = new Date();
-  const thai = new Date(now.getTime() + 7 * 60 * 60 * 1000);
-  return thai.toISOString().split("T")[0];
+// Business day = 08:00 ของวัน X ถึง 06:00 ของวัน X+1
+// คืนค่าเป็นวันที่เริ่มต้นของ business day ปัจจุบัน (calendar date X)
+// เวลาที่ Thai-time ตี 0 ถึง 7:59 น. ยังถือว่าเป็น business day ของเมื่อวาน
+function getBusinessDate() {
+  const now = new Date();
+  // Thai time (UTC+7) ลบ 8h → ของช่วง 00:00–07:59 ตกลงไปอยู่ของเมื่อวาน
+  const shifted = new Date(now.getTime() + 7 * 60 * 60 * 1000 - 8 * 60 * 60 * 1000);
+  return shifted.toISOString().split("T")[0];
+}
+
+// Status badge — shared between table and gantt name column
+function getBadge(therapist, statusesMap, activeBk) {
+  const st = statusesMap[therapist.id]?.status;
+  const sObj = statusesMap[therapist.id];
+  if (st === "busy") {
+    return {
+      cls: "badge-busy",
+      lbl: sObj.readyAt ? `🔴 ติดงาน ถึง ${sObj.readyAt} น.` : "🔴 นวดอยู่",
+    };
+  }
+  if (st === "ready")     return { cls: "badge-ready",    lbl: "🟢 ว่าง" };
+  if (st === "ready_at")  return { cls: "badge-readyat",  lbl: `⏰ ${sObj.readyAt}` };
+  if (st === "booked") {
+    const r = sObj.readyAt;
+    const e = sObj.bookingEndAt;
+    const timeStr = r && e ? `${r}-${e}` : (r || "");
+    return { cls: "badge-booked", lbl: `📅 มีจอง${timeStr ? " " + timeStr : ""}` };
+  }
+  if (st === "break")     return { cls: "badge-break",    lbl: "☕ พักสักครู่" };
+  if (st === "leave")     return { cls: "badge-leave",    lbl: "🏖 ลาหยุด" };
+  if (st === "not_ready") return { cls: "badge-notready", lbl: "⛔ ไม่พร้อม" };
+  if (activeBk)           return { cls: "badge-booked",   lbl: "📅 มีจอง" };
+  return { cls: "badge-none", lbl: "⚪ ยังไม่มา" };
 }
 function esc(s) {
   if (s == null) return "";
@@ -482,10 +568,14 @@ function diffH(start, end) {
 }
 
 // Date state
-let selectedDate   = getTodayDate();
+let selectedDate   = getBusinessDate();
 let isViewingToday = true;
-let unsubSessions  = null;
-let unsubBookings  = null;
+// 4 unsubs: sessions × 2 dates, bookings × 2 dates
+let unsubSessionsD1 = null, unsubSessionsD2 = null;
+let unsubBookingsD1 = null, unsubBookingsD2 = null;
+// Raw caches per date slot — merged by mergeAndRender()
+let _rawSessions = { d1: [], d2: [] };
+let _rawBookings = { d1: [], d2: [] };
 
 function shiftDate(dateStr, deltaDays) {
   const [y, m, d] = dateStr.split("-").map(Number);
@@ -494,7 +584,7 @@ function shiftDate(dateStr, deltaDays) {
   return dt.toISOString().split("T")[0];
 }
 function formatDateLabel(dateStr) {
-  const today = getTodayDate();
+  const today = getBusinessDate();
   if (dateStr === today)                     return "วันนี้";
   if (dateStr === shiftDate(today, -1))      return "เมื่อวาน";
   const [y, m, d] = dateStr.split("-").map(Number);
@@ -520,46 +610,99 @@ onSnapshot(collection(db, "statuses"), snap => {
 // Auto-promote any "ready_at HH:MM" → "ready" when the time passes
 startReadyAtMonitor(() => statuses);
 
+// Business-day window:
+//   biz-day X = (calendar date X, time >= 08:00) ∪ (calendar date X+1, time < 08:00)
+// We subscribe to both calendar dates and filter on time client-side.
+function _isInBizWindow(itemDate, itemTime, dateStart, dateNext) {
+  if (!itemTime) {
+    // Items without a time — keep on dateStart only (treat as biz-day start)
+    return itemDate === dateStart;
+  }
+  if (itemDate === dateStart) return itemTime >= "08:00";
+  if (itemDate === dateNext)  return itemTime <  "08:00";
+  return false;
+}
+
+function _mergeAndRender() {
+  const dateStart = selectedDate;
+  const dateNext  = shiftDate(selectedDate, 1);
+
+  // Merge sessions
+  allSessions = {};
+  [..._rawSessions.d1, ..._rawSessions.d2].forEach(s => {
+    if (!_isInBizWindow(s.date, s.startTime, dateStart, dateNext)) return;
+    if (!allSessions[s.therapistId]) allSessions[s.therapistId] = [];
+    allSessions[s.therapistId].push(s);
+  });
+  Object.keys(allSessions).forEach(tid => {
+    allSessions[tid].sort((a, b) => {
+      // Sessions on dateNext (after midnight) sort AFTER sessions on dateStart (before midnight)
+      if (a.date !== b.date) return a.date.localeCompare(b.date);
+      return (a.startTime || "").localeCompare(b.startTime || "");
+    });
+  });
+
+  // Merge bookings
+  allBookings = {};
+  [..._rawBookings.d1, ..._rawBookings.d2].forEach(b => {
+    if (!b.therapistId) return;
+    if (!_isInBizWindow(b.bookingDate, b.bookingTime, dateStart, dateNext)) return;
+    if (!allBookings[b.therapistId]) allBookings[b.therapistId] = [];
+    allBookings[b.therapistId].push(b);
+  });
+
+  render();
+}
+
 function subscribeToDate(date) {
-  if (unsubSessions) unsubSessions();
-  if (unsubBookings) unsubBookings();
+  // Tear down all previous listeners
+  if (unsubSessionsD1) unsubSessionsD1();
+  if (unsubSessionsD2) unsubSessionsD2();
+  if (unsubBookingsD1) unsubBookingsD1();
+  if (unsubBookingsD2) unsubBookingsD2();
+
+  _rawSessions = { d1: [], d2: [] };
+  _rawBookings = { d1: [], d2: [] };
   allSessions = {};
   allBookings = {};
 
-  unsubSessions = onSnapshot(
-    query(collection(db, "sessions"), where("date", "==", date)),
+  const dateStart = date;
+  const dateNext  = shiftDate(date, 1);
+
+  unsubSessionsD1 = onSnapshot(
+    query(collection(db, "sessions"), where("date", "==", dateStart)),
     snap => {
-      allSessions = {};
-      snap.docs.forEach(d => {
-        const s = { id: d.id, ...d.data() };
-        if (!allSessions[s.therapistId]) allSessions[s.therapistId] = [];
-        allSessions[s.therapistId].push(s);
-      });
-      Object.keys(allSessions).forEach(tid => {
-        allSessions[tid].sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
-      });
-      render();
+      _rawSessions.d1 = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      _mergeAndRender();
+    }
+  );
+  unsubSessionsD2 = onSnapshot(
+    query(collection(db, "sessions"), where("date", "==", dateNext)),
+    snap => {
+      _rawSessions.d2 = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      _mergeAndRender();
     }
   );
 
-  unsubBookings = onSnapshot(
-    query(collection(db, "bookings"), where("bookingDate", "==", date)),
+  unsubBookingsD1 = onSnapshot(
+    query(collection(db, "bookings"), where("bookingDate", "==", dateStart)),
     snap => {
-      allBookings = {};
-      snap.docs.forEach(d => {
-        const b = { id: d.id, ...d.data() };
-        if (!b.therapistId) return;
-        if (!allBookings[b.therapistId]) allBookings[b.therapistId] = [];
-        allBookings[b.therapistId].push(b);
-      });
-      render();
+      _rawBookings.d1 = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      _mergeAndRender();
+    }
+  );
+  unsubBookingsD2 = onSnapshot(
+    query(collection(db, "bookings"), where("bookingDate", "==", dateNext)),
+    snap => {
+      _rawBookings.d2 = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      _mergeAndRender();
     }
   );
 }
 
 function changeDate(newDate) {
   if (!newDate) return;
-  const today = getTodayDate();
+  const today = getBusinessDate();
   if (newDate > today) newDate = today;
 
   selectedDate   = newDate;
@@ -636,7 +779,12 @@ function updateSummary() {
     else                                        none++;  // not_ready, leave, missing
 
     // hours per branch
-    const hrs = (allSessions[t.id] || []).reduce((acc, s) => acc + diffH(s.startTime, s.endTime), 0);
+    // ชั่วโมงรวมต่อเวลาด้วย — ตรงกับช่อง "ชม." ในตาราง
+    const hrs = (allSessions[t.id] || []).reduce((acc, s) => {
+      const ext = s.extensionMinutes || 0;
+      const endWithExt = s.endTime ? addMinutes(s.endTime, ext) : null;
+      return acc + diffH(s.startTime, endWithExt);
+    }, 0);
     if (t.branch === "branch1") h1 += hrs;
     else if (t.branch === "branch2") h2 += hrs;
   });
@@ -689,18 +837,19 @@ function buildGantt(list) {
     const row = document.createElement("div");
     row.className = "gantt-row";
 
-    // name col
+    // name col + status badge
     const initial = (t.nameTh || t.nameEn || t.code || "?")[0];
-    const photoHtml = t.photoUrl
-      ? `<img src="${esc(t.photoUrl)}" alt="">`
-      : initial;
+    const bks = allBookings[t.id] || [];
+    const activeBk = bks.find(b => ["pending_confirmation","confirmed"].includes(b.status));
+    const { cls: gBadgeCls, lbl: gBadgeLbl } = getBadge(t, statuses, activeBk);
     const nameDiv = document.createElement("div");
     nameDiv.className = "g-name";
     nameDiv.innerHTML = `
       <div class="g-avatar">${t.photoUrl ? `<img src="${esc(t.photoUrl)}" alt="">` : esc(initial)}</div>
-      <div>
+      <div style="min-width:0;flex:1">
         <div class="g-name-text">${esc(t.nameTh || t.nameEn || t.code)}</div>
         <div class="g-code">${esc(t.code || "")}</div>
+        <span class="badge ${gBadgeCls} g-badge">${esc(gBadgeLbl)}</span>
       </div>`;
 
     // bar area
@@ -724,17 +873,18 @@ function buildGantt(list) {
       bar.className = "bar " + (s.status === "active" ? "bar-active" : "bar-done");
       bar.style.left  = pct(sh) + "%";
       bar.style.width = Math.max(0.5, pct(eh) - pct(sh)) + "%";
-      // Show 📅 prefix if this session was linked to a booking
-      const prefix = s.bookingId ? "📅 " : "";
-      const label = `${prefix}${s.startTime}${s.endTime ? "–" + s.endTime : ""}`;
-      bar.textContent = label;
-      const custForTitle = s.customerName || s.bookingCustomerName || "";
-      bar.title = (s.bookingId ? "📅 ลูกค้าจอง — " : "") + `${esc(custForTitle)} | ${esc(s.serviceName || "")}`;
+      // When linked to a booking, show 📅 + customer name to mirror the booking bar format
+      const cust = s.bookingCustomerName || s.customerName || "";
+      const timeRange = `${s.startTime}${s.endTime ? "-" + s.endTime : ""}`;
+      bar.textContent = s.bookingId
+        ? `📅 คุณ${cust} ${timeRange}`
+        : timeRange;
+      bar.title = (s.bookingId ? "📅 ลูกค้าจอง — " : "") + `${esc(cust)} | ${esc(s.serviceName || "")}`;
       area.appendChild(bar);
     });
 
-    // booking bars
-    (allBookings[t.id] || []).forEach(b => {
+    // booking bars — skip those already linked to a started session (sessionId is set)
+    (allBookings[t.id] || []).filter(b => !b.sessionId).forEach(b => {
       if (!b.bookingTime) return;
       const sh = toDecH(b.bookingTime);
       const eh = sh + 2; // assume 2h
@@ -742,7 +892,8 @@ function buildGantt(list) {
       bar.className = "bar " + (b.status === "pending_confirmation" ? "bar-pending" : "bar-booking");
       bar.style.left  = pct(sh) + "%";
       bar.style.width = Math.max(1, pct(eh) - pct(sh)) + "%";
-      bar.textContent = `จอง ${b.bookingTime}`;
+      const endStr = addMinutes(b.bookingTime, 120);
+      bar.textContent = `📅 คุณ${b.customerName || "–"} ${b.bookingTime}-${endStr}`;
       bar.title = `คุณ${esc(b.customerName || "")} | ${b.status}`;
       area.appendChild(bar);
     });
@@ -778,37 +929,25 @@ function buildTable(list) {
       const branchName = t.branch === "branch2" ? "📍 สาขา 2" : "📍 สาขา 1";
       const tr = document.createElement("tr");
       tr.className = "tr-branch";
-      tr.innerHTML = `<td colspan="9">${esc(branchName)}</td>`;
+      tr.innerHTML = `<td colspan="11">${esc(branchName)}</td>`;
       tbody.appendChild(tr);
     }
 
-    const st    = statuses[t.id]?.status;
-    const sess  = allSessions[t.id] || [];
-    const bks   = allBookings[t.id] || [];
-    const activeBk = bks.find(b => ["pending_confirmation","confirmed"].includes(b.status));
-    const bookingStr = activeBk ? activeBk.bookingTime : "–";
+    const sess       = allSessions[t.id] || [];
+    const bks        = allBookings[t.id] || [];
+    const activeBk   = bks.find(b => ["pending_confirmation","confirmed"].includes(b.status));
+    const pendingBks = bks.filter(b =>
+      !b.sessionId &&
+      ["pending_confirmation","confirmed"].includes(b.status)
+    );
 
-    // status badge
-    let badgeCls, badgeLbl;
-    if      (st === "busy")      { badgeCls = "badge-busy";     badgeLbl = statuses[t.id].readyAt ? `🔴 ติดงาน ถึง ${statuses[t.id].readyAt} น.` : "🔴 นวดอยู่"; }
-    else if (st === "ready")     { badgeCls = "badge-ready";    badgeLbl = "🟢 ว่าง"; }
-    else if (st === "ready_at")  { badgeCls = "badge-readyat";  badgeLbl = `⏰ ${statuses[t.id].readyAt}`; }
-    else if (st === "booked")    {
-      const r = statuses[t.id].readyAt;
-      const e = statuses[t.id].bookingEndAt;
-      const timeStr = r && e ? `${r}-${e}` : (r || "");
-      badgeCls = "badge-booked";
-      badgeLbl = `📅 มีจอง${timeStr ? " " + timeStr : ""}`;
-    }
-    else if (st === "break")     { badgeCls = "badge-break";    badgeLbl = "☕ พักสักครู่"; }
-    else if (st === "leave")     { badgeCls = "badge-leave";    badgeLbl = "🏖 ลาหยุด"; }
-    else if (st === "not_ready") { badgeCls = "badge-notready"; badgeLbl = "⛔ ไม่พร้อม"; }
-    else if (activeBk)           { badgeCls = "badge-booked";   badgeLbl = "📅 มีจอง"; }
-    else                         { badgeCls = "badge-none";     badgeLbl = "⚪ ยังไม่มา"; }
+    // status badge (shared helper)
+    const { cls: badgeCls, lbl: badgeLbl } = getBadge(t, statuses, activeBk);
 
     const name = t.nameTh || t.nameEn || t.code || "–";
     const initial = name[0];
 
+    const totalRows = sess.length + pendingBks.length;
     const nameCell = `
       <td style="text-align:left" rowspan="__RS__">
         <div style="display:flex;align-items:center;gap:6px">
@@ -818,39 +957,42 @@ function buildTable(list) {
           <span style="font-weight:600">${esc(name)}</span>
         </div>
       </td>`;
-    const statusCell  = `<td rowspan="__RS__"><span class="badge ${badgeCls}">${esc(badgeLbl)}</span></td>`;
-    const bookingCell = `<td rowspan="__RS__">${esc(bookingStr)}</td>`;
+    const statusCell = `<td rowspan="__RS__"><span class="badge ${badgeCls}">${esc(badgeLbl)}</span></td>`;
 
-    if (sess.length === 0) {
-      // No sessions today — single row with placeholders
+    if (totalRows === 0) {
+      // No sessions and no pending bookings — single row with placeholders
       const tr = document.createElement("tr");
       tr.className = "row-end";
       tr.innerHTML =
         nameCell.replace("__RS__", "1") +
         statusCell.replace("__RS__", "1") +
-        `<td>–</td><td>–</td><td>–</td><td>–</td>` +
-        bookingCell.replace("__RS__", "1") +
-        `<td>–</td><td>–</td>`;
+        `<td>–</td>`.repeat(8) +  // รอบ, เริ่ม, จบ, ลงจริง, ชม., ต่อเวลา, จอง, ผู้จอง
+        `<td>–</td>`;              // แก้ไข
       tbody.appendChild(tr);
       return;
     }
 
-    // 1 row per session, rowspan on therapist-level cells
-    const RS = String(sess.length);
+    const RS = String(totalRows);
+
+    // ── Session rows ──
     sess.forEach((s, idx) => {
       sessionById[s.id] = s;
-      const isFirst = idx === 0;
-      const isLast  = idx === sess.length - 1;
+      const isFirst    = idx === 0;
+      const isLastBoth = (idx === sess.length - 1) && (pendingBks.length === 0);
 
       const startStr = s.startTime || "–";
-      const endStr   = s.endTime   || "–";
-      const hours    = diffH(s.startTime, s.endTime);
+
+      // จบ (กำหนด) — รวมเวลาต่อเข้าไปด้วย
+      const extMin = s.extensionMinutes || 0;
+      const endWithExt = s.endTime ? addMinutes(s.endTime, extMin) : "";
+      const endStr = endWithExt || "–";
+
+      // ชม. — duration including extension
+      const hours    = diffH(s.startTime, endWithExt);
       const hoursStr = hours > 0 ? hours.toFixed(1) : "–";
-      // ชั่วโมงควรเป็นทวีคูณของ 0.5 (1.0, 1.5, 2.0, 2.5, ...) — ถ้าไม่ใช่ ขึ้นเตือน
-      // ใช้เกณฑ์ขั้นต่ำ 1 ชม. (น้อยกว่านี้คือผิดปกติ ยกเว้น session ยกเลิก)
       const isAbnormalHours = hours > 0 && (
-        hours < 1 ||                       // น้อยกว่า 1 ชม.
-        Math.abs((hours * 2) - Math.round(hours * 2)) > 0.01  // ไม่ใช่ทวีคูณของ 0.5
+        hours < 1 ||
+        Math.abs((hours * 2) - Math.round(hours * 2)) > 0.01
       );
       const hoursCellCls = isAbnormalHours ? "cell-warn" : "";
       const hoursTitle   = isAbnormalHours
@@ -865,7 +1007,7 @@ function buildTable(list) {
         extStr = "✅";
       }
 
-      // actual end (if different)
+      // actual end (lงจริง)
       let actualStr = "–";
       if (s.actualEndTime && s.actualEndTime !== s.endTime) {
         actualStr = s.actualEndTime + (s.isEarlyCheckout ? " ⏪" : "");
@@ -873,22 +1015,47 @@ function buildTable(list) {
         actualStr = s.endTime;
       }
 
+      // จอง / ผู้จอง — per-row, only filled if this session linked to a booking
+      const jongStr   = s.bookingId && s.bookingTime ? s.bookingTime : "–";
+      const phujongStr = s.bookingId && s.bookingCustomerName ? `คุณ${s.bookingCustomerName}` : "–";
+
       const tr = document.createElement("tr");
-      tr.className = isLast ? "row-end" : "row-cont";
+      tr.className = isLastBoth ? "row-end" : "row-cont";
       let html = "";
       if (isFirst) {
         html += nameCell.replace("__RS__", RS);
         html += statusCell.replace("__RS__", RS);
       }
+      html += `<td>${idx + 1}</td>`;
       html += `<td>${esc(startStr)}</td>`;
       html += `<td>${esc(endStr)}</td>`;
+      html += `<td>${esc(actualStr)}</td>`;
       html += `<td class="${hoursCellCls}" ${hoursTitle}>${hoursStr}</td>`;
       html += `<td>${esc(extStr)}</td>`;
-      if (isFirst) {
-        html += bookingCell.replace("__RS__", RS);
-      }
-      html += `<td>${esc(actualStr)}</td>`;
+      html += `<td>${esc(jongStr)}</td>`;
+      html += `<td>${esc(phujongStr)}</td>`;
       html += `<td><button class="btn-edit" data-edit-session="${esc(s.id)}">แก้ไข</button></td>`;
+      tr.innerHTML = html;
+      tbody.appendChild(tr);
+    });
+
+    // ── Pending booking rows (no session yet) ──
+    pendingBks.forEach((b, bIdx) => {
+      const isFirstOfAll = sess.length === 0 && bIdx === 0;
+      const isLast = bIdx === pendingBks.length - 1;
+      const tr = document.createElement("tr");
+      tr.className = isLast ? "row-end" : "row-cont";
+      let html = "";
+      if (isFirstOfAll) {
+        html += nameCell.replace("__RS__", RS);
+        html += statusCell.replace("__RS__", RS);
+      }
+      html += `<td>–</td>`;                              // รอบ
+      html += `<td>–</td><td>–</td><td>–</td>`;          // เริ่ม / จบ / ลงจริง
+      html += `<td>–</td><td>–</td>`;                    // ชม. / ต่อเวลา
+      html += `<td>${esc(b.bookingTime || "–")}</td>`;   // จอง
+      html += `<td>${esc(b.customerName ? "คุณ" + b.customerName : "–")}</td>`; // ผู้จอง
+      html += `<td><button class="btn-edit" disabled title="แก้ booking ที่หน้า admin-sessions" style="opacity:.4;cursor:not-allowed">แก้ไข</button></td>`;
       tr.innerHTML = html;
       tbody.appendChild(tr);
     });
@@ -919,15 +1086,25 @@ function openEditModal(sessionId) {
   $$("ov-modal-info").innerHTML =
     `👤 <b>${esc(tName)}</b> · 🏠 ${esc(branchLabel)} · 📅 ${esc(formatDateLabel(s.date || selectedDate))}`;
 
+  $$("ov-f-customer").value   = s.customerName || "";
+  $$("ov-f-service").value    = s.serviceName || "";
   $$("ov-f-start").value      = s.startTime || "";
   $$("ov-f-end").value        = s.endTime || "";
   $$("ov-f-actual-end").value = s.actualEndTime || "";
   $$("ov-f-ext-min").value    = s.extensionMinutes || "";
   $$("ov-f-ext-count").value  = s.extensionCount || "";
   $$("ov-f-status").value     = s.status || "completed";
+  $$("ov-f-revenue").value    = s.revenue != null ? s.revenue : "";
+  $$("ov-f-payment").value    = s.paymentType || "";
   $$("ov-f-note").value       = s.adminNote || "";
-  $$("ov-form-error").textContent = "";
 
+  // Booking section: only show if this session was linked to a booking
+  const hasBooking = !!s.bookingId;
+  $$("ov-section-booking").style.display = hasBooking ? "" : "none";
+  $$("ov-f-booking-customer").value = s.bookingCustomerName || "";
+  $$("ov-f-booking-time").value     = s.bookingTime || "";
+
+  $$("ov-form-error").textContent = "";
   $$("ov-edit-modal").classList.add("show");
 }
 
@@ -948,12 +1125,18 @@ $$("ov-modal-save").addEventListener("click", async () => {
   const errEl = $$("ov-form-error");
   errEl.textContent = "";
 
+  const customer     = $$("ov-f-customer").value.trim();
+  const service      = $$("ov-f-service").value.trim();
   const startTime    = $$("ov-f-start").value;
   const endTime      = $$("ov-f-end").value;
   const actualEndRaw = $$("ov-f-actual-end").value;
   const extMinRaw    = $$("ov-f-ext-min").value;
   const extCntRaw    = $$("ov-f-ext-count").value;
   const status       = $$("ov-f-status").value;
+  const revenueRaw   = $$("ov-f-revenue").value;
+  const payment      = $$("ov-f-payment").value;
+  const bookingCust  = $$("ov-f-booking-customer").value.trim();
+  const bookingTime  = $$("ov-f-booking-time").value;
   const note         = $$("ov-f-note").value.trim();
 
   if (!startTime || !endTime) {
@@ -964,8 +1147,11 @@ $$("ov-modal-save").addEventListener("click", async () => {
   const extMin = extMinRaw === "" ? 0 : parseInt(extMinRaw, 10) || 0;
   const extCnt = extCntRaw === "" ? 0 : parseInt(extCntRaw, 10) || 0;
   const isExtension = extMin > 0;
+  const revenue = revenueRaw === "" ? 0 : parseFloat(revenueRaw) || 0;
 
   const data = {
+    customerName: customer || null,
+    serviceName:  service  || null,
     startTime,
     endTime,
     actualEndTime: actualEndRaw || null,
@@ -973,9 +1159,19 @@ $$("ov-modal-save").addEventListener("click", async () => {
     extensionCount: extCnt,
     isExtension,
     status,
+    revenue,
+    paymentType: payment || null,
     adminNote: note || null,
     updatedAt: serverTimestamp(),
   };
+
+  // Only update booking-related fields if the session has a bookingId
+  // (Avoid creating booking metadata on walk-in sessions)
+  const editingSession = sessionById[editingSessionId];
+  if (editingSession?.bookingId) {
+    data.bookingCustomerName = bookingCust || null;
+    data.bookingTime         = bookingTime || null;
+  }
 
   // If actualEndTime < endTime → mark early checkout
   if (actualEndRaw && actualEndRaw < endTime) {
@@ -1001,8 +1197,8 @@ $$("ov-modal-save").addEventListener("click", async () => {
 function updateClock() {
   // If we were viewing "today" and the calendar date rolled over,
   // re-subscribe to the new today.
-  if (isViewingToday && getTodayDate() !== selectedDate) {
-    changeDate(getTodayDate());
+  if (isViewingToday && getBusinessDate() !== selectedDate) {
+    changeDate(getBusinessDate());
     return;
   }
 
@@ -1030,17 +1226,41 @@ function updateClock() {
   }
 
   // row now lines — only update/show when viewing today
-  document.querySelectorAll(".now-line").forEach(el => {
+  // Top label only on first row, bottom label only on last row (avoids visual noise)
+  const nowLines = Array.from(document.querySelectorAll(".now-line"));
+  nowLines.forEach((el, idx) => {
     if (!isViewingToday) { el.style.display = "none"; return; }
     el.style.display = "";
     el.style.left = p + "%";
-    let lbl = el.querySelector(".now-label");
-    if (!lbl) {
-      lbl = document.createElement("div");
-      lbl.className = "now-label";
-      el.appendChild(lbl);
+
+    const isFirst = idx === 0;
+    const isLast  = idx === nowLines.length - 1;
+
+    let lbl = el.querySelector(".now-label:not(.now-label-bottom)");
+    if (isFirst) {
+      if (!lbl) {
+        lbl = document.createElement("div");
+        lbl.className = "now-label";
+        el.appendChild(lbl);
+      }
+      lbl.textContent = hhmm;
+      lbl.style.display = "";
+    } else if (lbl) {
+      lbl.style.display = "none";
     }
-    lbl.textContent = hhmm;
+
+    let lblB = el.querySelector(".now-label-bottom");
+    if (isLast) {
+      if (!lblB) {
+        lblB = document.createElement("div");
+        lblB.className = "now-label now-label-bottom";
+        el.appendChild(lblB);
+      }
+      lblB.textContent = hhmm;
+      lblB.style.display = "";
+    } else if (lblB) {
+      lblB.style.display = "none";
+    }
   });
 }
 
@@ -1059,18 +1279,18 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
 // ─── DATE PICKER CONTROLS ────────────────────────────
 const datePickerEl = document.getElementById("date-picker");
 datePickerEl.value = selectedDate;
-datePickerEl.max   = getTodayDate();
+datePickerEl.max   = getBusinessDate();
 datePickerEl.addEventListener("change", e => changeDate(e.target.value));
 
 document.getElementById("prev-day").addEventListener("click", () => {
   changeDate(shiftDate(selectedDate, -1));
 });
 document.getElementById("next-day").addEventListener("click", () => {
-  if (selectedDate >= getTodayDate()) return;
+  if (selectedDate >= getBusinessDate()) return;
   changeDate(shiftDate(selectedDate, 1));
 });
 document.getElementById("today-btn").addEventListener("click", () => {
-  changeDate(getTodayDate());
+  changeDate(getBusinessDate());
 });
 </script>
 </body>
