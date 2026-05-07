@@ -1164,19 +1164,27 @@ let editingSessionId = null;
 const $$ = id => document.getElementById(id);
 
 // เมื่อแก้ session ผ่าน modal ทำให้สถานะหมอตรงกับ session ใหม่
-// (linebot ทำให้อัตโนมัติเวลาส่ง "X ลง" — แต่ modal ไม่ได้ทำ ทำให้ index.html ค้าง "ติดงาน")
-async function syncStatusAfterSessionChange(therapistId, sessionIdBeingChanged, newStatus) {
-  // ถ้า session ที่แก้ยังเป็น active → ไม่ต้องแตะ status (อาจจะกำลังนวดอยู่)
-  if (newStatus === "active") return;
-
-  // หา active session อื่นๆ ของหมอคนนี้ (ที่ไม่ใช่ session ที่กำลังแก้)
-  const otherActive = (allSessions[therapistId] || []).some(s =>
-    s.id !== sessionIdBeingChanged && s.status === "active"
-  );
-  if (otherActive) return;  // ยังมีงานอื่นอยู่ — ไม่แตะ status
-
-  // ไม่มี active session แล้ว → ตั้งสถานะเป็น ready
+// (linebot ทำให้อัตโนมัติเวลาส่ง "X ลง" — แต่ modal ไม่ได้ทำ ทำให้ index.html ค้าง)
+async function syncStatusAfterSessionChange(therapistId, sessionIdBeingChanged, newStatus, sessionEndTime) {
   try {
+    if (newStatus === "active") {
+      // กลับมา active → ตั้งสถานะหมอเป็น busy พร้อมเวลาจบ
+      await setDoc(doc(db, "statuses", therapistId), {
+        status: "busy",
+        readyAt: sessionEndTime || null,  // เวลาจบของ session — ใช้แสดง "ติดงาน ถึง HH:MM"
+        updatedAt: serverTimestamp(),
+      });
+      return;
+    }
+
+    // status ใหม่ = completed/cancelled/deleted
+    // ถ้ายังมี session active อื่นของหมอคนนี้ → ไม่แตะ
+    const otherActive = (allSessions[therapistId] || []).some(s =>
+      s.id !== sessionIdBeingChanged && s.status === "active"
+    );
+    if (otherActive) return;
+
+    // ไม่มี active session แล้ว → ตั้งสถานะเป็น ready
     await setDoc(doc(db, "statuses", therapistId), {
       status: "ready",
       readyAt: null,
@@ -1339,9 +1347,14 @@ $$("ov-modal-save").addEventListener("click", async () => {
   btn.textContent = "กำลังบันทึก…";
   try {
     await updateDoc(doc(db, "sessions", editingSessionId), data);
-    // sync therapist status (e.g. session→completed should clear "ติดงาน")
+    // sync therapist status — ส่ง endTime ของ session เพื่อให้ "ติดงาน ถึง HH:MM" ถูก
     if (editingSession?.therapistId) {
-      await syncStatusAfterSessionChange(editingSession.therapistId, editingSessionId, status);
+      await syncStatusAfterSessionChange(
+        editingSession.therapistId,
+        editingSessionId,
+        status,
+        endTime,
+      );
     }
     closeEditModal();
   } catch (err) {
