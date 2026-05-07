@@ -204,9 +204,14 @@
     .badge-leave   { background: #f3e5f5; color: #6a1b9a; }
     .badge-notready{ background: #ffebee; color: #c62828; }
     .badge-none    { background: #f5f5f5; color: #9e9e9e; }
-    .badge-early   { background: #e3f2fd; color: #1565c0; }  /* ลงก่อนเวลา = ฟ้า */
-    .badge-late    { background: #fff3e0; color: #e65100; }  /* ลงหลังเวลา = ส้ม */
-    .badge-ontime  { background: #f5f5f5; color: #666; }     /* ตรงเวลา = เทา */
+    /* ก่อน/เกิน — แบ่ง 4 ระดับ: ก่อน <15น = แดงอ่อน, ก่อน ≥15น = แดงแปร๊ด,
+       เกิน <15น = เขียวอ่อน, เกิน ≥15น = เขียวเข้ม
+       Logic: ลงก่อน = ทิ้งงาน = แย่ (แดง) / เกิน = ทำเต็มที่ = ดี (เขียว) */
+    .badge-early       { background: #ffebee; color: #c62828; }  /* แดงอ่อน */
+    .badge-early-big   { background: #f44336; color: #fff; }     /* แดงแปร๊ด ≥15น */
+    .badge-late        { background: #e8f5e9; color: #2e7d32; }  /* เขียวอ่อน */
+    .badge-late-big    { background: #2e7d32; color: #fff; }     /* เขียวเข้ม ≥15น */
+    .badge-ontime      { background: #f5f5f5; color: #666; }     /* ตรงเวลา = เทา */
 
     /* row separator: only between therapists, not between same-therapist sessions */
     tbody tr.row-cont td { border-bottom: 1px dashed #eaf3ee; }
@@ -818,7 +823,15 @@ function updateSummary() {
 
   therapists.forEach(t => {
     const st = statuses[t.id]?.status;
-    const bk = (allBookings[t.id] || []).find(b => ["pending_confirmation","confirmed"].includes(b.status));
+    // นับ "มีจอง" เฉพาะ booking ที่ยังไม่ fulfilled และไม่ cancelled
+    // - กรองด้วย b.sessionId (ตั้งจาก linebot.linkSessionToBooking)
+    // - กรองด้วย session.bookingId (กันเคสที่ linebot ยังไม่ update fulfilled)
+    const linkedBkIds = new Set((allSessions[t.id] || []).filter(s => s.bookingId).map(s => s.bookingId));
+    const bk = (allBookings[t.id] || []).find(b =>
+      !b.sessionId &&
+      !linkedBkIds.has(b.id) &&
+      ["pending_confirmation","confirmed"].includes(b.status)
+    );
     if (st === "busy")                          busy++;
     else if (st === "booked" || bk)             booked++;
     else if (st === "ready")                    ready++;
@@ -1088,21 +1101,23 @@ function buildTable(list) {
       }
 
       // ก่อน/เกิน — เทียบ actualEndTime กับ endTime (ที่รวมต่อแล้วใน DB)
+      // 4 ระดับสี: <15น vs ≥15น สำหรับทั้งก่อนและเกิน
       let diffStr = "–";
       let diffCls = "";
       if (actualForDiff && s.endTime) {
         const d = timeDiffMin(actualForDiff, s.endTime);
+        const absD = Math.abs(d);
         if (d === null) {
           diffStr = "–";
         } else if (d === 0) {
           diffStr = "ตรง";
           diffCls = "badge-ontime";
         } else if (d < 0) {
-          diffStr = `ก่อน ${Math.abs(d)} น.`;
-          diffCls = "badge-early";
+          diffStr = `ก่อน ${absD} น.`;
+          diffCls = absD >= 15 ? "badge-early-big" : "badge-early";
         } else {
           diffStr = `เกิน ${d} น.`;
-          diffCls = "badge-late";
+          diffCls = absD >= 15 ? "badge-late-big" : "badge-late";
         }
       }
       const diffCellHtml = diffCls
