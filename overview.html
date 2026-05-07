@@ -62,6 +62,7 @@
     .s-chip strong { color: #1a3a2e; }
     .branch-hours { margin-left: auto; display: flex; gap: 8px; }
     .bh-chip { background: #e6f4ed; border-radius: 12px; padding: 3px 10px; font-size: 11px; color: #2d6a4f; font-weight: 600; }
+    .bh-total { background: #4caf83; color: #fff; }
 
     /* ── FILTER TABS ── */
     .tabs { padding: 10px 20px 0; display: flex; gap: 6px; }
@@ -308,6 +309,7 @@
   <span class="s-chip"><span class="s-dot dot-readyat"></span>รอสักครู่ <strong id="cnt-readyat">0</strong></span>
   <span class="s-chip"><span class="s-dot dot-none"></span>ยังไม่มา <strong id="cnt-none">0</strong></span>
   <div class="branch-hours">
+    <span class="bh-chip bh-total" id="bh-all">🏠 รวมทุกสาขา: — ชม.</span>
     <span class="bh-chip" id="bh1">🏠 สาขา 1: — ชม.</span>
     <span class="bh-chip" id="bh2">🏠 สาขา 2: — ชม.</span>
   </div>
@@ -812,6 +814,7 @@ function updateSummary() {
   document.getElementById("cnt-booked").textContent  = booked;
   document.getElementById("cnt-readyat").textContent = readyat;
   document.getElementById("cnt-none").textContent    = none;
+  document.getElementById("bh-all").textContent = `🏠 รวมทุกสาขา: ${(h1 + h2).toFixed(1)} ชม.`;
   document.getElementById("bh1").textContent = `🏠 สาขา 1: ${h1.toFixed(1)} ชม.`;
   document.getElementById("bh2").textContent = `🏠 สาขา 2: ${h2.toFixed(1)} ชม.`;
 }
