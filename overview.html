@@ -494,7 +494,7 @@
 <script type="module">
 import {
   db, collection, query, where, onSnapshot, orderBy,
-  doc, updateDoc, deleteDoc, serverTimestamp
+  doc, setDoc, updateDoc, deleteDoc, serverTimestamp
 } from "./js/firebase-config.js";
 import { requireAuth } from "./js/auth.js";
 import { startReadyAtMonitor } from "./js/helpers.js";
@@ -1150,6 +1150,30 @@ function buildTable(list) {
 let editingSessionId = null;
 const $$ = id => document.getElementById(id);
 
+// เมื่อแก้ session ผ่าน modal ทำให้สถานะหมอตรงกับ session ใหม่
+// (linebot ทำให้อัตโนมัติเวลาส่ง "X ลง" — แต่ modal ไม่ได้ทำ ทำให้ index.html ค้าง "ติดงาน")
+async function syncStatusAfterSessionChange(therapistId, sessionIdBeingChanged, newStatus) {
+  // ถ้า session ที่แก้ยังเป็น active → ไม่ต้องแตะ status (อาจจะกำลังนวดอยู่)
+  if (newStatus === "active") return;
+
+  // หา active session อื่นๆ ของหมอคนนี้ (ที่ไม่ใช่ session ที่กำลังแก้)
+  const otherActive = (allSessions[therapistId] || []).some(s =>
+    s.id !== sessionIdBeingChanged && s.status === "active"
+  );
+  if (otherActive) return;  // ยังมีงานอื่นอยู่ — ไม่แตะ status
+
+  // ไม่มี active session แล้ว → ตั้งสถานะเป็น ready
+  try {
+    await setDoc(doc(db, "statuses", therapistId), {
+      status: "ready",
+      readyAt: null,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (e) {
+    console.warn("[Overview] sync status failed:", e.message);
+  }
+}
+
 function openEditModal(sessionId) {
   const s = sessionById[sessionId];
   if (!s) {
@@ -1214,6 +1238,10 @@ $$("ov-modal-delete").addEventListener("click", async () => {
   btn.textContent = "กำลังลบ…";
   try {
     await deleteDoc(doc(db, "sessions", editingSessionId));
+    // หลังลบ session ที่กำลังแก้ — sync สถานะหมอด้วย
+    if (s?.therapistId) {
+      await syncStatusAfterSessionChange(s.therapistId, editingSessionId, "deleted");
+    }
     closeEditModal();
   } catch (err) {
     errEl.textContent = "ลบไม่สำเร็จ: " + (err.message || err);
@@ -1298,6 +1326,10 @@ $$("ov-modal-save").addEventListener("click", async () => {
   btn.textContent = "กำลังบันทึก…";
   try {
     await updateDoc(doc(db, "sessions", editingSessionId), data);
+    // sync therapist status (e.g. session→completed should clear "ติดงาน")
+    if (editingSession?.therapistId) {
+      await syncStatusAfterSessionChange(editingSession.therapistId, editingSessionId, status);
+    }
     closeEditModal();
   } catch (err) {
     errEl.textContent = "บันทึกไม่สำเร็จ: " + (err.message || err);
