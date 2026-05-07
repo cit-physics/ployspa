@@ -124,6 +124,12 @@
           <input type="text" id="f-specialties" data-i18n-placeholder="specialtiesPlaceholder" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300" />
         </div>
 
+        <!-- Aliases / LINE display names -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">ชื่อเล่น/Display name ใน LINE <span class="text-xs text-gray-500">(คั่นด้วย , เช่น "รู้แล้วจำ, beauty007")</span></label>
+          <input type="text" id="f-aliases" placeholder="ชื่อที่ใช้ใน LINE เพิ่มเติม (ถ้ามี)" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300" />
+        </div>
+
         <!-- Badges -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="badges"></label>
@@ -305,6 +311,7 @@
         $("f-waist").value = th.measurements?.waist || "";
         $("f-hip").value = th.measurements?.hip || "";
         $("f-specialties").value = th.specialties || "";
+        $("f-aliases").value = Array.isArray(th.aliases) ? th.aliases.join(", ") : "";
         $("f-note").value = th.note || "";
         $("f-active").checked = th.active !== false;
         $("f-badge-top").checked = th.badges?.includes("top") || false;
@@ -443,6 +450,10 @@
           hip: parseInt($("f-hip").value) || null,
         },
         specialties: $("f-specialties").value.trim(),
+        aliases: $("f-aliases").value
+          .split(",")
+          .map(s => s.trim())
+          .filter(Boolean),
         note: $("f-note").value.trim(),
         badges,
         active: $("f-active").checked,
