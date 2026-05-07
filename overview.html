@@ -191,6 +191,9 @@
     .badge-leave   { background: #f3e5f5; color: #6a1b9a; }
     .badge-notready{ background: #ffebee; color: #c62828; }
     .badge-none    { background: #f5f5f5; color: #9e9e9e; }
+    .badge-early   { background: #e3f2fd; color: #1565c0; }  /* ลงก่อนเวลา = ฟ้า */
+    .badge-late    { background: #fff3e0; color: #e65100; }  /* ลงหลังเวลา = ส้ม */
+    .badge-ontime  { background: #f5f5f5; color: #666; }     /* ตรงเวลา = เทา */
 
     /* row separator: only between therapists, not between same-therapist sessions */
     tbody tr.row-cont td { border-bottom: 1px dashed #eaf3ee; }
@@ -263,6 +266,9 @@
     .ov-btn-save { background: #4caf83; color: #fff; }
     .ov-btn-save:hover { background: #3d9970; }
     .ov-btn-save:disabled { opacity: 0.5; cursor: wait; }
+    .ov-btn-delete { background: #fff; color: #c62828; border-color: #ef9a9a; margin-right: auto; }
+    .ov-btn-delete:hover { background: #c62828; color: #fff; border-color: #c62828; }
+    .ov-btn-delete:disabled { opacity: 0.5; cursor: wait; }
     .ov-form-help { font-size: 11px; color: #888; margin-top: 3px; }
 
     /* ── LOADING ── */
@@ -349,11 +355,11 @@
         <thead>
           <tr>
             <th style="text-align:left;padding-left:14px">หมอ</th>
-            <th>สถานะ</th>
             <th>รอบ</th>
             <th>เริ่ม</th>
             <th>จบ (กำหนด)</th>
             <th>ลงจริง</th>
+            <th>ก่อน/เกิน</th>
             <th>ชม.</th>
             <th>ต่อเวลา</th>
             <th>จอง</th>
@@ -464,6 +470,7 @@
       <div id="ov-form-error" style="color:#c62828;font-size:12px;margin-top:6px"></div>
     </form>
     <div class="ov-modal-foot">
+      <button type="button" class="ov-btn ov-btn-delete" id="ov-modal-delete">🗑 ลบ session</button>
       <button type="button" class="ov-btn ov-btn-cancel" id="ov-modal-cancel">ยกเลิก</button>
       <button type="button" class="ov-btn ov-btn-save" id="ov-modal-save">บันทึก</button>
     </div>
@@ -473,7 +480,7 @@
 <script type="module">
 import {
   db, collection, query, where, onSnapshot, orderBy,
-  doc, updateDoc, serverTimestamp
+  doc, updateDoc, deleteDoc, serverTimestamp
 } from "./js/firebase-config.js";
 import { requireAuth } from "./js/auth.js";
 import { startReadyAtMonitor } from "./js/helpers.js";
@@ -509,6 +516,17 @@ function addMinutes(hhmm, n) {
   const mm = wrap % 60;
   return `${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`;
 }
+// Returns t1 − t2 in minutes (positive = t1 is later than t2).
+// Handles midnight wrap: if abs > 12h, assume the smaller side is on next day.
+function timeDiffMin(t1, t2) {
+  if (!t1 || !t2) return null;
+  const [h1, m1] = t1.split(":").map(Number);
+  const [h2, m2] = t2.split(":").map(Number);
+  let d = (h1 * 60 + m1) - (h2 * 60 + m2);
+  if (d < -720) d += 1440;
+  if (d >  720) d -= 1440;
+  return d;
+}
 
 // ─── STATE ────────────────────────────────────────────
 let therapists   = [];
@@ -519,12 +537,13 @@ let activeBranch = "all";
 
 // ─── HELPERS ─────────────────────────────────────────
 // Business day = 08:00 ของวัน X ถึง 06:00 ของวัน X+1
-// คืนค่าเป็นวันที่เริ่มต้นของ business day ปัจจุบัน (calendar date X)
-// เวลาที่ Thai-time ตี 0 ถึง 7:59 น. ยังถือว่าเป็น business day ของเมื่อวาน
+// คืนค่า "วันนี้" ตาม mental model ของผู้ใช้:
+//   - 00:00–05:59 Thai time → ยังเป็น business day ของเมื่อวาน → คืนค่าวันที่เมื่อวาน
+//   - 06:00–23:59 Thai time → เป็น business day ของวันนี้ (รวมช่วง 06:00–08:00 ก่อนเปิดร้าน)
+// เลื่อน 6 ชั่วโมง (boundary ที่ 06:00) — net offset = +1h
 function getBusinessDate() {
   const now = new Date();
-  // Thai time (UTC+7) ลบ 8h → ของช่วง 00:00–07:59 ตกลงไปอยู่ของเมื่อวาน
-  const shifted = new Date(now.getTime() + 7 * 60 * 60 * 1000 - 8 * 60 * 60 * 1000);
+  const shifted = new Date(now.getTime() + 7 * 60 * 60 * 1000 - 6 * 60 * 60 * 1000);
   return shifted.toISOString().split("T")[0];
 }
 
@@ -610,16 +629,15 @@ onSnapshot(collection(db, "statuses"), snap => {
 // Auto-promote any "ready_at HH:MM" → "ready" when the time passes
 startReadyAtMonitor(() => statuses);
 
-// Business-day window:
-//   biz-day X = (calendar date X, time >= 08:00) ∪ (calendar date X+1, time < 08:00)
-// We subscribe to both calendar dates and filter on time client-side.
+// Business-day window — ผ่อนกฎเพื่อไม่ให้ session ผิดปกติหลุดหายไป:
+//   biz-day X = (calendar date X, ทุกเวลา) ∪ (calendar date X+1, time < 06:00)
+// ครอบคลุม session ที่เริ่มข้ามคืนและจบในเช้ามืดของวันถัดไป
 function _isInBizWindow(itemDate, itemTime, dateStart, dateNext) {
-  if (!itemTime) {
-    // Items without a time — keep on dateStart only (treat as biz-day start)
-    return itemDate === dateStart;
+  if (itemDate === dateStart) return true;
+  if (itemDate === dateNext) {
+    if (!itemTime) return false;  // ต้องมีเวลาถึงจะรวมเข้ามาได้
+    return itemTime < "06:00";
   }
-  if (itemDate === dateStart) return itemTime >= "08:00";
-  if (itemDate === dateNext)  return itemTime <  "08:00";
   return false;
 }
 
@@ -883,8 +901,14 @@ function buildGantt(list) {
       area.appendChild(bar);
     });
 
-    // booking bars — skip those already linked to a started session (sessionId is set)
-    (allBookings[t.id] || []).filter(b => !b.sessionId).forEach(b => {
+    // booking bars — hide if linked to a session via either direction:
+    //   (a) booking.sessionId is set (linebot's linkSessionToBooking)
+    //   (b) any session for this therapist has bookingId === this booking's id
+    // (b) is more reliable since session.bookingId is set at creation time
+    const linkedBookingIds = new Set(
+      (allSessions[t.id] || []).filter(s => s.bookingId).map(s => s.bookingId)
+    );
+    (allBookings[t.id] || []).filter(b => !b.sessionId && !linkedBookingIds.has(b.id)).forEach(b => {
       if (!b.bookingTime) return;
       const sh = toDecH(b.bookingTime);
       const eh = sh + 2; // assume 2h
@@ -936,8 +960,11 @@ function buildTable(list) {
     const sess       = allSessions[t.id] || [];
     const bks        = allBookings[t.id] || [];
     const activeBk   = bks.find(b => ["pending_confirmation","confirmed"].includes(b.status));
+    // Hide bookings already linked to a session via either direction
+    const linkedBkIds = new Set(sess.filter(s => s.bookingId).map(s => s.bookingId));
     const pendingBks = bks.filter(b =>
       !b.sessionId &&
+      !linkedBkIds.has(b.id) &&
       ["pending_confirmation","confirmed"].includes(b.status)
     );
 
@@ -948,26 +975,28 @@ function buildTable(list) {
     const initial = name[0];
 
     const totalRows = sess.length + pendingBks.length;
+    // Combined "หมอ + สถานะ" cell — name on top, status badge underneath
     const nameCell = `
       <td style="text-align:left" rowspan="__RS__">
         <div style="display:flex;align-items:center;gap:6px">
           <div class="g-avatar" style="width:24px;height:24px;font-size:10px;flex-shrink:0">
             ${t.photoUrl ? `<img src="${esc(t.photoUrl)}" alt="">` : esc(initial)}
           </div>
-          <span style="font-weight:600">${esc(name)}</span>
+          <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
+            <span style="font-weight:600">${esc(name)}</span>
+            <span class="badge ${badgeCls}" style="font-size:10px;padding:1px 6px;align-self:flex-start">${esc(badgeLbl)}</span>
+          </div>
         </div>
       </td>`;
-    const statusCell = `<td rowspan="__RS__"><span class="badge ${badgeCls}">${esc(badgeLbl)}</span></td>`;
 
     if (totalRows === 0) {
-      // No sessions and no pending bookings — single row with placeholders
+      // No sessions and no pending bookings — single placeholder row
+      // Total columns = 11. After name cell (1), 10 placeholders.
       const tr = document.createElement("tr");
       tr.className = "row-end";
       tr.innerHTML =
         nameCell.replace("__RS__", "1") +
-        statusCell.replace("__RS__", "1") +
-        `<td>–</td>`.repeat(8) +  // รอบ, เริ่ม, จบ, ลงจริง, ชม., ต่อเวลา, จอง, ผู้จอง
-        `<td>–</td>`;              // แก้ไข
+        `<td>–</td>`.repeat(10);
       tbody.appendChild(tr);
       return;
     }
@@ -1007,13 +1036,39 @@ function buildTable(list) {
         extStr = "✅";
       }
 
-      // actual end (lงจริง)
+      // actual end (ลงจริง)
       let actualStr = "–";
-      if (s.actualEndTime && s.actualEndTime !== s.endTime) {
-        actualStr = s.actualEndTime + (s.isEarlyCheckout ? " ⏪" : "");
+      let actualForDiff = null;
+      if (s.actualEndTime) {
+        actualStr = s.actualEndTime;
+        actualForDiff = s.actualEndTime;
       } else if (s.status === "completed" && s.endTime) {
+        // Treat completed-without-actual-time as on-time
         actualStr = s.endTime;
+        actualForDiff = endWithExt;
       }
+
+      // ก่อน/เกิน — diff between actualEndTime and endTime+extension
+      let diffStr = "–";
+      let diffCls = "";
+      if (actualForDiff && endWithExt) {
+        const d = timeDiffMin(actualForDiff, endWithExt);
+        if (d === null) {
+          diffStr = "–";
+        } else if (d === 0) {
+          diffStr = "ตรง";
+          diffCls = "badge-ontime";
+        } else if (d < 0) {
+          diffStr = `ก่อน ${Math.abs(d)} น.`;
+          diffCls = "badge-early";
+        } else {
+          diffStr = `เกิน ${d} น.`;
+          diffCls = "badge-late";
+        }
+      }
+      const diffCellHtml = diffCls
+        ? `<td><span class="badge ${diffCls}" style="font-size:10px">${esc(diffStr)}</span></td>`
+        : `<td>${esc(diffStr)}</td>`;
 
       // จอง / ผู้จอง — per-row, only filled if this session linked to a booking
       const jongStr   = s.bookingId && s.bookingTime ? s.bookingTime : "–";
@@ -1024,12 +1079,12 @@ function buildTable(list) {
       let html = "";
       if (isFirst) {
         html += nameCell.replace("__RS__", RS);
-        html += statusCell.replace("__RS__", RS);
       }
       html += `<td>${idx + 1}</td>`;
       html += `<td>${esc(startStr)}</td>`;
       html += `<td>${esc(endStr)}</td>`;
       html += `<td>${esc(actualStr)}</td>`;
+      html += diffCellHtml;
       html += `<td class="${hoursCellCls}" ${hoursTitle}>${hoursStr}</td>`;
       html += `<td>${esc(extStr)}</td>`;
       html += `<td>${esc(jongStr)}</td>`;
@@ -1048,10 +1103,10 @@ function buildTable(list) {
       let html = "";
       if (isFirstOfAll) {
         html += nameCell.replace("__RS__", RS);
-        html += statusCell.replace("__RS__", RS);
       }
       html += `<td>–</td>`;                              // รอบ
       html += `<td>–</td><td>–</td><td>–</td>`;          // เริ่ม / จบ / ลงจริง
+      html += `<td>–</td>`;                              // ก่อน/เกิน
       html += `<td>–</td><td>–</td>`;                    // ชม. / ต่อเวลา
       html += `<td>${esc(b.bookingTime || "–")}</td>`;   // จอง
       html += `<td>${esc(b.customerName ? "คุณ" + b.customerName : "–")}</td>`; // ผู้จอง
@@ -1119,6 +1174,31 @@ $$("ov-edit-modal").addEventListener("click", e => {
   if (e.target.id === "ov-edit-modal") closeEditModal();
 });
 
+$$("ov-modal-delete").addEventListener("click", async () => {
+  if (!editingSessionId) return;
+  const s = sessionById[editingSessionId];
+  const t = therapists.find(x => x.id === s?.therapistId);
+  const tName = t?.nameTh || t?.nameEn || t?.code || s?.therapistName || "";
+  const timeRange = s?.startTime ? ` (${s.startTime}${s.endTime ? "-" + s.endTime : ""})` : "";
+  const confirmMsg = `ยืนยันลบ session ของ ${tName}${timeRange}?\n\nการลบจะกู้คืนไม่ได้`;
+  if (!confirm(confirmMsg)) return;
+
+  const btn = $$("ov-modal-delete");
+  const errEl = $$("ov-form-error");
+  errEl.textContent = "";
+  btn.disabled = true;
+  btn.textContent = "กำลังลบ…";
+  try {
+    await deleteDoc(doc(db, "sessions", editingSessionId));
+    closeEditModal();
+  } catch (err) {
+    errEl.textContent = "ลบไม่สำเร็จ: " + (err.message || err);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "🗑 ลบ session";
+  }
+});
+
 $$("ov-modal-save").addEventListener("click", async () => {
   if (!editingSessionId) return;
   const btn = $$("ov-modal-save");
@@ -1178,6 +1258,16 @@ $$("ov-modal-save").addEventListener("click", async () => {
     data.isEarlyCheckout = true;
   } else if (actualEndRaw && actualEndRaw >= endTime) {
     data.isEarlyCheckout = false;
+  }
+
+  // diffMinutesFromPlanned: actualEnd − (endTime + extension)
+  //   negative = ลงก่อนเวลา / 0 = ตรงเวลา / positive = ลงหลังเวลา
+  //   เก็บใน DB เพื่อ aggregation ในหน้าสรุปรายวัน/รายเดือนในอนาคต
+  if (actualEndRaw) {
+    const plannedEnd = addMinutes(endTime, extMin);
+    data.diffMinutesFromPlanned = timeDiffMin(actualEndRaw, plannedEnd);
+  } else {
+    data.diffMinutesFromPlanned = null;
   }
 
   btn.disabled = true;
