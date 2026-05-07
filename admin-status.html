@@ -7,6 +7,9 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" />
   <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .time-input-error { border-color: #c62828 !important; background: #ffebee !important; }
+  </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
   <header class="bg-white border-b sticky top-0 z-20">
@@ -60,12 +63,12 @@
 
       <!-- Start time (always shown) -->
       <label id="time-modal-start-label" class="block text-xs text-gray-500 mb-1">เวลา</label>
-      <input type="time" id="time-modal-input" class="w-full border-2 border-yellow-300 rounded-lg px-3 py-2 text-lg" />
+      <input type="text" id="time-modal-input" data-time-input class="w-full border-2 border-yellow-300 rounded-lg px-3 py-2 text-lg" />
 
       <!-- End time (shown only for "booked" mode) -->
       <div id="time-modal-end-wrap" class="hidden mt-3">
         <label class="block text-xs text-gray-500 mb-1">ถึงเวลา <span class="text-gray-400">(default = +1 ชม.)</span></label>
-        <input type="time" id="time-modal-end" class="w-full border-2 border-indigo-300 rounded-lg px-3 py-2 text-lg" />
+        <input type="text" id="time-modal-end" data-time-input class="w-full border-2 border-indigo-300 rounded-lg px-3 py-2 text-lg" />
       </div>
 
       <div class="flex justify-end gap-2 mt-4">
@@ -88,6 +91,7 @@
     } from "./js/helpers.js";
     import { t, pickName } from "./js/i18n.js";
     import { requireAuth, logout } from "./js/auth.js";
+    import { attachTimeFormatter } from "./js/time-input.js";
 
     const user = await requireAuth();
     document.getElementById("user-email").textContent = user.email;
@@ -99,6 +103,11 @@
     });
 
     const $ = (id) => document.getElementById(id);
+
+    // Attach 24-hour HH:MM formatter to all time inputs
+    attachTimeFormatter($("time-modal-input"));
+    attachTimeFormatter($("time-modal-end"));
+
     let therapists = [];
     let statuses = {};
     const selected = new Set();

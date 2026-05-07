@@ -272,6 +272,7 @@
       width: 100%; padding: 7px 10px; border-radius: 7px; border: 1px solid #c8e6d8;
       font-family: 'Sarabun', sans-serif; font-size: 13px; background: #fff;
     }
+    .time-input-error { border-color: #c62828 !important; background: #ffebee !important; }
     .ov-form-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .ov-modal-foot {
       padding: 12px 20px; border-top: 1px solid #e8f5ee;
@@ -422,17 +423,17 @@
       <div class="ov-form-grid2">
         <div class="ov-form-row">
           <label>เวลาเริ่ม</label>
-          <input type="time" id="ov-f-start" required />
+          <input type="text" id="ov-f-start" data-time-input required />
         </div>
         <div class="ov-form-row">
           <label>เวลาจบ (กำหนด) <span style="color:#888;font-weight:400">(รวมต่อเวลาแล้ว)</span></label>
-          <input type="time" id="ov-f-end" required />
+          <input type="text" id="ov-f-end" data-time-input required />
         </div>
       </div>
 
       <div class="ov-form-row">
         <label>เวลาลงจริง <span style="color:#888;font-weight:400">(ถ้าหมอลงเวลาจริงต่างจากกำหนด)</span></label>
-        <input type="time" id="ov-f-actual-end" />
+        <input type="text" id="ov-f-actual-end" data-time-input />
         <div class="ov-form-help">เว้นว่างถ้าจบตามกำหนด</div>
       </div>
 
@@ -465,7 +466,7 @@
           </div>
           <div class="ov-form-row">
             <label>เวลาที่จอง</label>
-            <input type="time" id="ov-f-booking-time" />
+            <input type="text" id="ov-f-booking-time" data-time-input />
           </div>
         </div>
       </div>
@@ -508,6 +509,7 @@ import {
 } from "./js/firebase-config.js";
 import { requireAuth } from "./js/auth.js";
 import { startReadyAtMonitor } from "./js/helpers.js";
+import { attachTimeFormatter, isValidTime } from "./js/time-input.js";
 
 // Auth guard — redirect to login if not authenticated
 await requireAuth();
@@ -1237,6 +1239,11 @@ function closeEditModal() {
   editingSessionId = null;
 }
 
+// Attach 24-hour HH:MM formatter to all time inputs in this modal
+["ov-f-start", "ov-f-end", "ov-f-actual-end", "ov-f-booking-time"].forEach(id => {
+  attachTimeFormatter($$(id));
+});
+
 $$("ov-modal-close").addEventListener("click", closeEditModal);
 $$("ov-modal-cancel").addEventListener("click", closeEditModal);
 $$("ov-edit-modal").addEventListener("click", e => {
@@ -1295,6 +1302,13 @@ $$("ov-modal-save").addEventListener("click", async () => {
   if (!startTime || !endTime) {
     errEl.textContent = "กรอกเวลาเริ่ม + เวลาจบ ก่อนนะครับ";
     return;
+  }
+  // Validate 24-hour format
+  for (const [name, val] of [["เริ่ม", startTime], ["จบ", endTime], ["ลงจริง", actualEndRaw], ["เวลาที่จอง", bookingTime]]) {
+    if (val && !isValidTime(val)) {
+      errEl.textContent = `เวลา "${name}" รูปแบบไม่ถูกต้อง ต้องเป็น HH:MM (เช่น 22:15)`;
+      return;
+    }
   }
 
   const extMin = extMinRaw === "" ? 0 : parseInt(extMinRaw, 10) || 0;

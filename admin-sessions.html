@@ -10,6 +10,7 @@
     body { font-family: 'Sarabun', sans-serif; }
     .spinner { width:28px; height:28px; border:3px solid #fce7f3; border-top-color:#ec4899; border-radius:50%; animation:spin .7s linear infinite; }
     @keyframes spin { to { transform:rotate(360deg); } }
+    .time-input-error { border-color: #c62828 !important; background: #ffebee !important; }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -71,11 +72,11 @@
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">เวลาเริ่ม <span class="text-red-500">*</span></label>
-          <input type="time" id="f-start" required class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300" />
+          <input type="text" id="f-start" data-time-input required class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300" />
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">เวลาจบ <span class="text-red-500">*</span></label>
-          <input type="time" id="f-end" required class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300" />
+          <input type="text" id="f-end" data-time-input required class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300" />
         </div>
       </div>
 
@@ -144,7 +145,7 @@
             </div>
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">เวลาที่จอง</label>
-              <input type="time" id="f-booking-time" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-300" />
+              <input type="text" id="f-booking-time" data-time-input class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-300" />
             </div>
           </div>
           <p class="text-xs text-gray-500">กรอกเฉพาะเมื่อ session นี้มาจากการจองล่วงหน้า — จะแสดงในคอลัมน์ "จอง" และ "ผู้จอง" บน Dashboard</p>
@@ -174,6 +175,7 @@ import {
 } from "./js/firebase-config.js";
 import { listTherapists, escapeHtml, setStatus, clearStatus } from "./js/helpers.js";
 import { requireAuth } from "./js/auth.js";
+import { attachTimeFormatter, isValidTime } from "./js/time-input.js";
 
 await requireAuth();
 
@@ -383,6 +385,9 @@ function closeModal() {
   editingId = null;
 }
 
+// Attach 24-hour HH:MM formatter
+["f-start", "f-end", "f-booking-time"].forEach(id => attachTimeFormatter($(id)));
+
 $("btn-close-modal").addEventListener("click", closeModal);
 $("btn-cancel-modal").addEventListener("click", closeModal);
 $("btn-add-session").addEventListener("click", () => openModal());
@@ -405,6 +410,16 @@ $("session-form").addEventListener("submit", async e => {
     const th = therapists.find(t => t.id === therapistId);
     const bookingCust = $("f-booking-customer").value.trim();
     const bookingTime = $("f-booking-time").value;
+
+    // Validate time formats
+    for (const [name, val] of [["เริ่ม", $("f-start").value], ["จบ", $("f-end").value], ["เวลาที่จอง", bookingTime]]) {
+      if (val && !isValidTime(val)) {
+        alert(`เวลา "${name}" รูปแบบไม่ถูกต้อง ต้องเป็น HH:MM (เช่น 22:15)`);
+        btn.disabled = false;
+        btn.textContent = "บันทึก";
+        return;
+      }
+    }
     const data = {
       therapistId,
       therapistName: th?.nameTh || th?.nameEn || "",

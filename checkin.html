@@ -7,6 +7,9 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" />
   <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .time-input-error { border-color: #c62828 !important; background: #ffebee !important; }
+  </style>
 </head>
 <body class="bg-gradient-to-b from-pink-50 via-white to-pink-50 min-h-screen">
   <header class="bg-white/80 backdrop-blur border-b sticky top-0 z-10">
@@ -61,7 +64,7 @@
           </button>
           <div id="time-picker" class="hidden p-4 pt-0">
             <div class="flex gap-2">
-              <input type="time" id="ready-time" class="flex-1 border-2 border-yellow-300 rounded-lg px-3 py-2 text-lg" />
+              <input type="text" id="ready-time" data-time-input class="flex-1 border-2 border-yellow-300 rounded-lg px-3 py-2 text-lg" />
               <button id="btn-confirm-time" class="px-4 py-2 bg-yellow-500 text-white rounded-lg font-medium" data-i18n="confirm"></button>
             </div>
           </div>
@@ -107,9 +110,11 @@
   <script type="module">
     import { listTherapists, setStatus, escapeHtml } from "./js/helpers.js";
     import { t, pickName } from "./js/i18n.js";
+    import { attachTimeFormatter } from "./js/time-input.js";
 
     const SAVED_KEY = "ployspa_checkin_id";
     const $ = (id) => document.getElementById(id);
+    attachTimeFormatter($("ready-time"));
 
     let therapists = [];
     let pickedId = null;
