@@ -154,39 +154,48 @@
       }
       empty.classList.add("hidden");
 
-      // Group by status: ready → ready_at → busy → booked → others
-      // หมอที่ status "อยู่ที่ร้าน" แต่ยังไม่ check-in (เช่น มีจองล่วงหน้า แต่ยังไม่มา)
-      // ให้แสดงในกลุ่ม others เพื่อกันลูกค้าเข้าใจผิดว่าหมออยู่ร้านแล้ว
-      const ready = [], readyAt = [], busy = [], booked = [], others = [];
+      // Group by status: ready → ready_at → busy → booked → notArrived → unavailable
+      //   - notArrived: status พร้อมบริการ แต่ยังไม่ check-in (เช่น มีจองล่วงหน้า/อาจจะมาทำงาน)
+      //   - unavailable: status="not_ready"/"leave" หรือไม่ระบุ → ท้ายสุด
+      const ready = [], readyAt = [], busy = [], booked = [], notArrived = [], unavailable = [];
+      const PRESENT_STATUSES = new Set(["ready", "ready_at", "busy", "booked", "break"]);
       filtered.forEach((th) => {
         const s = statuses[th.id]?.status;
         const checkedIn = !!checkins[th.id];
+
         if (!checkedIn) {
-          others.push(th);
+          // status พร้อมบริการแต่ไม่ check-in → "ยังไม่มา"
+          // status "not_ready"/"leave"/null → "ไม่พร้อม" (ท้ายสุด)
+          if (s && PRESENT_STATUSES.has(s)) notArrived.push(th);
+          else unavailable.push(th);
           return;
         }
+        // check-in แล้ว → group ตาม status
         if (s === "ready")    ready.push(th);
         else if (s === "ready_at") readyAt.push(th);
         else if (s === "busy") busy.push(th);
         else if (s === "booked") booked.push(th);
-        else others.push(th);
+        else unavailable.push(th); // check-in แล้วแต่ status=not_ready/leave (เช่น เพิ่งกดไม่พร้อม)
       });
 
-      const readySorted   = sortByBadgeThenName(ready);
-      const readyAtSorted = sortByBadgeThenName(readyAt);
-      const busySorted    = sortByBadgeThenName(busy);
-      const bookedSorted  = sortByBadgeThenName(booked);
-      const othersSorted  = sortByBadgeThenName(others);
+      const readySorted        = sortByBadgeThenName(ready);
+      const readyAtSorted      = sortByBadgeThenName(readyAt);
+      const busySorted         = sortByBadgeThenName(busy);
+      const bookedSorted       = sortByBadgeThenName(booked);
+      const notArrivedSorted   = sortByBadgeThenName(notArrived);
+      const unavailableSorted  = sortByBadgeThenName(unavailable);
 
       // Available group = ready + ready_at + busy + booked
       const availableGroup = [...readySorted, ...readyAtSorted, ...busySorted, ...bookedSorted];
+      // Others group: ยังไม่มา ก่อน → ไม่พร้อม/ลา ท้ายสุด
+      const othersGroup = [...notArrivedSorted, ...unavailableSorted];
 
       const sections = [];
       if (availableGroup.length) sections.push(renderGroup(availableGroup));
-      if (availableGroup.length && othersSorted.length) {
+      if (availableGroup.length && othersGroup.length) {
         sections.push(`<div class="my-8 border-t-2 border-dashed border-pink-200"></div>`);
       }
-      if (othersSorted.length) sections.push(renderGroup(othersSorted));
+      if (othersGroup.length) sections.push(renderGroup(othersGroup));
 
       wrapper.innerHTML = sections.join("");
     }
