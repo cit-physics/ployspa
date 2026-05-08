@@ -173,7 +173,7 @@ import {
   query, where, orderBy, serverTimestamp,
   onAuthStateChanged, signInWithEmailAndPassword,
 } from "./js/firebase-config.js";
-import { listTherapists, escapeHtml, setStatus, clearStatus } from "./js/helpers.js";
+import { listTherapists, escapeHtml, setStatus, clearStatus, getBusinessDate, shiftDate, isInBizWindow } from "./js/helpers.js";
 import { requireAuth } from "./js/auth.js";
 import { attachTimeFormatter, isValidTime } from "./js/time-input.js";
 
@@ -192,15 +192,10 @@ async function resetIfBusy(therapistId) {
 }
 
 // ─── DATE ───────────────────────────────────────────
-function getTodayThai() {
-  const now = new Date();
-  const thai = new Date(now.getTime() + 7 * 60 * 60 * 1000);
-  return thai.toISOString().split("T")[0];
-}
-
+// ใช้ business-day (boundary 06:00) แทน calendar day — สอดคล้องกับ overview.html
 // อนุญาตให้ส่ง ?date=YYYY-MM-DD เพื่อโหลดวันอื่น (เช่น มาจาก dashboard)
 const urlDate = new URLSearchParams(location.search).get("date");
-let selectedDate = urlDate && /^\d{4}-\d{2}-\d{2}$/.test(urlDate) ? urlDate : getTodayThai();
+let selectedDate = urlDate && /^\d{4}-\d{2}-\d{2}$/.test(urlDate) ? urlDate : getBusinessDate();
 $("date-picker").value = selectedDate;
 $("date-picker").addEventListener("change", e => {
   selectedDate = e.target.value;
@@ -223,11 +218,20 @@ async function loadSessions() {
   $("session-list").classList.add("hidden");
   $("empty").classList.add("hidden");
 
+  // ใช้ business-day window: query 2 calendar dates แล้ว filter
+  // ครอบคลุม session ที่เริ่มข้ามคืน (เช่นเริ่ม 23:30 จบ 02:00)
+  const nextDate = shiftDate(selectedDate, 1);
   const snap = await getDocs(
-    query(collection(db, "sessions"), where("date", "==", selectedDate))
+    query(collection(db, "sessions"), where("date", "in", [selectedDate, nextDate]))
   );
-  sessions = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-    .sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
+  sessions = snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(s => isInBizWindow(s.date, s.startTime, selectedDate))
+    .sort((a, b) => {
+      // session ในวันเดียวกันเรียงตาม startTime; ข้ามวันให้ของวันใหม่อยู่หลัง
+      if (a.date !== b.date) return a.date.localeCompare(b.date);
+      return (a.startTime || "").localeCompare(b.startTime || "");
+    });
 
   $("loading").classList.add("hidden");
   renderSessions();
@@ -308,8 +312,9 @@ function renderSessions() {
       if (!confirm("ยืนยันยกเลิก session นี้?")) return;
       const s = sessions.find(x => x.id === b.dataset.cancel);
       await updateDoc(doc(db, "sessions", b.dataset.cancel), { status: "cancelled", updatedAt: serverTimestamp() });
-      // If this was an active session today, reset therapist status to ready
-      if (s && s.status === "active" && s.date === getTodayThai() && s.therapistId) {
+      // If this was an active session in today's biz-day, reset therapist status to ready
+      const bizToday = getBusinessDate();
+      if (s && s.status === "active" && isInBizWindow(s.date, s.startTime, bizToday) && s.therapistId) {
         await setStatus(s.therapistId, "ready");
       }
       loadSessions();
@@ -320,8 +325,8 @@ function renderSessions() {
       if (!confirm("ลบ session นี้ถาวรเลยไหม?")) return;
       const s = sessions.find(x => x.id === b.dataset.del);
       await deleteDoc(doc(db, "sessions", b.dataset.del));
-      // If this was an active session today, reset therapist status to ready
-      if (s && s.status === "active" && s.date === getTodayThai() && s.therapistId) {
+      const bizToday = getBusinessDate();
+      if (s && s.status === "active" && isInBizWindow(s.date, s.startTime, bizToday) && s.therapistId) {
         await setStatus(s.therapistId, "ready");
       }
       loadSessions();
@@ -447,8 +452,8 @@ $("session-form").addEventListener("submit", async e => {
       await addDoc(collection(db, "sessions"), { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
     }
 
-    // Sync statuses for today's sessions
-    if (therapistId && data.date === getTodayThai()) {
+    // Sync statuses for sessions in current biz-day (รวม session ที่เริ่มข้ามคืน)
+    if (therapistId && isInBizWindow(data.date, data.startTime, getBusinessDate())) {
       if (data.status === "active") {
         await setStatus(therapistId, "busy", data.endTime || null);
       } else if (data.status === "completed" || data.status === "cancelled") {

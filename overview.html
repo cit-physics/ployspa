@@ -513,7 +513,7 @@ import {
   doc, setDoc, updateDoc, deleteDoc, serverTimestamp
 } from "./js/firebase-config.js";
 import { requireAuth } from "./js/auth.js";
-import { startReadyAtMonitor } from "./js/helpers.js";
+import { startReadyAtMonitor, getBusinessDate, shiftDate, isInBizWindow } from "./js/helpers.js";
 import { attachTimeFormatter, isValidTime } from "./js/time-input.js";
 
 // Auth guard — redirect to login if not authenticated
@@ -567,16 +567,7 @@ let allBookings  = {}; // therapistId → [bookings]
 let activeBranch = "all";
 
 // ─── HELPERS ─────────────────────────────────────────
-// Business day = 08:00 ของวัน X ถึง 06:00 ของวัน X+1
-// คืนค่า "วันนี้" ตาม mental model ของผู้ใช้:
-//   - 00:00–05:59 Thai time → ยังเป็น business day ของเมื่อวาน → คืนค่าวันที่เมื่อวาน
-//   - 06:00–23:59 Thai time → เป็น business day ของวันนี้ (รวมช่วง 06:00–08:00 ก่อนเปิดร้าน)
-// เลื่อน 6 ชั่วโมง (boundary ที่ 06:00) — net offset = +1h
-function getBusinessDate() {
-  const now = new Date();
-  const shifted = new Date(now.getTime() + 7 * 60 * 60 * 1000 - 6 * 60 * 60 * 1000);
-  return shifted.toISOString().split("T")[0];
-}
+// getBusinessDate, shiftDate, isInBizWindow ย้ายไป js/helpers.js แล้ว — import ข้างบน
 
 // Status badge — shared between table and gantt name column
 function getBadge(therapist, statusesMap, activeBk) {
@@ -627,12 +618,6 @@ let unsubBookingsD1 = null, unsubBookingsD2 = null;
 let _rawSessions = { d1: [], d2: [] };
 let _rawBookings = { d1: [], d2: [] };
 
-function shiftDate(dateStr, deltaDays) {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const dt = new Date(Date.UTC(y, m - 1, d));
-  dt.setUTCDate(dt.getUTCDate() + deltaDays);
-  return dt.toISOString().split("T")[0];
-}
 function formatDateLabel(dateStr) {
   const today = getBusinessDate();
   if (dateStr === today)                     return "วันนี้";
@@ -660,26 +645,15 @@ onSnapshot(collection(db, "statuses"), snap => {
 // Auto-promote any "ready_at HH:MM" → "ready" when the time passes
 startReadyAtMonitor(() => statuses);
 
-// Business-day window — ผ่อนกฎเพื่อไม่ให้ session ผิดปกติหลุดหายไป:
+// Business-day window — ใช้ isInBizWindow จาก helpers.js
 //   biz-day X = (calendar date X, ทุกเวลา) ∪ (calendar date X+1, time < 06:00)
 // ครอบคลุม session ที่เริ่มข้ามคืนและจบในเช้ามืดของวันถัดไป
-function _isInBizWindow(itemDate, itemTime, dateStart, dateNext) {
-  if (itemDate === dateStart) return true;
-  if (itemDate === dateNext) {
-    if (!itemTime) return false;  // ต้องมีเวลาถึงจะรวมเข้ามาได้
-    return itemTime < "06:00";
-  }
-  return false;
-}
 
 function _mergeAndRender() {
-  const dateStart = selectedDate;
-  const dateNext  = shiftDate(selectedDate, 1);
-
   // Merge sessions
   allSessions = {};
   [..._rawSessions.d1, ..._rawSessions.d2].forEach(s => {
-    if (!_isInBizWindow(s.date, s.startTime, dateStart, dateNext)) return;
+    if (!isInBizWindow(s.date, s.startTime, selectedDate)) return;
     if (!allSessions[s.therapistId]) allSessions[s.therapistId] = [];
     allSessions[s.therapistId].push(s);
   });
@@ -695,7 +669,7 @@ function _mergeAndRender() {
   allBookings = {};
   [..._rawBookings.d1, ..._rawBookings.d2].forEach(b => {
     if (!b.therapistId) return;
-    if (!_isInBizWindow(b.bookingDate, b.bookingTime, dateStart, dateNext)) return;
+    if (!isInBizWindow(b.bookingDate, b.bookingTime, selectedDate)) return;
     if (!allBookings[b.therapistId]) allBookings[b.therapistId] = [];
     allBookings[b.therapistId].push(b);
   });

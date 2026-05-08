@@ -214,6 +214,46 @@ export function qs(name) {
 }
 
 // =========================================================
+// BUSINESS DAY HELPERS
+// =========================================================
+// ร้านเปิด 08:00 ถึง 06:00 ของวันถัดไป — 1 รอบทำงาน = biz-day X
+// boundary ที่ตกลง: 06:00 — ก่อนหน้านั้น "วันนี้" = เมื่อวาน, ตั้งแต่ 06:00 = วันนี้
+// (ครอบช่วง 06:00–08:00 ก่อนเปิดร้านให้ตรงกับ mental model ของผู้ใช้)
+
+/** business-day "วันนี้" รูปแบบ "YYYY-MM-DD" (Thai TZ + boundary 06:00) */
+export function getBusinessDate() {
+  const now = new Date();
+  // Thai +7h, then -6h for boundary 06:00 → net +1h
+  const shifted = new Date(now.getTime() + 7 * 60 * 60 * 1000 - 6 * 60 * 60 * 1000);
+  return shifted.toISOString().split("T")[0];
+}
+
+/** เลื่อนวันที่ (YYYY-MM-DD) ทีละวัน */
+export function shiftDate(dateStr, deltaDays) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + deltaDays);
+  return dt.toISOString().split("T")[0];
+}
+
+/**
+ * เช็คว่า item (date+time) อยู่ใน business-day window หรือไม่
+ * biz-day X = (calendar X, ทุกเวลา) ∪ (calendar X+1, time < 06:00)
+ * ครอบคลุม session ที่เริ่มข้ามคืนและจบในเช้ามืดวันถัดไป
+ *
+ * itemTime = null/empty → ถือว่าไม่อยู่ใน window ของ X+1 (ต้องมีเวลาถึงจะรวมเข้ามาได้)
+ */
+export function isInBizWindow(itemDate, itemTime, bizDate) {
+  if (itemDate === bizDate) return true;
+  const next = shiftDate(bizDate, 1);
+  if (itemDate === next) {
+    if (!itemTime) return false;
+    return itemTime < "06:00";
+  }
+  return false;
+}
+
+// =========================================================
 // READY_AT AUTO-PROMOTE
 // =========================================================
 // When a therapist's status is "ready_at HH:MM" and the wall-clock
