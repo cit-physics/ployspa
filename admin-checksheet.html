@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ใบบันทึก — PloySpa Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Sarabun', sans-serif; background: #f9f5f7; color: #2d2d2d; }
+    .spinner { width:32px; height:32px; border:3px solid #fce7f3; border-top-color:#ec4899; border-radius:50%; animation:spin .7s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* Summary card */
+    .sum-card {
+      background:#fff; border:1px solid #f3d8e2; border-radius:14px;
+      padding:14px 18px; flex:1; min-width:160px;
+    }
+    .sum-card-title { font-size:12px; color:#9b6b7d; font-weight:600; }
+    .sum-card-time  { font-size:18px; color:#1a3a2e; font-weight:700; margin-top:4px; }
+    .sum-card-money { font-size:20px; color:#c9356b; font-weight:700; margin-top:2px; }
+    .sum-card-meta  { font-size:11px; color:#9b6b7d; margin-top:4px; }
+
+    /* Bar chart */
+    .bar-row { display:flex; align-items:center; gap:10px; margin-bottom:6px; font-size:13px; }
+    .bar-label { width:90px; font-weight:600; color:#3d2a35; flex-shrink:0; }
+    .bar-track {
+      flex:1; height:24px; background:#f3e0e8; border-radius:6px; position:relative; overflow:hidden;
+    }
+    .bar-fill {
+      height:100%; border-radius:6px;
+      transition: width .35s ease;
+      display:flex; align-items:center; justify-content:flex-end; padding-right:8px;
+      color:#fff; font-size:11px; font-weight:700;
+      min-width: 0;
+    }
+    .bar-value { width:90px; text-align:right; font-weight:600; color:#3d2a35; flex-shrink:0; }
+    .bar-fill-1   { background:linear-gradient(90deg,#ec4899,#f472b6); }
+    .bar-fill-2   { background:linear-gradient(90deg,#9333ea,#a855f7); }
+    .bar-fill-all { background:linear-gradient(90deg,#0891b2,#06b6d4); }
+
+    /* Table */
+    table.checksheet {
+      width:100%; border-collapse:collapse; background:#fff;
+      border-radius:10px; overflow:hidden; box-shadow:0 1px 6px rgba(0,0,0,.06);
+      font-size:13px;
+    }
+    .checksheet thead th {
+      background:#fce7f3; color:#831843; font-weight:700; padding:10px 8px;
+      border-bottom:2px solid #f3a4c4; text-align:center; font-size:12px;
+      white-space:nowrap;
+    }
+    .checksheet tbody td {
+      padding:8px 8px; border-bottom:1px solid #f3e0e8; text-align:center;
+      vertical-align: middle;
+    }
+    .checksheet tbody tr:hover td { background:#fef3f8; }
+    .checksheet tbody tr.modified-row td { background:#fff8e1 !important; }
+
+    .col-name  { text-align:left !important; font-weight:600; min-width:90px; }
+    .col-time  { white-space:nowrap; font-variant-numeric: tabular-nums; }
+    .col-num   { font-variant-numeric: tabular-nums; text-align:right !important; padding-right:14px !important; }
+    .col-note  { text-align:left !important; min-width:110px; font-size:12px; color:#666; }
+
+    /* ก่อน/เกิน badge */
+    .badge { display:inline-block; padding:1px 8px; border-radius:8px; font-weight:600; font-size:11px; }
+    .badge-ontime    { background:#e8f5e9; color:#2e7d32; }
+    .badge-early     { background:#ffebee; color:#c62828; }
+    .badge-early-big { background:#f44336; color:#fff; }
+    .badge-late      { background:#fff3e0; color:#ef6c00; }
+    .badge-late-big  { background:#e65100; color:#fff; }
+
+    /* Inline editable cell */
+    .cell-edit {
+      width:80px; max-width:90px; padding:4px 6px;
+      border:1px solid #f3a4c4; border-radius:6px; background:#fff;
+      text-align:right; font-variant-numeric:tabular-nums; font-size:13px;
+      transition: border-color .12s, box-shadow .12s;
+    }
+    .cell-edit:focus { outline:none; border-color:#ec4899; box-shadow:0 0 0 2px #fbcfe8; }
+    .cell-edit-note {
+      width:100%; min-width:130px; padding:4px 6px;
+      border:1px solid #e5e7eb; border-radius:6px; background:#fff;
+      text-align:left; font-size:12px;
+    }
+    .cell-edit-note:focus { outline:none; border-color:#ec4899; box-shadow:0 0 0 2px #fbcfe8; }
+
+    /* Bottom totals row */
+    .checksheet tfoot td {
+      padding:10px 8px; background:#fce7f3; font-weight:700; color:#831843;
+      border-top:2px solid #f3a4c4; font-size:13px;
+    }
+
+    /* Save button */
+    #save-bar {
+      position:sticky; bottom:0; background:#fff; border-top:1px solid #f3d8e2;
+      padding:10px 16px; display:flex; align-items:center; justify-content:space-between;
+      z-index:30; box-shadow:0 -4px 8px rgba(0,0,0,.04);
+    }
+    #btn-save {
+      background:#ec4899; color:#fff; padding:9px 22px; border-radius:8px;
+      font-weight:600; font-size:14px;
+      transition: background .15s;
+    }
+    #btn-save:hover:not(:disabled) { background:#db2777; }
+    #btn-save:disabled { background:#e5e7eb; color:#9ca3af; cursor:not-allowed; }
+  </style>
+</head>
+<body class="min-h-screen pb-20">
+
+<!-- HEADER -->
+<header class="bg-white border-b border-pink-200 sticky top-0 z-20 shadow-sm">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3 flex-wrap">
+    <a href="admin.html" class="text-pink-500 hover:text-pink-600 text-sm">← Admin</a>
+    <span class="text-gray-300">|</span>
+    <h1 class="text-base font-bold text-gray-800 flex-1">📋 ใบบันทึก</h1>
+    <button id="btn-prev" class="px-2 py-1 border rounded-lg text-sm hover:bg-gray-50">‹</button>
+    <input type="date" id="date-picker" class="border rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-pink-300" />
+    <button id="btn-next" class="px-2 py-1 border rounded-lg text-sm hover:bg-gray-50">›</button>
+    <button id="btn-today" class="px-3 py-1 bg-pink-100 text-pink-700 text-sm rounded-lg hover:bg-pink-200 font-medium">วันนี้</button>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-4 pt-4">
+
+  <!-- SUMMARY CARDS -->
+  <div class="flex gap-3 flex-wrap mb-4">
+    <div class="sum-card">
+      <div class="sum-card-title">🏠 สาขา 1</div>
+      <div class="sum-card-time" id="sum-1-hours">— ชม.</div>
+      <div class="sum-card-money" id="sum-1-shop">฿ —</div>
+      <div class="sum-card-meta" id="sum-1-cases">— เคส</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-card-title">🏠 สาขา 2</div>
+      <div class="sum-card-time" id="sum-2-hours">— ชม.</div>
+      <div class="sum-card-money" id="sum-2-shop">฿ —</div>
+      <div class="sum-card-meta" id="sum-2-cases">— เคส</div>
+    </div>
+    <div class="sum-card" style="border-color:#a8e6cf;">
+      <div class="sum-card-title" style="color:#2d6a4f;">🏪 รวมทั้งร้าน</div>
+      <div class="sum-card-time" id="sum-all-hours">— ชม.</div>
+      <div class="sum-card-money" id="sum-all-shop" style="color:#0e7c5a;">฿ —</div>
+      <div class="sum-card-meta" id="sum-all-cases">— เคส</div>
+    </div>
+  </div>
+
+  <!-- BAR CHART -->
+  <div class="bg-white border border-pink-100 rounded-xl p-4 mb-4">
+    <div class="text-sm font-semibold text-gray-700 mb-3">💰 รายได้เข้าร้านวันนี้</div>
+    <div id="bar-chart">
+      <!-- 3 bars: สาขา 1, สาขา 2, รวม -->
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div id="loading" class="text-center py-16 text-gray-400">
+    <div class="spinner mx-auto mb-3"></div>
+    <p>กำลังโหลด…</p>
+  </div>
+  <div id="empty" class="hidden text-center py-16 text-gray-400">
+    <div class="text-4xl mb-3">📭</div>
+    <p>ยังไม่มี session ในวันนี้</p>
+  </div>
+
+  <div id="table-wrap" class="hidden overflow-x-auto pb-4">
+    <table class="checksheet">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>ชื่อ</th>
+          <th>ส.</th>
+          <th>เริ่ม-สิ้นสุด</th>
+          <th>ลง</th>
+          <th>ก่อน/เกิน</th>
+          <th>ชม.</th>
+          <th>จอง</th>
+          <th>ต่อ</th>
+          <th>ล/ค</th>
+          <th>ร้าน</th>
+          <th>พนง.</th>
+          <th>หมายเหตุ</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+      <tfoot>
+        <tr>
+          <td colspan="9" style="text-align:right;">รวม</td>
+          <td class="col-num" id="foot-revenue">—</td>
+          <td class="col-num" id="foot-shop">—</td>
+          <td class="col-num" id="foot-pay">—</td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</main>
+
+<!-- SAVE BAR (sticky bottom) -->
+<div id="save-bar" class="hidden">
+  <span id="save-status" class="text-sm text-gray-500">ไม่มีการแก้ไข</span>
+  <button id="btn-save" disabled>💾 บันทึกการแก้ไขทั้งหมด</button>
+</div>
+
+<script type="module">
+import {
+  db,
+  collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimestamp,
+} from "./js/firebase-config.js";
+import { requireAuth } from "./js/auth.js";
+import {
+  listTherapists, escapeHtml,
+  getBusinessDate, shiftDate, isInBizWindow,
+  calcShopCut, SHOP_RATE_TABLE,
+} from "./js/helpers.js";
+
+await requireAuth();
+
+const $ = id => document.getElementById(id);
+
+// =========================================================
+// STATE
+// =========================================================
+let therapists = [];
+let sessions = [];      // เฉพาะ session ที่ไม่ cancelled (filter แล้ว)
+const dirty = new Map(); // sessionId → { revenue?, adminNote? } การแก้ที่ยังไม่บันทึก
+
+// =========================================================
+// DATE
+// =========================================================
+const urlDate = new URLSearchParams(location.search).get("date");
+let selectedDate = urlDate && /^\d{4}-\d{2}-\d{2}$/.test(urlDate) ? urlDate : getBusinessDate();
+$("date-picker").value = selectedDate;
+
+$("date-picker").addEventListener("change", e => {
+  if (!confirmDiscardDirty()) {
+    e.target.value = selectedDate;
+    return;
+  }
+  selectedDate = e.target.value;
+  loadSessions();
+});
+
+$("btn-prev").addEventListener("click", () => {
+  if (!confirmDiscardDirty()) return;
+  selectedDate = shiftDate(selectedDate, -1);
+  $("date-picker").value = selectedDate;
+  loadSessions();
+});
+
+$("btn-next").addEventListener("click", () => {
+  if (!confirmDiscardDirty()) return;
+  selectedDate = shiftDate(selectedDate, 1);
+  $("date-picker").value = selectedDate;
+  loadSessions();
+});
+
+$("btn-today").addEventListener("click", () => {
+  if (!confirmDiscardDirty()) return;
+  selectedDate = getBusinessDate();
+  $("date-picker").value = selectedDate;
+  loadSessions();
+});
+
+function confirmDiscardDirty() {
+  if (dirty.size === 0) return true;
+  return confirm("มีรายการที่แก้ไขแต่ยังไม่ได้บันทึก ทิ้งไว้แล้วเปลี่ยนวันเลยใช่ไหม?");
+}
+
+// =========================================================
+// THERAPISTS
+// =========================================================
+async function loadTherapists() {
+  therapists = await listTherapists();
+}
+
+// =========================================================
+// HELPERS
+// =========================================================
+
+/** ลบ prefix "น้อง"/"พี่" ออกจากชื่อ */
+function stripPrefix(name) {
+  return String(name || "").replace(/^(น้อง|พี่)\s*/, "").trim();
+}
+
+/** "น้อง" + ชื่อดิบ */
+function nong(t) {
+  if (!t) return "—";
+  const raw = t.nameTh || t.nameEn || t.code || "?";
+  const stripped = stripPrefix(raw);
+  return stripped ? `น้อง${stripped}` : "—";
+}
+
+/** เพิ่มนาทีลง HH:MM (wrap 24 ชม.) */
+function addMinutes(hhmm, n) {
+  if (!hhmm) return hhmm;
+  const [h, m] = hhmm.split(":").map(Number);
+  const total = (h * 60 + m + (n || 0));
+  const wrap = ((total % 1440) + 1440) % 1440;
+  const hh = Math.floor(wrap / 60);
+  const mm = wrap % 60;
+  return `${String(hh).padStart(2,"0")}:${String(mm).padStart(2,"0")}`;
+}
+
+/** Diff (t1 - t2) นาที — รองรับข้ามเที่ยงคืน */
+function timeDiffMin(t1, t2) {
+  if (!t1 || !t2) return null;
+  const [h1, m1] = t1.split(":").map(Number);
+  const [h2, m2] = t2.split(":").map(Number);
+  let d = (h1 * 60 + m1) - (h2 * 60 + m2);
+  if (d < -720) d += 1440;
+  if (d >  720) d -= 1440;
+  return d;
+}
+
+/** branch: "พ1"/"พ2"/"branch1"/"branch2" → "1"/"2" */
+function branchShort(b) {
+  if (b === "พ1" || b === "branch1") return "1";
+  if (b === "พ2" || b === "branch2") return "2";
+  return b || "?";
+}
+
+/** branch normalize → "branch1"/"branch2" */
+function branchKey(b) {
+  if (b === "พ1" || b === "branch1") return "branch1";
+  if (b === "พ2" || b === "branch2") return "branch2";
+  return null;
+}
+
+function fmtMoney(n) {
+  if (n == null || isNaN(n)) return "—";
+  return Math.round(n).toLocaleString();
+}
+
+function fmtHours(min) {
+  if (!min) return 0;
+  return min / 60;
+}
+
+/** "extensionMinutes" → "0.5"/"1"/"1.5" หรือ "" */
+function fmtExt(min) {
+  if (!min || min <= 0) return "";
+  return (min / 60).toString();
+}
+
+// =========================================================
+// LOAD SESSIONS
+// =========================================================
+async function loadSessions() {
+  $("loading").classList.remove("hidden");
+  $("table-wrap").classList.add("hidden");
+  $("empty").classList.add("hidden");
+  $("save-bar").classList.add("hidden");
+  dirty.clear();
+  updateSaveBar();
+
+  // Window: 2 calendar dates เพื่อรองรับ session ข้ามคืน
+  const nextDate = shiftDate(selectedDate, 1);
+  const snap = await getDocs(
+    query(collection(db, "sessions"), where("date", "in", [selectedDate, nextDate]))
+  );
+  const all = snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(s => isInBizWindow(s.date, s.startTime, selectedDate))
+    .filter(s => s.status !== "cancelled")    // ไม่แสดง cancelled
+    .sort((a, b) => {
+      if (a.date !== b.date) return a.date.localeCompare(b.date);
+      return (a.startTime || "").localeCompare(b.startTime || "");
+    });
+
+  sessions = all;
+  $("loading").classList.add("hidden");
+
+  if (sessions.length === 0) {
+    $("empty").classList.remove("hidden");
+    renderSummary();
+    return;
+  }
+
+  $("table-wrap").classList.remove("hidden");
+  $("save-bar").classList.remove("hidden");
+  renderTable();
+  renderSummary();
+}
+
+// =========================================================
+// RENDER TABLE
+// =========================================================
+function renderTable() {
+  const tbody = $("rows");
+  tbody.innerHTML = sessions.map((s, idx) => renderRow(s, idx + 1)).join("");
+
+  // Bind inline edit
+  tbody.querySelectorAll("[data-edit]").forEach(input => {
+    input.addEventListener("input", onCellInput);
+    input.addEventListener("blur", onCellBlur);
+  });
+}
+
+function renderRow(s, ord) {
+  const t = therapists.find(x => x.id === s.therapistId);
+  const nameStr = nong(t || { nameTh: s.therapistName });
+
+  // เริ่ม-สิ้นสุด (รวมต่อ) — endTime ใน DB รวม extensionMinutes อยู่แล้ว
+  const startEnd = `${s.startTime || "—"}-${s.endTime || "—"}`;
+  const actualEnd = s.actualEndTime || "";
+
+  // ก่อน/เกิน
+  let diffStr = "—", diffCls = "";
+  if (actualEnd && s.endTime) {
+    const d = timeDiffMin(actualEnd, s.endTime);
+    if (d === null) { /* — */ }
+    else if (d === 0) { diffStr = "ตรง"; diffCls = "badge-ontime"; }
+    else if (d < 0) {
+      const ad = Math.abs(d);
+      diffStr = `ก่อน ${ad} น.`;
+      diffCls = ad >= 15 ? "badge-early-big" : "badge-early";
+    } else {
+      diffStr = `เกิน ${d} น.`;
+      diffCls = d >= 15 ? "badge-late-big" : "badge-late";
+    }
+  }
+  const diffCellHtml = diffCls
+    ? `<span class="badge ${diffCls}">${diffStr}</span>`
+    : `<span style="color:#999;">${diffStr}</span>`;
+
+  const hours = fmtHours(s.durationMinutes);
+  const hoursStr = hours ? hours.toString() : "—";
+
+  // จอง — ชื่อลูกค้าจอง (ว่างถ้าไม่มี)
+  const bookingName = s.bookingCustomerName ? stripPrefix(s.bookingCustomerName) : "";
+
+  // ต่อ
+  const extStr = fmtExt(s.extensionMinutes);
+
+  // Revenue (editable) — ใช้ค่า dirty ถ้ามี ไม่งั้นใช้ค่าจาก DB
+  const revenueCur = dirty.has(s.id) && dirty.get(s.id).revenue != null
+    ? dirty.get(s.id).revenue
+    : (s.revenue || 0);
+  const noteCur = dirty.has(s.id) && dirty.get(s.id).adminNote != null
+    ? dirty.get(s.id).adminNote
+    : (s.adminNote || "");
+
+  const shopCut = calcShopCut(s.durationMinutes);
+  const therapistPay = revenueCur - shopCut;
+
+  const isModified = dirty.has(s.id);
+  const rowCls = isModified ? "modified-row" : "";
+
+  return `
+    <tr class="${rowCls}" data-row="${s.id}">
+      <td>${ord}</td>
+      <td class="col-name">${escapeHtml(nameStr)}</td>
+      <td>${escapeHtml(branchShort(s.branch))}</td>
+      <td class="col-time">${escapeHtml(startEnd)}</td>
+      <td class="col-time">${escapeHtml(actualEnd || "—")}</td>
+      <td>${diffCellHtml}</td>
+      <td>${escapeHtml(hoursStr)}</td>
+      <td class="col-name" style="font-weight:400; min-width:80px;">${escapeHtml(bookingName)}</td>
+      <td>${escapeHtml(extStr)}</td>
+      <td>
+        <input type="number" min="0" step="any" inputmode="decimal"
+               class="cell-edit"
+               data-edit="revenue" data-id="${s.id}"
+               value="${revenueCur}" />
+      </td>
+      <td class="col-num" data-shop="${s.id}">${fmtMoney(shopCut)}</td>
+      <td class="col-num" data-pay="${s.id}">${fmtMoney(therapistPay)}</td>
+      <td class="col-note">
+        <input type="text"
+               class="cell-edit-note"
+               data-edit="adminNote" data-id="${s.id}"
+               value="${escapeHtml(noteCur)}"
+               placeholder="—" />
+      </td>
+    </tr>
+  `;
+}
+
+// =========================================================
+// INLINE EDIT HANDLERS
+// =========================================================
+function onCellInput(e) {
+  const input = e.target;
+  const sessionId = input.dataset.id;
+  const field = input.dataset.edit;
+
+  const session = sessions.find(s => s.id === sessionId);
+  if (!session) return;
+
+  const cur = dirty.get(sessionId) || {};
+
+  if (field === "revenue") {
+    const val = parseFloat(input.value);
+    if (isNaN(val) || val < 0) return;
+    cur.revenue = val;
+
+    // Live recalc therapistPay (shopCut คงเดิม)
+    const shopCut = calcShopCut(session.durationMinutes);
+    const pay = val - shopCut;
+    const payCell = document.querySelector(`[data-pay="${sessionId}"]`);
+    if (payCell) payCell.textContent = fmtMoney(pay);
+  } else if (field === "adminNote") {
+    cur.adminNote = input.value;
+  }
+
+  dirty.set(sessionId, cur);
+  // Mark row
+  const row = document.querySelector(`[data-row="${sessionId}"]`);
+  if (row) row.classList.add("modified-row");
+
+  updateSaveBar();
+  renderSummary();  // live update ยอดรวม
+}
+
+function onCellBlur(e) {
+  // Re-render summary one more time on blur (กันเคส input ผิด)
+  renderSummary();
+}
+
+// =========================================================
+// SUMMARY + BAR CHART
+// =========================================================
+function renderSummary() {
+  const stats = { branch1: { hours:0, shop:0, cases:0 }, branch2: { hours:0, shop:0, cases:0 } };
+  let totalRevenue = 0, totalShop = 0, totalPay = 0;
+
+  sessions.forEach(s => {
+    const bk = branchKey(s.branch);
+    if (!bk) return;
+
+    const dirtyRow = dirty.get(s.id) || {};
+    const revenue = dirtyRow.revenue != null ? dirtyRow.revenue : (s.revenue || 0);
+    const shopCut = calcShopCut(s.durationMinutes);
+    const pay = revenue - shopCut;
+    const hrs = fmtHours(s.durationMinutes);
+
+    stats[bk].hours += hrs;
+    stats[bk].shop  += shopCut;
+    stats[bk].cases += 1;
+
+    totalRevenue += revenue;
+    totalShop    += shopCut;
+    totalPay     += pay;
+  });
+
+  // Cards
+  $("sum-1-hours").textContent = `${stats.branch1.hours.toFixed(1)} ชม.`;
+  $("sum-1-shop").textContent  = `฿ ${fmtMoney(stats.branch1.shop)}`;
+  $("sum-1-cases").textContent = `${stats.branch1.cases} เคส`;
+
+  $("sum-2-hours").textContent = `${stats.branch2.hours.toFixed(1)} ชม.`;
+  $("sum-2-shop").textContent  = `฿ ${fmtMoney(stats.branch2.shop)}`;
+  $("sum-2-cases").textContent = `${stats.branch2.cases} เคส`;
+
+  const allHours = stats.branch1.hours + stats.branch2.hours;
+  const allCases = stats.branch1.cases + stats.branch2.cases;
+  $("sum-all-hours").textContent = `${allHours.toFixed(1)} ชม.`;
+  $("sum-all-shop").textContent  = `฿ ${fmtMoney(totalShop)}`;
+  $("sum-all-cases").textContent = `${allCases} เคส`;
+
+  // Bar chart — 3 bars: สาขา 1, สาขา 2, รวม (รวมเป็น max ใน chart)
+  const max = Math.max(stats.branch1.shop, stats.branch2.shop, totalShop, 1);
+  $("bar-chart").innerHTML = `
+    <div class="bar-row">
+      <span class="bar-label">สาขา 1</span>
+      <div class="bar-track"><div class="bar-fill bar-fill-1" style="width:${(stats.branch1.shop/max*100).toFixed(1)}%"></div></div>
+      <span class="bar-value">฿${fmtMoney(stats.branch1.shop)}</span>
+    </div>
+    <div class="bar-row">
+      <span class="bar-label">สาขา 2</span>
+      <div class="bar-track"><div class="bar-fill bar-fill-2" style="width:${(stats.branch2.shop/max*100).toFixed(1)}%"></div></div>
+      <span class="bar-value">฿${fmtMoney(stats.branch2.shop)}</span>
+    </div>
+    <div class="bar-row">
+      <span class="bar-label" style="color:#0e7c5a;">🏪 รวม</span>
+      <div class="bar-track"><div class="bar-fill bar-fill-all" style="width:${(totalShop/max*100).toFixed(1)}%"></div></div>
+      <span class="bar-value" style="color:#0e7c5a;">฿${fmtMoney(totalShop)}</span>
+    </div>
+  `;
+
+  // Footer totals
+  $("foot-revenue").textContent = fmtMoney(totalRevenue);
+  $("foot-shop").textContent    = fmtMoney(totalShop);
+  $("foot-pay").textContent     = fmtMoney(totalPay);
+}
+
+// =========================================================
+// SAVE BAR
+// =========================================================
+function updateSaveBar() {
+  const n = dirty.size;
+  const status = $("save-status");
+  const btn = $("btn-save");
+  if (n === 0) {
+    status.textContent = "ไม่มีการแก้ไข";
+    status.className = "text-sm text-gray-500";
+    btn.disabled = true;
+  } else {
+    status.textContent = `แก้ไข ${n} รายการ — ยังไม่บันทึก`;
+    status.className = "text-sm text-amber-600 font-medium";
+    btn.disabled = false;
+  }
+}
+
+$("btn-save").addEventListener("click", saveAll);
+
+async function saveAll() {
+  if (dirty.size === 0) return;
+
+  const btn = $("btn-save");
+  btn.disabled = true;
+  btn.textContent = "กำลังบันทึก…";
+
+  try {
+    const batch = writeBatch(db);
+    for (const [sessionId, changes] of dirty.entries()) {
+      const s = sessions.find(x => x.id === sessionId);
+      if (!s) continue;
+
+      const updates = { updatedAt: serverTimestamp() };
+      if (changes.revenue != null) {
+        const shopCut = calcShopCut(s.durationMinutes);
+        updates.revenue = changes.revenue;
+        updates.shopCut = shopCut;
+        updates.therapistPay = changes.revenue - shopCut;
+      }
+      if (changes.adminNote != null) {
+        updates.adminNote = changes.adminNote.trim() || null;
+      }
+
+      batch.update(doc(db, "sessions", sessionId), updates);
+    }
+    await batch.commit();
+
+    // Apply changes locally + clear dirty
+    for (const [sessionId, changes] of dirty.entries()) {
+      const s = sessions.find(x => x.id === sessionId);
+      if (!s) continue;
+      if (changes.revenue != null) {
+        s.revenue = changes.revenue;
+        s.shopCut = calcShopCut(s.durationMinutes);
+        s.therapistPay = s.revenue - s.shopCut;
+      }
+      if (changes.adminNote != null) {
+        s.adminNote = changes.adminNote.trim() || null;
+      }
+    }
+    dirty.clear();
+
+    btn.textContent = "✅ บันทึกแล้ว";
+    setTimeout(() => {
+      btn.textContent = "💾 บันทึกการแก้ไขทั้งหมด";
+      updateSaveBar();
+    }, 1200);
+
+    renderTable();
+    renderSummary();
+  } catch (err) {
+    console.error(err);
+    alert("บันทึกไม่สำเร็จ: " + err.message);
+    btn.textContent = "💾 บันทึกการแก้ไขทั้งหมด";
+    updateSaveBar();
+  }
+}
+
+// =========================================================
+// INIT
+// =========================================================
+await loadTherapists();
+await loadSessions();
+
+// เตือนเมื่อพยายามปิดแท็บโดยมี dirty
+window.addEventListener("beforeunload", e => {
+  if (dirty.size > 0) {
+    e.preventDefault();
+    e.returnValue = "";
+  }
+});
+</script>
+
+</body>
+</html>

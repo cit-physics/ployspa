@@ -17,6 +17,7 @@ import {
   where,
   orderBy,
   serverTimestamp,
+  writeBatch,
 } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
 import {
   getStorage,
@@ -67,6 +68,7 @@ export {
   where,
   orderBy,
   serverTimestamp,
+  writeBatch,
   storageRef,
   uploadBytes,
   getDownloadURL,
