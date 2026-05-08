@@ -85,6 +85,25 @@ export function watchStatuses(callback) {
   });
 }
 
+/**
+ * Subscribe checkins collection — real-time map ของหมอที่ check-in
+ * filter ฝั่ง client ด้วย isInBizWindow เพื่อรองรับ check-in ข้ามคืน
+ * callback รับ map: therapistId → checkin doc
+ */
+export function watchCheckins(callback) {
+  return onSnapshot(collection(db, "checkins"), (snap) => {
+    const bizDate = getBusinessDate();
+    const map = {};
+    snap.docs.forEach((d) => {
+      const c = d.data();
+      if (isInBizWindow(c.date, c.checkInTime, bizDate)) {
+        map[d.id] = c;
+      }
+    });
+    callback(map);
+  });
+}
+
 // --- Code generator ---
 
 export function generateNextCode(therapists) {
@@ -99,12 +118,18 @@ export function generateNextCode(therapists) {
 }
 
 // --- Measurements formatter ---
-
+// รูปแบบ: "32-26-37 / 165cm" (Format B)
+//   - มีครบทั้งสัดส่วน + ส่วนสูง → "32-26-37 / 165cm"
+//   - มีแค่สัดส่วน → "32-26-37"
+//   - มีแค่ส่วนสูง → "165cm"
+//   - ไม่มีอะไรเลย → ""
 export function formatMeasurements(measurements) {
   if (!measurements) return "";
-  const { bust, waist, hip } = measurements;
-  if (!bust || !waist || !hip) return "";
-  return `${bust}-${waist}-${hip}`;
+  const { bust, waist, hip, height } = measurements;
+  const bwh = (bust && waist && hip) ? `${bust}-${waist}-${hip}` : "";
+  const h = height ? `${height}cm` : "";
+  if (bwh && h) return `${bwh} / ${h}`;
+  return bwh || h;
 }
 
 // --- Photo upload ---

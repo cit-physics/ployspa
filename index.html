@@ -50,11 +50,12 @@
   </footer>
 
   <script type="module">
-    import { watchTherapists, watchStatuses, statusLabel, statusBadgeClasses, badgeStyle, badgeLabel, escapeHtml, formatMeasurements, startReadyAtMonitor } from "./js/helpers.js";
+    import { watchTherapists, watchStatuses, watchCheckins, statusLabel, statusBadgeClasses, badgeStyle, badgeLabel, escapeHtml, formatMeasurements, startReadyAtMonitor } from "./js/helpers.js";
     import { t, getLang, pickName } from "./js/i18n.js";
 
     let therapists = [];
     let statuses = {};
+    let checkins = {};       // therapistId → checkin doc (เฉพาะ biz-day ปัจจุบัน)
     let activeBranch = "all";
 
     function renderBranchFilter() {
@@ -154,9 +155,16 @@
       empty.classList.add("hidden");
 
       // Group by status: ready → ready_at → busy → booked → others
+      // หมอที่ status "อยู่ที่ร้าน" แต่ยังไม่ check-in (เช่น มีจองล่วงหน้า แต่ยังไม่มา)
+      // ให้แสดงในกลุ่ม others เพื่อกันลูกค้าเข้าใจผิดว่าหมออยู่ร้านแล้ว
       const ready = [], readyAt = [], busy = [], booked = [], others = [];
       filtered.forEach((th) => {
         const s = statuses[th.id]?.status;
+        const checkedIn = !!checkins[th.id];
+        if (!checkedIn) {
+          others.push(th);
+          return;
+        }
         if (s === "ready")    ready.push(th);
         else if (s === "ready_at") readyAt.push(th);
         else if (s === "busy") busy.push(th);
@@ -191,6 +199,11 @@
 
     watchStatuses((map) => {
       statuses = map;
+      renderGrid();
+    });
+
+    watchCheckins((map) => {
+      checkins = map;
       renderGrid();
     });
 
