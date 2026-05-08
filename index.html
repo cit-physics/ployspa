@@ -175,7 +175,8 @@
         else if (s === "ready_at") readyAt.push(th);
         else if (s === "busy") busy.push(th);
         else if (s === "booked") booked.push(th);
-        else unavailable.push(th); // check-in แล้วแต่ status=not_ready/leave (เช่น เพิ่งกดไม่พร้อม)
+        else if (s === "break") notArrived.push(th); // พักสักครู่ — กลุ่ม "ยังไม่มา" เพราะจะกลับมา
+        else unavailable.push(th); // status=not_ready/leave/null → "ไม่พร้อม / ลา" ท้ายสุด
       });
 
       const readySorted        = sortByBadgeThenName(ready);
