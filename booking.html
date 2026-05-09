@@ -217,7 +217,7 @@
 
 <script type="module">
 import {
-  db, collection, getDocs, addDoc, query, orderBy, serverTimestamp
+  db, collection, getDocs, addDoc, query, orderBy, where, serverTimestamp
 } from "./js/firebase-config.js";
 import { escapeHtml } from "./js/helpers.js";
 
@@ -264,19 +264,45 @@ window.addEventListener("DOMContentLoaded", () => {
 // =========================================================
 async function loadTherapists() {
   try {
-    const snap = await getDocs(query(collection(db, "therapists"), orderBy("code")));
-    const statSnap = await getDocs(collection(db, "statuses"));
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const nowHHMM = new Date().toTimeString().slice(0, 5); // "HH:MM" local
+
+    const [snap, statSnap, bookingSnap] = await Promise.all([
+      getDocs(query(collection(db, "therapists"), orderBy("code"))),
+      getDocs(collection(db, "statuses")),
+      getDocs(query(collection(db, "bookings"), where("bookingDate", "==", todayStr))),
+    ]);
+
     const statuses = {};
     statSnap.docs.forEach(d => { statuses[d.id] = d.data(); });
 
+    // Upcoming booking ต่อหมอ — ที่ยังไม่ถึงเวลา + ยังไม่ link session + status ไม่ cancelled/no_show
+    const upcomingBk = {};
+    bookingSnap.docs.forEach(d => {
+      const b = { id: d.id, ...d.data() };
+      if (!b.therapistId || !b.bookingTime) return;
+      if (b.sessionId) return;
+      if (b.status === "cancelled" || b.status === "no_show") return;
+      if (b.bookingTime <= nowHHMM) return; // ผ่านไปแล้ว
+      // เก็บอันที่ใกล้สุด (เวลาน้อยสุด)
+      const cur = upcomingBk[b.therapistId];
+      if (!cur || b.bookingTime < cur.bookingTime) upcomingBk[b.therapistId] = b;
+    });
+
     const all = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(t => t.active !== false);
 
-    // เรียงหมอว่างขึ้นก่อน
-    all.sort((a, b) => {
-      const sa = statuses[a.id]?.status, sb = statuses[b.id]?.status;
-      const rank = s => s === "ready" ? 0 : s === "ready_at" ? 1 : s === "busy" ? 2 : 3;
-      return rank(sa) - rank(sb);
-    });
+    // เรียงลำดับ: พร้อม → ไม่พร้อม+มีจอง → ready_at → busy → break → ไม่พร้อม/ลา/ยังไม่มา
+    const rank = (t) => {
+      const st = statuses[t.id]?.status;
+      const hasBk = !!upcomingBk[t.id];
+      if (st === "ready" || st === "booked") return 0;        // พร้อมบริการ (มีหรือไม่มีจอง)
+      if (hasBk && (st === "not_ready" || !st)) return 1;     // ไม่พร้อม + มีจอง
+      if (st === "ready_at") return 2;
+      if (st === "busy") return 3;
+      if (st === "break") return 4;
+      return 5;                                                // ไม่พร้อม/ลา/ยังไม่มา (ไม่มีจอง)
+    };
+    all.sort((a, b) => rank(a) - rank(b));
 
     document.getElementById("therapist-loading").classList.add("hidden");
     const grid = document.getElementById("therapist-grid");
@@ -285,10 +311,16 @@ async function loadTherapists() {
     grid.innerHTML = all.map(t => {
       const s = statuses[t.id];
       const name = t.nameTh || t.nameEn || t.nickname || t.code;
-      const badge = statusBadge(s);
+      const badges = statusBadges(s, upcomingBk[t.id]);
       const photo = t.photoUrl
         ? `<img src="${escapeHtml(t.photoUrl)}" alt="${escapeHtml(name)}" class="w-full h-full object-cover" />`
         : `<div class="w-full h-full bg-pink-50 flex items-center justify-center text-4xl">👤</div>`;
+
+      const badgesHtml = badges.map(bd => `
+        <span class="block text-xs font-medium px-2 py-0.5 rounded-full bg-white/90 backdrop-blur border text-center ${bd.cls}">
+          ${escapeHtml(bd.text)}
+        </span>
+      `).join("");
 
       return `
         <button type="button" onclick="selectTherapist('${t.id}')"
@@ -296,9 +328,9 @@ async function loadTherapists() {
           class="therapist-card text-left bg-white border-2 border-gray-100 rounded-2xl overflow-hidden">
           <div class="aspect-[3/4] relative">
             ${photo}
-            <span class="absolute bottom-2 left-2 right-2 inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full bg-white/90 backdrop-blur border ${badge.cls}">
-              ${escapeHtml(badge.text)}
-            </span>
+            <div class="absolute bottom-2 left-2 right-2 flex flex-col gap-1">
+              ${badgesHtml}
+            </div>
           </div>
           <div class="p-2.5">
             <div class="font-semibold text-gray-800 text-sm truncate">${escapeHtml(name)}</div>
@@ -313,19 +345,36 @@ async function loadTherapists() {
   }
 }
 
-function statusBadge(s) {
-  if (!s) return { text: "ไม่ระบุสถานะ", cls: "border-gray-200 text-gray-500" };
+// คืน array ของ {text, cls} — แสดงทับกันเป็นชั้น
+//   - ถ้ามี upcoming booking → 2 อัน (สถานะปัจจุบัน + 📅 มีจอง XX:XX)
+//   - ไม่มี → 1 อัน (สถานะปัจจุบัน)
+function statusBadges(s, upcoming) {
+  const cur = currentStatusBadge(s);
+  if (!upcoming) return [cur];
+
+  const startStr = upcoming.bookingTime;
+  const endStr = upcoming.bookingEndAt || addMinutesHHMM(startStr, upcoming.serviceDuration || 60);
+  const bkBadge = { text: `📅 มีจอง ${startStr}-${endStr} น.`, cls: "border-indigo-200 text-indigo-700" };
+  return [cur, bkBadge];
+}
+
+function currentStatusBadge(s) {
+  if (!s) return { text: "❌ ไม่พร้อมบริการ", cls: "border-red-200 text-red-400" };
   if (s.status === "ready")     return { text: "🟢 พร้อมบริการ", cls: "border-green-200 text-green-700" };
   if (s.status === "ready_at")  return { text: `⏰ พร้อม ${s.readyAt || ""} น.`, cls: "border-yellow-200 text-yellow-700" };
   if (s.status === "busy")      return { text: s.readyAt ? `🔴 ติดงาน ถึง ${s.readyAt} น.` : "🔴 กำลังให้บริการ", cls: "border-orange-200 text-orange-700" };
-  if (s.status === "booked") {
-    const timeText = s.readyAt && s.bookingEndAt ? `${s.readyAt}-${s.bookingEndAt}` : (s.readyAt || "");
-    return { text: timeText ? `📅 มีจอง ${timeText} น.` : "📅 มีจอง", cls: "border-indigo-200 text-indigo-700" };
-  }
+  if (s.status === "booked")    return { text: "🟢 พร้อมบริการ", cls: "border-green-200 text-green-700" };
   if (s.status === "break")     return { text: "☕ พักสักครู่", cls: "border-blue-200 text-blue-700" };
   if (s.status === "leave")     return { text: "🏖 ลาหยุดวันนี้", cls: "border-purple-200 text-purple-700" };
-  if (s.status === "not_ready") return { text: "❌ ไม่พร้อม", cls: "border-red-200 text-red-400" };
+  if (s.status === "not_ready") return { text: "❌ ไม่พร้อมบริการ", cls: "border-red-200 text-red-400" };
   return { text: "ไม่ระบุสถานะ", cls: "border-gray-200 text-gray-500" };
+}
+
+function addMinutesHHMM(hhmm, n) {
+  if (!hhmm) return hhmm;
+  const [h, m] = hhmm.split(":").map(Number);
+  const total = ((h * 60 + m + (n || 0)) % 1440 + 1440) % 1440;
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
 // =========================================================

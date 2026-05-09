@@ -569,29 +569,72 @@ let activeBranch = "all";
 // ─── HELPERS ─────────────────────────────────────────
 // getBusinessDate, shiftDate, isInBizWindow ย้ายไป js/helpers.js แล้ว — import ข้างบน
 
-// Status badge — shared between table and gantt name column
-function getBadge(therapist, statusesMap, activeBk) {
-  const st = statusesMap[therapist.id]?.status;
+function getCurrentHHMM() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+}
+
+function addMinutesHHMM(hhmm, n) {
+  if (!hhmm) return hhmm;
+  const [h, m] = hhmm.split(":").map(Number);
+  const total = ((h * 60 + m + (n || 0)) % 1440 + 1440) % 1440;
+  return `${String(Math.floor(total / 60)).padStart(2,"0")}:${String(total % 60).padStart(2,"0")}`;
+}
+
+// คืน upcoming booking (เร็วสุดที่ยังไม่ถึงเวลา + ยังไม่ link session)
+// ใช้เฉพาะตอน viewing today — ตอน viewing date อื่น คืน null
+function findUpcomingBk(bks, sessions) {
+  if (!isViewingToday) return null;
+  const now = getCurrentHHMM();
+  const linkedIds = new Set((sessions || []).filter(s => s.bookingId).map(s => s.bookingId));
+  const candidates = (bks || []).filter(b =>
+    b.bookingTime &&
+    !b.sessionId &&
+    !linkedIds.has(b.id) &&
+    b.bookingTime > now &&
+    !["cancelled","no_show"].includes(b.status)
+  );
+  candidates.sort((a, b) => a.bookingTime.localeCompare(b.bookingTime));
+  return candidates[0] || null;
+}
+
+// Status badges — return array (1 หรือ 2 อัน)
+//   - มี upcoming booking → [สถานะปัจจุบัน, 📅 มีจอง XX-YY]
+//   - ไม่มี → [สถานะปัจจุบัน] เดี่ยว
+function getBadges(therapist, statusesMap, upcomingBk, activeBk) {
   const sObj = statusesMap[therapist.id];
-  if (st === "busy") {
-    return {
-      cls: "badge-busy",
-      lbl: sObj.readyAt ? `🔴 ติดงาน ถึง ${sObj.readyAt} น.` : "🔴 นวดอยู่",
-    };
+  const st = sObj?.status;
+
+  let cur;
+  if (st === "busy")          cur = { cls: "badge-busy",     lbl: sObj.readyAt ? `🔴 ติดงาน ถึง ${sObj.readyAt} น.` : "🔴 นวดอยู่" };
+  else if (st === "ready")    cur = { cls: "badge-ready",    lbl: "🟢 ว่าง" };
+  else if (st === "ready_at") cur = { cls: "badge-readyat",  lbl: `⏰ ${sObj.readyAt}` };
+  else if (st === "booked") {
+    // booked = ว่างรอจอง — ถ้า upcoming → ขึ้น "ว่าง" คู่กับ "มีจอง"
+    if (upcomingBk) cur = { cls: "badge-ready", lbl: "🟢 ว่าง" };
+    else {
+      const r = sObj.readyAt, e = sObj.bookingEndAt;
+      const timeStr = r && e ? `${r}-${e}` : (r || "");
+      cur = { cls: "badge-booked", lbl: `📅 มีจอง${timeStr ? " " + timeStr : ""}` };
+    }
   }
-  if (st === "ready")     return { cls: "badge-ready",    lbl: "🟢 ว่าง" };
-  if (st === "ready_at")  return { cls: "badge-readyat",  lbl: `⏰ ${sObj.readyAt}` };
-  if (st === "booked") {
-    const r = sObj.readyAt;
-    const e = sObj.bookingEndAt;
-    const timeStr = r && e ? `${r}-${e}` : (r || "");
-    return { cls: "badge-booked", lbl: `📅 มีจอง${timeStr ? " " + timeStr : ""}` };
-  }
-  if (st === "break")     return { cls: "badge-break",    lbl: "☕ พักสักครู่" };
-  if (st === "leave")     return { cls: "badge-leave",    lbl: "🏖 ลาหยุด" };
-  if (st === "not_ready") return { cls: "badge-notready", lbl: "⛔ ไม่พร้อม" };
-  if (activeBk)           return { cls: "badge-booked",   lbl: "📅 มีจอง" };
-  return { cls: "badge-none", lbl: "⚪ ยังไม่มา" };
+  else if (st === "break")    cur = { cls: "badge-break",    lbl: "☕ พักสักครู่" };
+  else if (st === "leave")    cur = { cls: "badge-leave",    lbl: "🏖 ลาหยุด" };
+  else if (st === "not_ready") cur = { cls: "badge-notready", lbl: "⛔ ไม่พร้อม" };
+  else if (activeBk)           cur = { cls: "badge-booked",   lbl: "📅 มีจอง" };
+  else                         cur = { cls: "badge-none",     lbl: "⚪ ยังไม่มา" };
+
+  if (!upcomingBk) return [cur];
+
+  const startStr = upcomingBk.bookingTime;
+  const endStr = upcomingBk.bookingEndAt || addMinutesHHMM(startStr, upcomingBk.serviceDuration || 60);
+  return [cur, { cls: "badge-booked", lbl: `📅 มีจอง ${startStr}-${endStr}` }];
+}
+
+// Backward-compat shim — call sites that need single badge use this
+function getBadge(therapist, statusesMap, activeBk) {
+  const upcoming = findUpcomingBk(allBookings[therapist.id] || [], allSessions[therapist.id] || []);
+  return getBadges(therapist, statusesMap, upcoming, activeBk)[0];
 }
 function esc(s) {
   if (s == null) return "";
@@ -766,16 +809,18 @@ function render() {
     activeBranch === "all" || t.branch === activeBranch
   );
 
-  // sort: branch1 → branch2 → no branch / absent last
+  // sort: branch1 → branch2 → no branch
+  // ภายใน branch: พร้อม → ไม่พร้อม+มีจอง → ready_at → busy → break → ไม่พร้อม/ลา/ยังไม่มา
   const branchOrder = { branch1: 0, branch2: 1 };
   const statusOrder = t => {
     const s = statuses[t.id]?.status;
-    const hasSess = (allSessions[t.id] || []).some(s => s.status === "active");
-    if (s === "busy" && hasSess) return 0;
-    if (s === "busy")            return 1;
-    if (s === "ready")           return 2;
-    if (s === "ready_at")        return 3;
-    return 4;
+    const hasUpcomingBk = !!findUpcomingBk(allBookings[t.id] || [], allSessions[t.id] || []);
+    if (s === "ready" || s === "booked")            return 0;  // พร้อม (มี/ไม่มีจอง)
+    if (hasUpcomingBk && (s === "not_ready" || !s)) return 1;  // ไม่พร้อม + มีจอง
+    if (s === "ready_at")                           return 2;
+    if (s === "busy")                               return 3;
+    if (s === "break")                              return 4;
+    return 5;                                                   // not_ready/leave/null (ไม่มีจอง)
   };
   list.sort((a, b) => {
     const ba = branchOrder[a.branch] ?? 2;
@@ -868,11 +913,13 @@ function buildGantt(list) {
     const row = document.createElement("div");
     row.className = "gantt-row";
 
-    // name col + status badge
+    // name col + status badges (array: 1 หรือ 2 อัน)
     const initial = (t.nameTh || t.nameEn || t.code || "?")[0];
     const bks = allBookings[t.id] || [];
     const activeBk = bks.find(b => ["pending_confirmation","confirmed"].includes(b.status));
-    const { cls: gBadgeCls, lbl: gBadgeLbl } = getBadge(t, statuses, activeBk);
+    const upcomingBk = findUpcomingBk(bks, allSessions[t.id] || []);
+    const badges = getBadges(t, statuses, upcomingBk, activeBk);
+    const badgesHtml = badges.map(bd => `<span class="badge ${bd.cls} g-badge">${esc(bd.lbl)}</span>`).join("");
     const nameDiv = document.createElement("div");
     nameDiv.className = "g-name";
     nameDiv.innerHTML = `
@@ -880,7 +927,7 @@ function buildGantt(list) {
       <div style="min-width:0;flex:1">
         <div class="g-name-text">${esc(t.nameTh || t.nameEn || t.code)}</div>
         <div class="g-code">${esc(t.code || "")}</div>
-        <span class="badge ${gBadgeCls} g-badge">${esc(gBadgeLbl)}</span>
+        <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:2px">${badgesHtml}</div>
       </div>`;
 
     // bar area
@@ -937,13 +984,15 @@ function buildGantt(list) {
     );
     (allBookings[t.id] || []).filter(b => !b.sessionId && !linkedBookingIds.has(b.id)).forEach(b => {
       if (!b.bookingTime) return;
+      // ใช้ bookingEndAt → serviceDuration → fallback 60 นาที (ไม่ hardcode 120 อีก)
+      const durMin = b.serviceDuration || 60;
+      const endStr = b.bookingEndAt || addMinutes(b.bookingTime, durMin);
       const sh = toDecH(b.bookingTime);
-      const eh = sh + 2; // assume 2h
+      const eh = toDecH(endStr) ?? (sh + durMin / 60);
       const bar = document.createElement("div");
       bar.className = "bar " + (b.status === "pending_confirmation" ? "bar-pending" : "bar-booking");
       bar.style.left  = pct(sh) + "%";
       bar.style.width = Math.max(1, pct(eh) - pct(sh)) + "%";
-      const endStr = addMinutes(b.bookingTime, 120);
       bar.textContent = `📅 คุณ${b.customerName || "–"} ${b.bookingTime}-${endStr}`;
       bar.title = `คุณ${esc(b.customerName || "")} | ${b.status}`;
       area.appendChild(bar);
@@ -995,14 +1044,18 @@ function buildTable(list) {
       ["pending_confirmation","confirmed"].includes(b.status)
     );
 
-    // status badge (shared helper)
-    const { cls: badgeCls, lbl: badgeLbl } = getBadge(t, statuses, activeBk);
+    // status badges (array: 1 หรือ 2 อัน)
+    const upcomingBk = findUpcomingBk(bks, sess);
+    const badges = getBadges(t, statuses, upcomingBk, activeBk);
+    const badgesHtml = badges.map(bd =>
+      `<span class="badge ${bd.cls}" style="font-size:10px;padding:1px 6px;align-self:flex-start">${esc(bd.lbl)}</span>`
+    ).join("");
 
     const name = t.nameTh || t.nameEn || t.code || "–";
     const initial = name[0];
 
     const totalRows = sess.length + pendingBks.length;
-    // Combined "หมอ + สถานะ" cell — name on top, status badge underneath
+    // Combined "หมอ + สถานะ" cell — name on top, status badge(s) underneath
     const nameCell = `
       <td style="text-align:left" rowspan="__RS__">
         <div style="display:flex;align-items:center;gap:6px">
@@ -1011,7 +1064,7 @@ function buildTable(list) {
           </div>
           <div style="display:flex;flex-direction:column;gap:2px;min-width:0">
             <span style="font-weight:600">${esc(name)}</span>
-            <span class="badge ${badgeCls}" style="font-size:10px;padding:1px 6px;align-self:flex-start">${esc(badgeLbl)}</span>
+            ${badgesHtml}
           </div>
         </div>
       </td>`;

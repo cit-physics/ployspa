@@ -153,6 +153,12 @@
     </div>
   </div>
 
+  <!-- ABSENCES (ขาด/ลา) -->
+  <div id="absences-box" class="hidden bg-white border border-pink-100 rounded-xl p-4 mb-4">
+    <div class="text-sm font-semibold text-gray-700 mb-2">👥 หมอที่ไม่ได้ทำงานวันนี้</div>
+    <div id="absences-content" class="text-sm text-gray-700"></div>
+  </div>
+
   <!-- TABLE -->
   <div id="loading" class="text-center py-16 text-gray-400">
     <div class="spinner mx-auto mb-3"></div>
@@ -344,22 +350,25 @@ function fmtExt(min) {
 }
 
 // =========================================================
-// LOAD SESSIONS
+// LOAD SESSIONS + ABSENCES
 // =========================================================
 async function loadSessions() {
   $("loading").classList.remove("hidden");
   $("table-wrap").classList.add("hidden");
   $("empty").classList.add("hidden");
   $("save-bar").classList.add("hidden");
+  $("absences-box").classList.add("hidden");
   dirty.clear();
   updateSaveBar();
 
   // Window: 2 calendar dates เพื่อรองรับ session ข้ามคืน
   const nextDate = shiftDate(selectedDate, 1);
-  const snap = await getDocs(
-    query(collection(db, "sessions"), where("date", "in", [selectedDate, nextDate]))
-  );
-  const all = snap.docs
+  const [sessSnap, absSnap] = await Promise.all([
+    getDocs(query(collection(db, "sessions"), where("date", "in", [selectedDate, nextDate]))),
+    getDocs(query(collection(db, "absences"), where("date", "==", selectedDate))),
+  ]);
+
+  const all = sessSnap.docs
     .map(d => ({ id: d.id, ...d.data() }))
     .filter(s => isInBizWindow(s.date, s.startTime, selectedDate))
     .filter(s => s.status !== "cancelled")    // ไม่แสดง cancelled
@@ -369,6 +378,10 @@ async function loadSessions() {
     });
 
   sessions = all;
+
+  // render absences box (อิสระจาก sessions)
+  renderAbsences(absSnap.docs.map(d => d.data()));
+
   $("loading").classList.add("hidden");
 
   if (sessions.length === 0) {
@@ -381,6 +394,30 @@ async function loadSessions() {
   $("save-bar").classList.remove("hidden");
   renderTable();
   renderSummary();
+}
+
+// =========================================================
+// RENDER ABSENCES
+// =========================================================
+function renderAbsences(absences) {
+  if (!absences || absences.length === 0) {
+    $("absences-box").classList.add("hidden");
+    return;
+  }
+  const noShow = absences.filter(a => a.reason !== "leave");
+  const onLeave = absences.filter(a => a.reason === "leave");
+  const formatList = (list) => list.map(a => {
+    const name = stripPrefix(a.therapistName || a.therapistCode || "?");
+    const branch = a.branch === "branch1" ? "ส.1" : a.branch === "branch2" ? "ส.2" : "";
+    return `<span class="inline-block px-2 py-0.5 mr-1 mb-1 bg-pink-50 border border-pink-100 rounded-full text-xs">น้อง${escapeHtml(name)}${branch ? ` <span class="text-gray-400">· ${branch}</span>` : ""}</span>`;
+  }).join("");
+
+  const parts = [];
+  if (noShow.length) parts.push(`<div class="mb-1"><span class="font-semibold text-red-600">❌ ขาด (${noShow.length}):</span> ${formatList(noShow)}</div>`);
+  if (onLeave.length) parts.push(`<div><span class="font-semibold text-purple-700">📅 ลา (${onLeave.length}):</span> ${formatList(onLeave)}</div>`);
+
+  $("absences-content").innerHTML = parts.join("");
+  $("absences-box").classList.remove("hidden");
 }
 
 // =========================================================
