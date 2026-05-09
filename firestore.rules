@@ -44,5 +44,17 @@ service cloud.firestore {
     match /bookingFlow/{docId} {
       allow read, write, delete: if request.auth != null;
     }
+
+    // Absences (recorded by linebot daily reset): public read for admin pages, admin-only write
+    match /absences/{docId} {
+      allow read: if true;
+      allow write, delete: if request.auth != null;
+    }
+
+    // Check-ins (used by admin pages to know who's working): public read, admin-only write
+    match /checkins/{therapistId} {
+      allow read: if true;
+      allow write, delete: if request.auth != null;
+    }
   }
 }
