@@ -56,5 +56,11 @@ service cloud.firestore {
       allow read: if true;
       allow write, delete: if request.auth != null;
     }
+
+    // Settings (pricing, etc.): public read for cached calc, admin-only write
+    match /settings/{docId} {
+      allow read: if true;
+      allow write, delete: if request.auth != null;
+    }
   }
 }

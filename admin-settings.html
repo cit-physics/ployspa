@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ตั้งค่าเรท — PloySpa Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Sarabun', sans-serif; background: #f9f5f7; color: #2d2d2d; }
+    .spinner { width:32px; height:32px; border:3px solid #fde68a; border-top-color:#d97706; border-radius:50%; animation:spin .7s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    table.rate-table {
+      width:100%; border-collapse:collapse; background:#fff;
+      border-radius:10px; overflow:hidden; box-shadow:0 1px 6px rgba(0,0,0,.06);
+      font-size:14px;
+    }
+    .rate-table thead th {
+      background:#fef3c7; color:#92400e; font-weight:700; padding:12px 10px;
+      border-bottom:2px solid #fbbf24; text-align:center;
+    }
+    .rate-table tbody td {
+      padding:10px; border-bottom:1px solid #fde68a; text-align:center;
+      vertical-align: middle;
+    }
+    .rate-table tbody tr:hover td { background:#fffbeb; }
+    .rate-table tbody tr.modified td { background:#fef3c7 !important; }
+
+    .col-dur { font-weight:600; min-width:90px; text-align:left !important; padding-left:18px !important; color:#78350f; }
+    .col-num input {
+      width:110px; padding:6px 10px; text-align:right;
+      border:1px solid #fbbf24; border-radius:6px; background:#fff;
+      font-variant-numeric:tabular-nums;
+    }
+    .col-num input:focus { outline:none; border-color:#d97706; box-shadow:0 0 0 2px #fde68a; }
+    .col-pay { font-variant-numeric:tabular-nums; font-weight:600; color:#0e7c5a; }
+
+    .btn-primary {
+      background:#d97706; color:#fff; padding:9px 22px; border-radius:8px;
+      font-weight:600; font-size:14px;
+      transition: background .15s;
+    }
+    .btn-primary:hover:not(:disabled) { background:#b45309; }
+    .btn-primary:disabled { background:#e5e7eb; color:#9ca3af; cursor:not-allowed; }
+
+    .btn-secondary {
+      background:#fff; color:#92400e; padding:9px 22px; border-radius:8px;
+      font-weight:500; font-size:14px; border:1px solid #fbbf24;
+    }
+    .btn-secondary:hover:not(:disabled) { background:#fef3c7; }
+  </style>
+</head>
+<body class="min-h-screen pb-20">
+
+<header class="bg-white border-b border-amber-200 sticky top-0 z-20 shadow-sm">
+  <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
+    <a href="admin.html" class="text-amber-600 hover:text-amber-700 text-sm">← Admin</a>
+    <span class="text-gray-300">|</span>
+    <h1 class="text-base font-bold text-gray-800 flex-1">⚙️ ตั้งค่าเรทราคา</h1>
+  </div>
+</header>
+
+<main class="max-w-5xl mx-auto px-4 pt-4">
+  <div class="bg-white border border-amber-100 rounded-xl p-4 mb-4">
+    <p class="text-sm text-gray-700 mb-1">📊 <strong>เรทค่าบริการ Full Course</strong> — แก้แล้วระบบใช้ทันที (LINE bot + หน้าเว็บทั้งหมด)</p>
+    <p class="text-xs text-gray-500">⚠️ ของเก่า (session ที่บันทึกไปแล้ว) ไม่กระทบ — ใช้เรทเดิมที่บันทึกไว้</p>
+  </div>
+
+  <div id="loading" class="text-center py-16 text-gray-400">
+    <div class="spinner mx-auto mb-3"></div>
+    <p>กำลังโหลด…</p>
+  </div>
+
+  <div id="content" class="hidden">
+    <table class="rate-table mb-4">
+      <thead>
+        <tr>
+          <th style="text-align:left; padding-left:18px;">ระยะเวลา</th>
+          <th>💰 ลูกค้าจ่าย (บาท)</th>
+          <th>🏪 เข้าร้าน (บาท)</th>
+          <th>👤 หมอได้ (auto)</th>
+        </tr>
+      </thead>
+      <tbody id="rate-rows"></tbody>
+    </table>
+
+    <div class="text-xs text-gray-500 mb-4 px-2">
+      <span id="last-updated"></span>
+    </div>
+  </div>
+</main>
+
+<!-- Save bar -->
+<div id="save-bar" class="hidden fixed bottom-0 inset-x-0 bg-white border-t border-amber-200 px-4 py-3 shadow-lg z-30">
+  <div class="max-w-5xl mx-auto flex items-center justify-between gap-3">
+    <span id="save-status" class="text-sm text-gray-600">ไม่มีการแก้ไข</span>
+    <div class="flex gap-2">
+      <button id="btn-cancel" class="btn-secondary">ยกเลิก</button>
+      <button id="btn-save" class="btn-primary" disabled>💾 บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import {
+  db, doc, getDoc, setDoc, serverTimestamp,
+} from "./js/firebase-config.js";
+import { requireAuth } from "./js/auth.js";
+import { subscribePricing } from "./js/helpers.js";
+
+const user = await requireAuth();
+
+const $ = id => document.getElementById(id);
+
+// =========================================================
+// STATE
+// =========================================================
+const DURATIONS = [60, 90, 120, 150, 180]; // ปรับลำดับ/เพิ่มได้ในอนาคต
+let original = null;            // ค่าจาก Firestore ตอนล่าสุด
+let edited = {};                // current values in inputs (key=duration)
+let dirty = false;
+
+// =========================================================
+// LOAD + SUBSCRIBE
+// =========================================================
+subscribePricing(pricing => {
+  // ครั้งแรก / มีคนอื่น save → refresh จากของจริง
+  // ถ้าตอนนี้ user กำลังแก้อยู่ (dirty) → cancel + แจ้งเตือน
+  if (dirty) {
+    if (!confirm("มีคนอื่นแก้ค่าเรทไปแล้ว ต้องโหลดใหม่ — แก้ที่เพิ่งพิมพ์จะหายไป โอเคไหม?")) return;
+  }
+  original = JSON.parse(JSON.stringify(pricing));
+  edited = {};
+  DURATIONS.forEach(d => {
+    const cur = original?.fullCourse?.[String(d)];
+    edited[d] = {
+      revenue: cur?.revenue ?? 0,
+      shopCut: cur?.shopCut ?? 0,
+    };
+  });
+  dirty = false;
+  render();
+});
+
+// =========================================================
+// RENDER
+// =========================================================
+function render() {
+  $("loading").classList.add("hidden");
+  $("content").classList.remove("hidden");
+  $("save-bar").classList.remove("hidden");
+
+  $("rate-rows").innerHTML = DURATIONS.map(d => {
+    const e = edited[d];
+    const pay = (e.revenue || 0) - (e.shopCut || 0);
+    const dispDur = d === 60 ? "1 ชม." : d === 90 ? "1.5 ชม." : d === 120 ? "2 ชม." : d === 150 ? "2.5 ชม." : d === 180 ? "3 ชม." : `${d} นาที`;
+    return `
+      <tr data-row="${d}">
+        <td class="col-dur">${dispDur} <span class="text-xs text-gray-400">(${d} นาที)</span></td>
+        <td class="col-num">
+          <input type="number" min="0" step="any" inputmode="numeric"
+                 data-edit="revenue" data-dur="${d}" value="${e.revenue}" />
+        </td>
+        <td class="col-num">
+          <input type="number" min="0" step="any" inputmode="numeric"
+                 data-edit="shopCut" data-dur="${d}" value="${e.shopCut}" />
+        </td>
+        <td class="col-pay" data-pay="${d}">${pay.toLocaleString()}</td>
+      </tr>`;
+  }).join("");
+
+  // bind input events
+  document.querySelectorAll("#rate-rows input").forEach(inp => {
+    inp.addEventListener("input", onInput);
+  });
+
+  if (original?.updatedAt) {
+    const ts = original.updatedAt.toDate?.() || new Date(original.updatedAt);
+    const by = original.updatedBy || "—";
+    $("last-updated").textContent = `อัพเดทล่าสุด: ${ts.toLocaleString("th-TH")} โดย ${by}`;
+  } else {
+    $("last-updated").textContent = "";
+  }
+
+  updateSaveBar();
+}
+
+function onInput(e) {
+  const inp = e.target;
+  const dur = Number(inp.dataset.dur);
+  const field = inp.dataset.edit;
+  const val = parseFloat(inp.value);
+  if (isNaN(val) || val < 0) return;
+  edited[dur][field] = val;
+
+  // recompute pay
+  const pay = (edited[dur].revenue || 0) - (edited[dur].shopCut || 0);
+  const payCell = document.querySelector(`[data-pay="${dur}"]`);
+  if (payCell) payCell.textContent = pay.toLocaleString();
+
+  // mark dirty
+  const orig = original?.fullCourse?.[String(dur)];
+  const isRowDirty = !orig || orig.revenue !== edited[dur].revenue || orig.shopCut !== edited[dur].shopCut;
+  const row = document.querySelector(`[data-row="${dur}"]`);
+  if (row) row.classList.toggle("modified", isRowDirty);
+
+  dirty = isAnyDirty();
+  updateSaveBar();
+}
+
+function isAnyDirty() {
+  return DURATIONS.some(d => {
+    const orig = original?.fullCourse?.[String(d)];
+    if (!orig) return edited[d].revenue !== 0 || edited[d].shopCut !== 0;
+    return orig.revenue !== edited[d].revenue || orig.shopCut !== edited[d].shopCut;
+  });
+}
+
+function updateSaveBar() {
+  $("btn-save").disabled = !dirty;
+  $("save-status").textContent = dirty ? "มีการแก้ไขที่ยังไม่บันทึก" : "ไม่มีการแก้ไข";
+}
+
+// =========================================================
+// SAVE
+// =========================================================
+$("btn-save").addEventListener("click", async () => {
+  $("btn-save").disabled = true;
+  $("save-status").textContent = "กำลังบันทึก…";
+  try {
+    const fullCourse = {};
+    DURATIONS.forEach(d => {
+      fullCourse[String(d)] = {
+        revenue: edited[d].revenue,
+        shopCut: edited[d].shopCut,
+      };
+    });
+    await setDoc(doc(db, "settings", "pricing"), {
+      fullCourse,
+      updatedAt: serverTimestamp(),
+      updatedBy: user?.email || user?.uid || "admin",
+    }, { merge: true });
+    // listener will fire and refresh (dirty=false)
+    $("save-status").textContent = "✓ บันทึกแล้ว";
+  } catch (e) {
+    console.error("save failed:", e);
+    alert("บันทึกไม่สำเร็จ: " + e.message);
+    $("btn-save").disabled = false;
+    $("save-status").textContent = "บันทึกไม่สำเร็จ";
+  }
+});
+
+$("btn-cancel").addEventListener("click", () => {
+  if (!dirty) return;
+  if (!confirm("ยกเลิกการแก้ไข? ค่าจะกลับไปเป็นเดิม")) return;
+  edited = {};
+  DURATIONS.forEach(d => {
+    const cur = original?.fullCourse?.[String(d)];
+    edited[d] = { revenue: cur?.revenue ?? 0, shopCut: cur?.shopCut ?? 0 };
+  });
+  dirty = false;
+  render();
+});
+</script>
+</body>
+</html>

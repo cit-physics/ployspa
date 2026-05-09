@@ -242,27 +242,105 @@ export function qs(name) {
 // SHOP RATE TABLE
 // =========================================================
 // เรทค่าหักเข้าร้านต่อ session — แก้ที่นี่ที่เดียว
-// ค่าใช้สำหรับคำนวณ session.shopCut เวลา admin แก้ revenue ในใบบันทึก
-//
-// 60 นาที (1 ชม.)   → 520 บาท
-// 90 นาที (1.5 ชม.) → 720 บาท
-// 120 นาที (2 ชม.)  → 920 บาท
-// (ครึ่งชั่วโมง 30 นาที = 200 บาท — รอเปิดบริการอย่างเป็นทางการ)
-export const SHOP_RATE_TABLE = {
-  30: 200,
-  60: 520,
-  90: 720,
-  120: 920,
+// ค่า default — ใช้เมื่อ Firestore settings/pricing ยังไม่โหลด (กัน boot fail)
+const PRICING_DEFAULTS = {
+  fullCourse: {
+    "60":  { revenue: 1800, shopCut: 520 },
+    "90":  { revenue: 2300, shopCut: 720 },
+    "120": { revenue: 2900, shopCut: 920 },
+    "150": { revenue: 3500, shopCut: 1420 },
+    "180": { revenue: 3900, shopCut: 1500 },
+  },
 };
+
+let _pricingCache = PRICING_DEFAULTS;
+let _pricingListenerStarted = false;
+
+// เริ่ม subscribe Firestore settings/pricing (real-time) — เรียกอัตโนมัติตอน module load
+function startPricingListener() {
+  if (_pricingListenerStarted) return;
+  _pricingListenerStarted = true;
+  onSnapshot(
+    doc(db, "settings", "pricing"),
+    (snap) => {
+      if (snap.exists()) {
+        _pricingCache = snap.data();
+        // notify subscribers
+        _pricingSubs.forEach(cb => { try { cb(_pricingCache); } catch (e) { console.warn(e); } });
+      }
+    },
+    (err) => { console.error("[Pricing] listener error:", err.message); }
+  );
+}
+startPricingListener();
+
+// Subscribers — for admin-settings page to refresh on save
+const _pricingSubs = new Set();
+export function subscribePricing(cb) {
+  _pricingSubs.add(cb);
+  cb(_pricingCache);
+  return () => _pricingSubs.delete(cb);
+}
+
+/** คืน pricing config ปัจจุบัน (cache → defaults) */
+export function getPricing() {
+  return _pricingCache;
+}
+
+// SHOP_RATE_TABLE — backward compat for existing imports (read from cache)
+// ใช้ Proxy ให้อัพเดทอัตโนมัติเมื่อ cache เปลี่ยน
+export const SHOP_RATE_TABLE = new Proxy({}, {
+  get(_, key) {
+    const min = Number(key);
+    if (!min) return undefined;
+    return _pricingCache?.fullCourse?.[String(min)]?.shopCut;
+  },
+  ownKeys() {
+    return Object.keys(_pricingCache?.fullCourse || {});
+  },
+  has(_, key) {
+    return _pricingCache?.fullCourse?.[String(Number(key))] != null;
+  },
+  getOwnPropertyDescriptor(_, key) {
+    const min = Number(key);
+    const v = _pricingCache?.fullCourse?.[String(min)]?.shopCut;
+    if (v == null) return undefined;
+    return { value: v, writable: false, enumerable: true, configurable: true };
+  },
+});
 
 /**
  * คำนวณค่าหักเข้าร้านจาก durationMinutes
- * - ถ้า duration อยู่ใน table → ใช้ค่า exact
- * - ถ้าไม่มี → fallback เป็น 520 (เรท 1 ชม.) ป้องกันไม่ให้คำนวณผิดเพี้ยน
+ * - ถ้า duration อยู่ในตาราง → ใช้ค่า exact
+ * - ไม่อยู่ → fallback bracket (ใกล้สุด ≤ duration) + linear 520/ชม. ส่วนที่เกิน
  */
 export function calcShopCut(durationMinutes) {
-  if (!durationMinutes) return 520;
-  return SHOP_RATE_TABLE[durationMinutes] ?? 520;
+  if (!durationMinutes || durationMinutes <= 0) return 0;
+  const fc = _pricingCache?.fullCourse || {};
+  const exact = fc[String(durationMinutes)];
+  if (exact?.shopCut != null) return exact.shopCut;
+
+  const durations = Object.keys(fc).map(Number).sort((a, b) => a - b);
+  if (durations.length === 0) return Math.round((durationMinutes / 60) * 520);
+  const lower = durations.filter(d => d <= durationMinutes).pop() ?? durations[0];
+  const lowerShop = fc[String(lower)].shopCut;
+  const extra = Math.round(((durationMinutes - lower) / 60) * 520);
+  return lowerShop + extra;
+}
+
+/** คำนวณ revenue ตามเรท — ใช้ใน admin-settings preview */
+export function estimateRevenue(durationMinutes) {
+  if (!durationMinutes || durationMinutes <= 0) return 0;
+  const fc = _pricingCache?.fullCourse || {};
+  if (fc[String(durationMinutes)]?.revenue != null) return fc[String(durationMinutes)].revenue;
+  const durations = Object.keys(fc).map(Number).sort((a, b) => a - b);
+  if (durations.length === 0) return 0;
+  const max = durations[durations.length - 1];
+  if (durationMinutes > max) {
+    return fc[String(max)].revenue + Math.round(((durationMinutes - max) / 60) * 800);
+  }
+  const lower = durations.filter(d => d <= durationMinutes).pop() ?? durations[0];
+  return fc[String(lower)].revenue;
 }
 
 // =========================================================
