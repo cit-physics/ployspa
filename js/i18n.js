@@ -22,11 +22,11 @@ const translations = {
     error: "เกิดข้อผิดพลาด",
 
     // Status
-    statusReady: "พร้อมบริการ",
+    statusReady: "เข้าทำงาน พร้อมทำงาน",
     statusBusy: "กำลังให้บริการ",
     statusBusyUntil: "ติดงาน ถึง",
-    statusNotReady: "ไม่พร้อม",
-    statusReadyAt: "พร้อมเวลา",
+    statusNotReady: "กลับบ้าน หรือไม่พร้อมทำงาน",
+    statusReadyAt: "จะเข้าทำงานเวลา",
     statusBooked: "มีจอง",
     statusUnknown: "ไม่ระบุสถานะ",
     selectStatus: "เลือกสถานะ",
