@@ -368,13 +368,18 @@ export function shiftDate(dateStr, deltaDays) {
 
 /**
  * เช็คว่า item (date+time) อยู่ใน business-day window หรือไม่
- * biz-day X = (calendar X, ทุกเวลา) ∪ (calendar X+1, time < 06:00)
+ * boundary 06:00 — biz-day X = (calendar X, time ≥ 06:00) ∪ (calendar X+1, time < 06:00)
  * ครอบคลุม session ที่เริ่มข้ามคืนและจบในเช้ามืดวันถัดไป
  *
- * itemTime = null/empty → ถือว่าไม่อยู่ใน window ของ X+1 (ต้องมีเวลาถึงจะรวมเข้ามาได้)
+ * itemTime = null/empty:
+ *   - itemDate === bizDate → true (backward compat: date-only items นับเป็นวันนั้น)
+ *   - itemDate === bizDate+1 → false (ต้องมีเวลาถึงจะรวมเข้ามาได้)
  */
 export function isInBizWindow(itemDate, itemTime, bizDate) {
-  if (itemDate === bizDate) return true;
+  if (itemDate === bizDate) {
+    if (!itemTime) return true;
+    return itemTime >= "06:00";
+  }
   const next = shiftDate(bizDate, 1);
   if (itemDate === next) {
     if (!itemTime) return false;

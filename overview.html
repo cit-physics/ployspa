@@ -689,7 +689,7 @@ onSnapshot(collection(db, "statuses"), snap => {
 startReadyAtMonitor(() => statuses);
 
 // Business-day window — ใช้ isInBizWindow จาก helpers.js
-//   biz-day X = (calendar date X, ทุกเวลา) ∪ (calendar date X+1, time < 06:00)
+//   biz-day X = (calendar X, time ≥ 06:00) ∪ (calendar X+1, time < 06:00)
 // ครอบคลุม session ที่เริ่มข้ามคืนและจบในเช้ามืดของวันถัดไป
 
 function _mergeAndRender() {
