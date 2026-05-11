@@ -96,12 +96,37 @@
       });
     }
 
-    function renderCard(th) {
+    // สุ่ม url จาก gallery — null ถ้าไม่มี
+    function pickRandomGallery(th) {
+      const g = Array.isArray(th.gallery) ? th.gallery.map(x => x?.url).filter(Boolean) : [];
+      if (g.length === 0) return null;
+      return g[Math.floor(Math.random() * g.length)];
+    }
+
+    function renderCard(th, isAvailable) {
       const status = statuses[th.id];
       const lbl = statusLabel(status);
-      const photo = th.photoUrl
-        ? `<img src="${escapeHtml(th.photoUrl)}" alt="${escapeHtml(pickName(th))}" class="w-full h-full object-cover" loading="lazy" />`
-        : `<div class="w-full h-full bg-gray-100 flex items-center justify-center text-gray-300 text-4xl">👤</div>`;
+      const altName = escapeHtml(pickName(th));
+
+      // Photo: stack 2 layers (profile + random gallery) เฉพาะการ์ดในกลุ่มพร้อม
+      // กลุ่มไม่พร้อม (และ/หรือไม่มี profile) → รูปนิ่ง
+      let photoHtml;
+      if (!th.photoUrl) {
+        photoHtml = `<div class="w-full h-full bg-gray-100 flex items-center justify-center text-gray-300 text-4xl">👤</div>`;
+      } else {
+        const profileImg = `<img src="${escapeHtml(th.photoUrl)}" alt="${altName}" loading="lazy" />`;
+        const secondUrl = isAvailable ? pickRandomGallery(th) : null;
+        const kbClass = isAvailable ? "kb" : "no-anim";
+        if (secondUrl) {
+          photoHtml = `
+            <div class="photo-stack ${kbClass} w-full h-full">
+              <div class="layer active">${profileImg}</div>
+              <div class="layer"><img src="${escapeHtml(secondUrl)}" alt="${altName}" loading="lazy" /></div>
+            </div>`;
+        } else {
+          photoHtml = `<div class="photo-stack ${kbClass} w-full h-full">${profileImg}</div>`;
+        }
+      }
 
       const badges = (th.badges || []).map((b) => `
         <span class="inline-block text-[10px] font-bold px-1.5 py-0.5 rounded ${badgeStyle(b)}">${escapeHtml(badgeLabel(b))}</span>
@@ -111,10 +136,10 @@
 
       return `
         <a href="therapist.html?id=${encodeURIComponent(th.id)}" class="therapist-card block bg-white rounded-2xl overflow-hidden border border-gray-100 fade-in">
-          <div class="aspect-photo bg-gray-50 relative">
-            ${photo}
-            <div class="absolute top-2 left-2 flex flex-col gap-1">${badges}</div>
-            <div class="absolute bottom-2 left-2 right-2">
+          <div class="aspect-photo bg-gray-50 relative overflow-hidden">
+            ${photoHtml}
+            <div class="absolute top-2 left-2 flex flex-col gap-1 z-10">${badges}</div>
+            <div class="absolute bottom-2 left-2 right-2 z-10">
               <span class="inline-flex items-center text-xs font-medium px-2 py-1 rounded-full border ${statusBadgeClasses(lbl.color)} ${pulseClass} bg-white/90 backdrop-blur">
                 ${escapeHtml(lbl.text)}
               </span>
@@ -131,9 +156,9 @@
       `;
     }
 
-    function renderGroup(list) {
+    function renderGroup(list, isAvailable = false) {
       return `<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-        ${list.map(renderCard).join("")}
+        ${list.map(th => renderCard(th, isAvailable)).join("")}
       </div>`;
     }
 
@@ -155,18 +180,13 @@
       empty.classList.add("hidden");
 
       // Group by status: ready → ready_at → busy → booked → notArrived → unavailable
-      //   - booked: มีจองล่วงหน้า → อยู่กลุ่มพร้อมเสมอ (ไม่ต้องรอ check-in
-      //             เพราะการจองคือพันธะที่หมอจะมาแน่)
-      //   - notArrived: status พร้อมบริการอื่นๆ แต่ยังไม่ check-in
+      //   - notArrived: status พร้อมบริการ แต่ยังไม่ check-in (เช่น มีจองล่วงหน้า/อาจจะมาทำงาน)
       //   - unavailable: status="not_ready"/"leave" หรือไม่ระบุ → ท้ายสุด
       const ready = [], readyAt = [], busy = [], booked = [], notArrived = [], unavailable = [];
       const PRESENT_STATUSES = new Set(["ready", "ready_at", "busy", "booked", "break"]);
       filtered.forEach((th) => {
         const s = statuses[th.id]?.status;
         const checkedIn = !!checkins[th.id];
-
-        // booked: ไม่ว่า check-in หรือยัง → ขึ้น "มีจอง" กลุ่มพร้อม
-        if (s === "booked") { booked.push(th); return; }
 
         if (!checkedIn) {
           // status พร้อมบริการแต่ไม่ check-in → "ยังไม่มา"
@@ -179,6 +199,7 @@
         if (s === "ready")    ready.push(th);
         else if (s === "ready_at") readyAt.push(th);
         else if (s === "busy") busy.push(th);
+        else if (s === "booked") booked.push(th);
         else if (s === "break") notArrived.push(th); // พักสักครู่ — กลุ่ม "ยังไม่มา" เพราะจะกลับมา
         else unavailable.push(th); // status=not_ready/leave/null → "ไม่พร้อม / ลา" ท้ายสุด
       });
@@ -196,11 +217,11 @@
       const othersGroup = [...notArrivedSorted, ...unavailableSorted];
 
       const sections = [];
-      if (availableGroup.length) sections.push(renderGroup(availableGroup));
+      if (availableGroup.length) sections.push(renderGroup(availableGroup, true));
       if (availableGroup.length && othersGroup.length) {
         sections.push(`<div class="my-8 border-t-2 border-dashed border-pink-200"></div>`);
       }
-      if (othersGroup.length) sections.push(renderGroup(othersGroup));
+      if (othersGroup.length) sections.push(renderGroup(othersGroup, false));
 
       wrapper.innerHTML = sections.join("");
     }
@@ -223,6 +244,24 @@
 
     // Auto-promote any "ready_at HH:MM" → "ready" when the time passes
     startReadyAtMonitor(() => statuses);
+
+    // ============================================================
+    // Photo swap — สลับ profile ↔ random gallery ทุก 7s
+    // sync กับ Ken Burns 14s (swap ตอน peak ซูมเข้าสุดและซูมออกสุด)
+    // ทำเฉพาะการ์ดในกลุ่มพร้อม (.kb เท่านั้น) — กลุ่มไม่พร้อมใช้ .no-anim ข้าม
+    // ============================================================
+    function swapPhotoLayers() {
+      document.querySelectorAll(".photo-stack.kb").forEach(stack => {
+        const layers = stack.querySelectorAll(":scope > .layer");
+        if (layers.length < 2) return; // ไม่มี gallery → skip
+        layers.forEach(l => l.classList.toggle("active"));
+      });
+    }
+    // ครั้งแรกหลัง 7s (Ken Burns peak ครั้งแรก) → ทุก 7s
+    setTimeout(() => {
+      swapPhotoLayers();
+      setInterval(swapPhotoLayers, 7000);
+    }, 7000);
 
     document.addEventListener("langchange", () => {
       renderBranchFilter();

@@ -57,6 +57,13 @@ service cloud.firestore {
       allow write, delete: if request.auth != null;
     }
 
+    // Check-in failures (logged by linebot when name not matched): admin-only read/write
+    // เก็บไว้แอดมินดูทางเว็บว่ามีใครพิมพ์ชื่อผิดแล้วระบบจับไม่ได้
+    match /checkinFailures/{docId} {
+      allow read: if request.auth != null;
+      allow write, delete: if request.auth != null;
+    }
+
     // Settings (pricing, etc.): public read for cached calc, admin-only write
     match /settings/{docId} {
       allow read: if true;

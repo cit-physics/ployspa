@@ -159,6 +159,12 @@
     <div id="absences-content" class="text-sm text-gray-700"></div>
   </div>
 
+  <!-- CHECK-IN FAILURES (ชื่อที่ระบบจับไม่ได้) -->
+  <div id="checkin-failures-box" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+    <div class="text-sm font-semibold text-amber-900 mb-2">⚠️ ชื่อ check-in ที่ระบบจับไม่ได้</div>
+    <div id="checkin-failures-content" class="text-sm text-amber-800 space-y-1"></div>
+  </div>
+
   <!-- TABLE -->
   <div id="loading" class="text-center py-16 text-gray-400">
     <div class="spinner mx-auto mb-3"></div>
@@ -363,9 +369,10 @@ async function loadSessions() {
 
   // Window: 2 calendar dates เพื่อรองรับ session ข้ามคืน
   const nextDate = shiftDate(selectedDate, 1);
-  const [sessSnap, absSnap] = await Promise.all([
+  const [sessSnap, absSnap, failSnap] = await Promise.all([
     getDocs(query(collection(db, "sessions"), where("date", "in", [selectedDate, nextDate]))),
     getDocs(query(collection(db, "absences"), where("date", "==", selectedDate))),
+    getDocs(query(collection(db, "checkinFailures"), where("date", "==", selectedDate))),
   ]);
 
   const all = sessSnap.docs
@@ -381,6 +388,9 @@ async function loadSessions() {
 
   // render absences box (อิสระจาก sessions)
   renderAbsences(absSnap.docs.map(d => d.data()));
+
+  // render checkin failures box (ชื่อที่ระบบจับไม่ได้ระหว่าง check-in)
+  renderCheckinFailures(failSnap.docs.map(d => d.data()));
 
   $("loading").classList.add("hidden");
 
@@ -418,6 +428,30 @@ function renderAbsences(absences) {
 
   $("absences-content").innerHTML = parts.join("");
   $("absences-box").classList.remove("hidden");
+}
+
+// =========================================================
+// RENDER CHECK-IN FAILURES
+// =========================================================
+function renderCheckinFailures(failures) {
+  if (!failures || failures.length === 0) {
+    $("checkin-failures-box").classList.add("hidden");
+    return;
+  }
+  // sort by time desc (ล่าสุดก่อน)
+  const sorted = failures.slice().sort((a, b) => (b.time || "").localeCompare(a.time || ""));
+  const html = sorted.map(f => {
+    const time = escapeHtml(f.time || "?");
+    const name = escapeHtml(f.rawName || "?");
+    const msg = escapeHtml(f.rawMessage || "");
+    return `<div class="border-l-2 border-amber-300 pl-2 py-1">
+      <span class="font-mono text-xs text-amber-600">${time}</span>
+      &nbsp;พิมพ์ชื่อว่า <span class="font-semibold">"${name}"</span>
+      ${msg ? `<span class="text-xs text-gray-500 ml-1">(ข้อความเต็ม: ${msg})</span>` : ""}
+    </div>`;
+  }).join("");
+  $("checkin-failures-content").innerHTML = html;
+  $("checkin-failures-box").classList.remove("hidden");
 }
 
 // =========================================================
