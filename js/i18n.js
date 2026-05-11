@@ -21,12 +21,12 @@ const translations = {
     saved: "บันทึกแล้ว",
     error: "เกิดข้อผิดพลาด",
 
-    // Status
-    statusReady: "เข้าทำงาน พร้อมทำงาน",
+    // Status — short labels (index / dashboard / admin)
+    statusReady: "พร้อมทำงาน",
     statusBusy: "กำลังให้บริการ",
     statusBusyUntil: "ติดงาน ถึง",
-    statusNotReady: "กลับบ้าน หรือไม่พร้อมทำงาน",
-    statusReadyAt: "จะเข้าทำงานเวลา",
+    statusNotReady: "ไม่พร้อมทำงาน",
+    statusReadyAt: "พร้อมเวลา",
     statusBooked: "มีจอง",
     statusUnknown: "ไม่ระบุสถานะ",
     selectStatus: "เลือกสถานะ",
@@ -34,6 +34,11 @@ const translations = {
     updateStatus: "อัปเดตสถานะ",
     statusUpdated: "อัปเดตสถานะเรียบร้อย",
     lastUpdated: "อัปเดตเมื่อ",
+
+    // Status — long labels (checkin page buttons only)
+    checkinReady: "เข้าทำงาน พร้อมทำงาน",
+    checkinReadyAt: "จะเข้าทำงานเวลา",
+    checkinNotReady: "กลับบ้าน หรือไม่พร้อมทำงาน",
 
     // Badges
     badgeTop: "Top ของร้าน",
@@ -147,7 +152,7 @@ const translations = {
     saved: "Saved",
     error: "An error occurred",
 
-    // Status
+    // Status — short labels (index / dashboard / admin)
     statusReady: "Available",
     statusBusy: "In service",
     statusBusyUntil: "Busy until",
@@ -160,6 +165,11 @@ const translations = {
     updateStatus: "Update status",
     statusUpdated: "Status updated",
     lastUpdated: "Last updated",
+
+    // Status — long labels (checkin page buttons only)
+    checkinReady: "Check in — Ready to work",
+    checkinReadyAt: "Available later — set time",
+    checkinNotReady: "Going home / Unavailable",
 
     // Badges
     badgeTop: "Top",
