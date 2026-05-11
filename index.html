@@ -155,13 +155,18 @@
       empty.classList.add("hidden");
 
       // Group by status: ready → ready_at → busy → booked → notArrived → unavailable
-      //   - notArrived: status พร้อมบริการ แต่ยังไม่ check-in (เช่น มีจองล่วงหน้า/อาจจะมาทำงาน)
+      //   - booked: มีจองล่วงหน้า → อยู่กลุ่มพร้อมเสมอ (ไม่ต้องรอ check-in
+      //             เพราะการจองคือพันธะที่หมอจะมาแน่)
+      //   - notArrived: status พร้อมบริการอื่นๆ แต่ยังไม่ check-in
       //   - unavailable: status="not_ready"/"leave" หรือไม่ระบุ → ท้ายสุด
       const ready = [], readyAt = [], busy = [], booked = [], notArrived = [], unavailable = [];
       const PRESENT_STATUSES = new Set(["ready", "ready_at", "busy", "booked", "break"]);
       filtered.forEach((th) => {
         const s = statuses[th.id]?.status;
         const checkedIn = !!checkins[th.id];
+
+        // booked: ไม่ว่า check-in หรือยัง → ขึ้น "มีจอง" กลุ่มพร้อม
+        if (s === "booked") { booked.push(th); return; }
 
         if (!checkedIn) {
           // status พร้อมบริการแต่ไม่ check-in → "ยังไม่มา"
@@ -174,7 +179,6 @@
         if (s === "ready")    ready.push(th);
         else if (s === "ready_at") readyAt.push(th);
         else if (s === "busy") busy.push(th);
-        else if (s === "booked") booked.push(th);
         else if (s === "break") notArrived.push(th); // พักสักครู่ — กลุ่ม "ยังไม่มา" เพราะจะกลับมา
         else unavailable.push(th); // status=not_ready/leave/null → "ไม่พร้อม / ลา" ท้ายสุด
       });
