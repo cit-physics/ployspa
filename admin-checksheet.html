@@ -468,6 +468,22 @@ function renderTable() {
   });
 }
 
+/**
+ * เวลาจริงที่ลูกค้าได้นวด = endTime - startTime (ครอบคลุม session ข้ามเที่ยงคืน)
+ * ใช้ตรงๆ ไม่อิง durationMinutes ใน DB เพราะบางครั้งไม่ sync กับ endTime
+ * (เช่น เมื่อ admin edit endTime ใน admin-sessions.html ไม่ recompute)
+ */
+function totalMinutes(s) {
+  return timeDiffMin(s.endTime, s.startTime);
+}
+
+/** default shopCut คำนวณจากเวลาจริง (ก่อน admin override) */
+function defaultShopCut(s) {
+  const min = totalMinutes(s);
+  if (!min || min <= 0) return 0;
+  return calcShopCut(min);
+}
+
 function renderRow(s, ord) {
   const t = therapists.find(x => x.id === s.therapistId);
   const nameStr = nong(t || { nameTh: s.therapistName });
@@ -495,7 +511,9 @@ function renderRow(s, ord) {
     ? `<span class="badge ${diffCls}">${diffStr}</span>`
     : `<span style="color:#999;">${diffStr}</span>`;
 
-  const hours = fmtHours(s.durationMinutes);
+  // ชม. คำนวณจาก endTime - startTime ตรงๆ (ไม่อิง durationMinutes)
+  const totMin = totalMinutes(s);
+  const hours = totMin ? totMin / 60 : 0;
   const hoursStr = hours ? hours.toString() : "—";
 
   // จอง — ชื่อลูกค้าจอง (ว่างถ้าไม่มี)
@@ -504,16 +522,15 @@ function renderRow(s, ord) {
   // ต่อ
   const extStr = fmtExt(s.extensionMinutes);
 
-  // Revenue (editable) — ใช้ค่า dirty ถ้ามี ไม่งั้นใช้ค่าจาก DB
-  const revenueCur = dirty.has(s.id) && dirty.get(s.id).revenue != null
-    ? dirty.get(s.id).revenue
-    : (s.revenue || 0);
-  const noteCur = dirty.has(s.id) && dirty.get(s.id).adminNote != null
-    ? dirty.get(s.id).adminNote
-    : (s.adminNote || "");
-
-  const shopCut = calcShopCut(s.durationMinutes);
-  const therapistPay = revenueCur - shopCut;
+  // ดึงค่า dirty / DB / default ตามลำดับ
+  const dirtyRow = dirty.get(s.id) || {};
+  const revenueCur = dirtyRow.revenue != null ? dirtyRow.revenue : (s.revenue || 0);
+  const noteCur    = dirtyRow.adminNote != null ? dirtyRow.adminNote : (s.adminNote || "");
+  // shopCut: dirty > shopCutOverride (DB) > computed default (endTime-startTime)
+  const shopCutCur = dirtyRow.shopCut != null
+    ? dirtyRow.shopCut
+    : (s.shopCutOverride != null ? s.shopCutOverride : defaultShopCut(s));
+  const therapistPay = revenueCur - shopCutCur;
 
   const isModified = dirty.has(s.id);
   const rowCls = isModified ? "modified-row" : "";
@@ -535,7 +552,12 @@ function renderRow(s, ord) {
                data-edit="revenue" data-id="${s.id}"
                value="${revenueCur}" />
       </td>
-      <td class="col-num" data-shop="${s.id}">${fmtMoney(shopCut)}</td>
+      <td>
+        <input type="number" min="0" step="any" inputmode="decimal"
+               class="cell-edit"
+               data-edit="shopCut" data-id="${s.id}"
+               value="${shopCutCur}" />
+      </td>
       <td class="col-num" data-pay="${s.id}">${fmtMoney(therapistPay)}</td>
       <td class="col-note">
         <input type="text"
@@ -561,14 +583,18 @@ function onCellInput(e) {
 
   const cur = dirty.get(sessionId) || {};
 
-  if (field === "revenue") {
+  if (field === "revenue" || field === "shopCut") {
     const val = parseFloat(input.value);
     if (isNaN(val) || val < 0) return;
-    cur.revenue = val;
+    cur[field] = val;
 
-    // Live recalc therapistPay (shopCut คงเดิม)
-    const shopCut = calcShopCut(session.durationMinutes);
-    const pay = val - shopCut;
+    // Live recalc therapistPay = revenue - shopCut
+    // ดึงค่า current ของอีกฝั่งจาก dirty หรือ DB หรือ default
+    const revenue = cur.revenue != null ? cur.revenue : (session.revenue || 0);
+    const shopCut = cur.shopCut != null
+      ? cur.shopCut
+      : (session.shopCutOverride != null ? session.shopCutOverride : defaultShopCut(session));
+    const pay = revenue - shopCut;
     const payCell = document.querySelector(`[data-pay="${sessionId}"]`);
     if (payCell) payCell.textContent = fmtMoney(pay);
   } else if (field === "adminNote") {
@@ -602,9 +628,12 @@ function renderSummary() {
 
     const dirtyRow = dirty.get(s.id) || {};
     const revenue = dirtyRow.revenue != null ? dirtyRow.revenue : (s.revenue || 0);
-    const shopCut = calcShopCut(s.durationMinutes);
+    const shopCut = dirtyRow.shopCut != null
+      ? dirtyRow.shopCut
+      : (s.shopCutOverride != null ? s.shopCutOverride : defaultShopCut(s));
     const pay = revenue - shopCut;
-    const hrs = fmtHours(s.durationMinutes);
+    const totMin = totalMinutes(s);
+    const hrs = totMin ? totMin / 60 : 0;
 
     stats[bk].hours += hrs;
     stats[bk].shop  += shopCut;
@@ -689,12 +718,25 @@ async function saveAll() {
       const s = sessions.find(x => x.id === sessionId);
       if (!s) continue;
 
+      // คำนวณ shopCut/revenue สุดท้าย: dirty > existing override > computed default
+      const finalRevenue = changes.revenue != null
+        ? changes.revenue
+        : (s.revenue || 0);
+      const finalShopCut = changes.shopCut != null
+        ? changes.shopCut
+        : (s.shopCutOverride != null ? s.shopCutOverride : defaultShopCut(s));
+
       const updates = { updatedAt: serverTimestamp() };
       if (changes.revenue != null) {
-        const shopCut = calcShopCut(s.durationMinutes);
         updates.revenue = changes.revenue;
-        updates.shopCut = shopCut;
-        updates.therapistPay = changes.revenue - shopCut;
+      }
+      // เก็บ shopCutOverride แยก field — รู้ว่า admin ตั้งเองหรือใช้ default
+      if (changes.shopCut != null) {
+        updates.shopCutOverride = changes.shopCut;
+        updates.shopCut = changes.shopCut;  // sync field เดิม เผื่อโค้ดเก่าอ่าน
+      }
+      if (changes.revenue != null || changes.shopCut != null) {
+        updates.therapistPay = finalRevenue - finalShopCut;
       }
       if (changes.adminNote != null) {
         updates.adminNote = changes.adminNote.trim() || null;
@@ -710,8 +752,15 @@ async function saveAll() {
       if (!s) continue;
       if (changes.revenue != null) {
         s.revenue = changes.revenue;
-        s.shopCut = calcShopCut(s.durationMinutes);
-        s.therapistPay = s.revenue - s.shopCut;
+      }
+      if (changes.shopCut != null) {
+        s.shopCutOverride = changes.shopCut;
+        s.shopCut = changes.shopCut;
+      }
+      if (changes.revenue != null || changes.shopCut != null) {
+        const revenue = s.revenue || 0;
+        const shopCut = s.shopCutOverride != null ? s.shopCutOverride : defaultShopCut(s);
+        s.therapistPay = revenue - shopCut;
       }
       if (changes.adminNote != null) {
         s.adminNote = changes.adminNote.trim() || null;
