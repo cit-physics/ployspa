@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>สรุปงานหมอ — PloySpa Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Sarabun', sans-serif; background: #f9f5f7; color: #2d2d2d; }
+    .spinner { width:32px; height:32px; border:3px solid #fce7f3; border-top-color:#ec4899; border-radius:50%; animation:spin .7s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* Summary card */
+    .sum-card {
+      background:#fff; border:1px solid #f3d8e2; border-radius:14px;
+      padding:14px 18px; flex:1; min-width:160px;
+    }
+    .sum-card-title { font-size:12px; color:#9b6b7d; font-weight:600; }
+    .sum-card-time  { font-size:18px; color:#1a3a2e; font-weight:700; margin-top:4px; }
+    .sum-card-money { font-size:20px; color:#c9356b; font-weight:700; margin-top:2px; }
+    .sum-card-meta  { font-size:11px; color:#9b6b7d; margin-top:4px; }
+
+    /* Filter row */
+    .filter-input {
+      border:1px solid #f3d8e2; border-radius:8px; padding:6px 10px;
+      font-size:13px; background:#fff;
+    }
+    .filter-input:focus { outline:none; border-color:#ec4899; box-shadow:0 0 0 2px #fbcfe8; }
+
+    /* Table */
+    table.report {
+      width:100%; border-collapse:collapse; background:#fff;
+      border-radius:10px; overflow:hidden; box-shadow:0 1px 6px rgba(0,0,0,.06);
+      font-size:13px;
+    }
+    .report thead th {
+      background:#fce7f3; color:#831843; font-weight:700; padding:10px 8px;
+      border-bottom:2px solid #f3a4c4; text-align:center; font-size:12px;
+      white-space:nowrap;
+    }
+    .report tbody td {
+      padding:8px 8px; border-bottom:1px solid #f3e0e8; text-align:center;
+      vertical-align: middle;
+    }
+    .report tbody tr:hover td { background:#fef3f8; }
+    .report tbody tr.row-zero td { color:#bbb; }
+    .report tbody tr.row-zero .col-name { color:#888; }
+
+    .col-name  { text-align:left !important; font-weight:600; min-width:110px; }
+    .col-num   { font-variant-numeric: tabular-nums; text-align:right !important; padding-right:14px !important; }
+
+    /* Photo cell */
+    .ph-thumb {
+      width:36px; height:48px; border-radius:6px; object-fit:cover;
+      background:#f3e0e8; display:inline-block; vertical-align:middle;
+      box-shadow:0 1px 2px rgba(0,0,0,.05);
+    }
+    .ph-thumb-placeholder {
+      width:36px; height:48px; border-radius:6px; background:#f3e0e8;
+      display:inline-flex; align-items:center; justify-content:center;
+      font-size:14px; color:#c9356b; font-weight:700;
+    }
+
+    .report tfoot td {
+      padding:10px 8px; background:#fce7f3; font-weight:700; color:#831843;
+      border-top:2px solid #f3a4c4; font-size:13px;
+    }
+
+    .preset-btn {
+      padding:4px 10px; border:1px solid #f3d8e2; border-radius:6px;
+      background:#fff; font-size:12px; color:#831843; cursor:pointer;
+    }
+    .preset-btn:hover { background:#fce7f3; }
+    .preset-btn.active { background:#ec4899; color:#fff; border-color:#ec4899; }
+  </style>
+</head>
+<body class="min-h-screen pb-10">
+
+<!-- HEADER -->
+<header class="bg-white border-b border-pink-200 sticky top-0 z-20 shadow-sm">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3 flex-wrap">
+    <a href="admin.html" class="text-pink-500 hover:text-pink-600 text-sm">← Admin</a>
+    <span class="text-gray-300">|</span>
+    <h1 class="text-base font-bold text-gray-800 flex-1">📊 สรุปงานหมอ</h1>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-4 pt-4">
+
+  <!-- FILTERS -->
+  <div class="bg-white border border-pink-100 rounded-xl p-4 mb-4">
+    <div class="flex items-center gap-2 flex-wrap mb-2">
+      <span class="text-sm font-semibold text-gray-700 mr-2">ช่วงเวลา</span>
+      <input type="date" id="date-start" class="filter-input" />
+      <span class="text-gray-400">ถึง</span>
+      <input type="date" id="date-end" class="filter-input" />
+      <span class="text-sm font-semibold text-gray-700 ml-4 mr-2">สาขา</span>
+      <select id="branch-filter" class="filter-input">
+        <option value="all">ทั้งหมด</option>
+        <option value="branch1">สาขา 1</option>
+        <option value="branch2">สาขา 2</option>
+      </select>
+    </div>
+    <div class="flex items-center gap-2 flex-wrap">
+      <span class="text-xs text-gray-500 mr-1">เลือกเร็ว:</span>
+      <button class="preset-btn" data-preset="thisMonth">เดือนนี้</button>
+      <button class="preset-btn" data-preset="lastMonth">เดือนที่แล้ว</button>
+      <button class="preset-btn" data-preset="last7">7 วันล่าสุด</button>
+      <button class="preset-btn" data-preset="last30">30 วันล่าสุด</button>
+    </div>
+  </div>
+
+  <!-- SUMMARY CARDS -->
+  <div class="flex gap-3 flex-wrap mb-4">
+    <div class="sum-card">
+      <div class="sum-card-title">🏠 สาขา 1</div>
+      <div class="sum-card-time" id="sum-1-hours">— ชม.</div>
+      <div class="sum-card-money" id="sum-1-shop">฿ —</div>
+      <div class="sum-card-meta" id="sum-1-cases">— เคส</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-card-title">🏠 สาขา 2</div>
+      <div class="sum-card-time" id="sum-2-hours">— ชม.</div>
+      <div class="sum-card-money" id="sum-2-shop">฿ —</div>
+      <div class="sum-card-meta" id="sum-2-cases">— เคส</div>
+    </div>
+    <div class="sum-card" style="border-color:#a8e6cf;">
+      <div class="sum-card-title" style="color:#2d6a4f;">🏪 รวมทั้งร้าน</div>
+      <div class="sum-card-time" id="sum-all-hours">— ชม.</div>
+      <div class="sum-card-money" id="sum-all-shop" style="color:#0e7c5a;">฿ —</div>
+      <div class="sum-card-meta" id="sum-all-cases">— เคส</div>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div id="loading" class="text-center py-16 text-gray-400">
+    <div class="spinner mx-auto mb-3"></div>
+    <p>กำลังโหลด…</p>
+  </div>
+  <div id="empty" class="hidden text-center py-16 text-gray-400">
+    <div class="text-4xl mb-3">📭</div>
+    <p>ไม่มีข้อมูลในช่วงเวลานี้</p>
+  </div>
+
+  <div id="table-wrap" class="hidden overflow-x-auto pb-4">
+    <table class="report">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>รูป</th>
+          <th>ชื่อหมอ</th>
+          <th>ส.</th>
+          <th title="จำนวนเคสที่นวด">เคส</th>
+          <th title="จำนวนชั่วโมงรวม">ชม.</th>
+          <th title="ลูกค้าเก่ากลับมาจองกี่เคส">ลูกค้าเก่า</th>
+          <th title="เคสที่มาจากการจองล่วงหน้า">จอง</th>
+          <th title="จำนวนครั้งที่ต่อเวลา">ต่อ (ครั้ง)</th>
+          <th title="จำนวนวันขาดงาน + ลา รวมกัน">ขาด/ลา (วัน)</th>
+          <th title="ทำเงินให้ตัวเอง">เงินพนง.</th>
+          <th title="ทำเงินให้ร้าน">เงินร้าน</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+      <tfoot>
+        <tr>
+          <td colspan="4" style="text-align:right;">รวม</td>
+          <td class="col-num" id="foot-cases">—</td>
+          <td class="col-num" id="foot-hours">—</td>
+          <td class="col-num" id="foot-returning">—</td>
+          <td class="col-num" id="foot-booking">—</td>
+          <td class="col-num" id="foot-ext">—</td>
+          <td class="col-num" id="foot-absence">—</td>
+          <td class="col-num" id="foot-pay">—</td>
+          <td class="col-num" id="foot-shop">—</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</main>
+
+<script type="module">
+import {
+  db,
+  collection, getDocs, query, where,
+} from "./js/firebase-config.js";
+import { requireAuth } from "./js/auth.js";
+import {
+  listTherapists, escapeHtml,
+  getBusinessDate, shiftDate,
+  calcShopCut,
+} from "./js/helpers.js";
+
+await requireAuth();
+
+const $ = id => document.getElementById(id);
+
+// =========================================================
+// STATE
+// =========================================================
+let therapists = [];
+let allSessions = [];
+let allAbsences = [];
+
+let startDate = "";  // biz date "YYYY-MM-DD"
+let endDate   = "";  // biz date "YYYY-MM-DD"
+let branchFilter = "all";
+
+// =========================================================
+// HELPERS
+// =========================================================
+
+/** ลบ prefix "น้อง"/"พี่" ออกจากชื่อ */
+function stripPrefix(name) {
+  return String(name || "").replace(/^(น้อง|พี่)\s*/, "").trim();
+}
+
+/** "น้อง" + ชื่อดิบ */
+function nong(t) {
+  if (!t) return "—";
+  const raw = t.nameTh || t.nameEn || t.code || "?";
+  const stripped = stripPrefix(raw);
+  return stripped ? `น้อง${stripped}` : "—";
+}
+
+/** therapist.branch → "1"/"2"/"?" */
+function branchShortFromTh(b) {
+  if (b === "branch1") return "1";
+  if (b === "branch2") return "2";
+  return "?";
+}
+
+/** เปลี่ยน branch ของ therapist → key "branch1"/"branch2" */
+function thBranchKey(b) {
+  if (b === "branch1" || b === "branch2") return b;
+  return null;
+}
+
+/** Diff (t1 - t2) นาที — รองรับข้ามเที่ยงคืน */
+function timeDiffMin(t1, t2) {
+  if (!t1 || !t2) return null;
+  const [h1, m1] = t1.split(":").map(Number);
+  const [h2, m2] = t2.split(":").map(Number);
+  let d = (h1 * 60 + m1) - (h2 * 60 + m2);
+  if (d < -720) d += 1440;
+  if (d >  720) d -= 1440;
+  return d;
+}
+
+/** business date ของ session (จาก calendar date + startTime) */
+function sessionBizDate(s) {
+  if (!s.startTime || !s.date) return s.date;
+  // boundary 06:00 — ก่อน 06:00 → biz date คือเมื่อวาน
+  return s.startTime < "06:00" ? shiftDate(s.date, -1) : s.date;
+}
+
+function fmtMoney(n) {
+  if (n == null || isNaN(n)) return "—";
+  return Math.round(n).toLocaleString();
+}
+
+function fmtMoneyZero(n) {
+  if (n == null || isNaN(n) || n === 0) return "0";
+  return Math.round(n).toLocaleString();
+}
+
+function fmtHours(min) {
+  if (!min || min <= 0) return "0";
+  const h = min / 60;
+  return h.toFixed(1);
+}
+
+/** thumbnail หมอ */
+function photoCell(t) {
+  if (t && t.photoUrl) {
+    return `<img class="ph-thumb" src="${escapeHtml(t.photoUrl)}" alt="" loading="lazy" />`;
+  }
+  const initial = stripPrefix(t?.nameTh || t?.nameEn || "?").charAt(0) || "?";
+  return `<span class="ph-thumb-placeholder">${escapeHtml(initial)}</span>`;
+}
+
+// =========================================================
+// DATE INIT + PRESETS
+// =========================================================
+
+/** วันที่ 1 ของเดือนที่ bizDate อยู่ */
+function monthStartOf(bizDate) {
+  return bizDate.slice(0, 7) + "-01";
+}
+
+/** วันที่สุดท้ายของเดือนที่ bizDate อยู่ */
+function monthEndOf(bizDate) {
+  const [y, m] = bizDate.split("-").map(Number);
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();  // m=1..12 → next-month day 0
+  return `${bizDate.slice(0, 7)}-${String(lastDay).padStart(2, "0")}`;
+}
+
+function applyPreset(name) {
+  const today = getBusinessDate();
+  if (name === "thisMonth") {
+    startDate = monthStartOf(today);
+    endDate = today;
+  } else if (name === "lastMonth") {
+    const lastMonthAnyDay = shiftDate(monthStartOf(today), -1);  // วันสุดท้ายของเดือนที่แล้ว
+    startDate = monthStartOf(lastMonthAnyDay);
+    endDate = monthEndOf(lastMonthAnyDay);
+  } else if (name === "last7") {
+    startDate = shiftDate(today, -6);
+    endDate = today;
+  } else if (name === "last30") {
+    startDate = shiftDate(today, -29);
+    endDate = today;
+  }
+  $("date-start").value = startDate;
+  $("date-end").value = endDate;
+  highlightPreset(name);
+}
+
+function highlightPreset(name) {
+  document.querySelectorAll(".preset-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.preset === name);
+  });
+}
+
+function detectActivePreset() {
+  const today = getBusinessDate();
+  if (endDate !== today) return null;
+  if (startDate === monthStartOf(today)) return "thisMonth";
+  if (startDate === shiftDate(today, -6)) return "last7";
+  if (startDate === shiftDate(today, -29)) return "last30";
+  const lastMonthAnyDay = shiftDate(monthStartOf(today), -1);
+  if (startDate === monthStartOf(lastMonthAnyDay) && endDate === monthEndOf(lastMonthAnyDay)) return "lastMonth";
+  return null;
+}
+
+// =========================================================
+// LOAD
+// =========================================================
+async function loadTherapists() {
+  therapists = await listTherapists();
+}
+
+async function loadData() {
+  $("loading").classList.remove("hidden");
+  $("table-wrap").classList.add("hidden");
+  $("empty").classList.add("hidden");
+
+  // query calendar dates [startDate, endDate+1] เพื่อรองรับ session ที่ startTime < 06:00 ของ calendar วันถัดไป
+  const endPlus1 = shiftDate(endDate, 1);
+  const [sessSnap, absSnap] = await Promise.all([
+    getDocs(query(
+      collection(db, "sessions"),
+      where("date", ">=", startDate),
+      where("date", "<=", endPlus1),
+    )),
+    getDocs(query(
+      collection(db, "absences"),
+      where("date", ">=", startDate),
+      where("date", "<=", endDate),
+    )),
+  ]);
+
+  // Sessions: filter cancelled + map bizDate ใน [startDate, endDate]
+  allSessions = sessSnap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(s => s.status !== "cancelled")
+    .map(s => ({ ...s, bizDate: sessionBizDate(s) }))
+    .filter(s => s.bizDate >= startDate && s.bizDate <= endDate);
+
+  allAbsences = absSnap.docs.map(d => d.data());
+
+  $("loading").classList.add("hidden");
+  render();
+}
+
+// =========================================================
+// AGGREGATE + RENDER
+// =========================================================
+function render() {
+  const byTherapist = new Map();
+
+  // Filter therapists by branch
+  const filteredTh = therapists.filter(t => {
+    if (branchFilter === "all") return true;
+    return t.branch === branchFilter;
+  });
+
+  filteredTh.forEach(t => {
+    byTherapist.set(t.id, {
+      therapist: t,
+      cases: 0,
+      hoursMin: 0,
+      returningCases: 0,
+      bookingCases: 0,
+      extensionCount: 0,
+      absenceDays: 0,
+      therapistPay: 0,
+      shopCut: 0,
+    });
+  });
+
+  // Sessions
+  allSessions.forEach(s => {
+    const row = byTherapist.get(s.therapistId);
+    if (!row) return;
+    const min = timeDiffMin(s.endTime, s.startTime) || 0;
+    const shopCut = s.shopCutOverride != null ? s.shopCutOverride : calcShopCut(min);
+    const revenue = s.revenue || 0;
+    const pay = revenue - shopCut;
+    row.cases += 1;
+    row.hoursMin += min;
+    if (s.isReturningCustomer === true) row.returningCases += 1;
+    if (s.bookingCustomerName) row.bookingCases += 1;
+    row.extensionCount += (s.extensionCount || 0);
+    row.therapistPay += pay;
+    row.shopCut += shopCut;
+  });
+
+  // Absences (รวมขาด + ลา)
+  allAbsences.forEach(a => {
+    const row = byTherapist.get(a.therapistId);
+    if (row) row.absenceDays += 1;
+  });
+
+  // Sort: hours desc, then cases desc
+  const rows = [...byTherapist.values()].sort((a, b) => {
+    const dh = b.hoursMin - a.hoursMin;
+    if (dh !== 0) return dh;
+    const dc = b.cases - a.cases;
+    if (dc !== 0) return dc;
+    return (a.therapist.code || "").localeCompare(b.therapist.code || "");
+  });
+
+  if (rows.length === 0) {
+    $("empty").classList.remove("hidden");
+    renderSummary([]);
+    return;
+  }
+
+  $("table-wrap").classList.remove("hidden");
+
+  $("rows").innerHTML = rows.map((r, idx) => {
+    const t = r.therapist;
+    const isZero = r.cases === 0 && r.absenceDays === 0;
+    return `
+      <tr class="${isZero ? "row-zero" : ""}">
+        <td>${idx + 1}</td>
+        <td>${photoCell(t)}</td>
+        <td class="col-name">${escapeHtml(nong(t))}</td>
+        <td>${escapeHtml(branchShortFromTh(t.branch))}</td>
+        <td class="col-num">${r.cases}</td>
+        <td class="col-num">${fmtHours(r.hoursMin)}</td>
+        <td class="col-num">${r.returningCases}</td>
+        <td class="col-num">${r.bookingCases}</td>
+        <td class="col-num">${r.extensionCount}</td>
+        <td class="col-num">${r.absenceDays}</td>
+        <td class="col-num">${fmtMoneyZero(r.therapistPay)}</td>
+        <td class="col-num">${fmtMoneyZero(r.shopCut)}</td>
+      </tr>
+    `;
+  }).join("");
+
+  renderSummary(rows);
+}
+
+function renderSummary(rows) {
+  const stats = {
+    branch1: { hours: 0, shop: 0, cases: 0 },
+    branch2: { hours: 0, shop: 0, cases: 0 },
+  };
+  let totalCases = 0, totalHoursMin = 0, totalReturning = 0,
+      totalBooking = 0, totalExt = 0, totalAbsence = 0,
+      totalPay = 0, totalShop = 0;
+
+  rows.forEach(r => {
+    const bk = thBranchKey(r.therapist.branch);
+    if (bk) {
+      stats[bk].hours += r.hoursMin / 60;
+      stats[bk].shop  += r.shopCut;
+      stats[bk].cases += r.cases;
+    }
+    totalCases     += r.cases;
+    totalHoursMin  += r.hoursMin;
+    totalReturning += r.returningCases;
+    totalBooking   += r.bookingCases;
+    totalExt       += r.extensionCount;
+    totalAbsence   += r.absenceDays;
+    totalPay       += r.therapistPay;
+    totalShop      += r.shopCut;
+  });
+
+  $("sum-1-hours").textContent = `${stats.branch1.hours.toFixed(1)} ชม.`;
+  $("sum-1-shop").textContent  = `฿ ${fmtMoney(stats.branch1.shop)}`;
+  $("sum-1-cases").textContent = `${stats.branch1.cases} เคส`;
+
+  $("sum-2-hours").textContent = `${stats.branch2.hours.toFixed(1)} ชม.`;
+  $("sum-2-shop").textContent  = `฿ ${fmtMoney(stats.branch2.shop)}`;
+  $("sum-2-cases").textContent = `${stats.branch2.cases} เคส`;
+
+  const allHours = stats.branch1.hours + stats.branch2.hours;
+  const allCases = stats.branch1.cases + stats.branch2.cases;
+  $("sum-all-hours").textContent = `${allHours.toFixed(1)} ชม.`;
+  $("sum-all-shop").textContent  = `฿ ${fmtMoney(totalShop)}`;
+  $("sum-all-cases").textContent = `${allCases} เคส`;
+
+  $("foot-cases").textContent     = totalCases;
+  $("foot-hours").textContent     = fmtHours(totalHoursMin);
+  $("foot-returning").textContent = totalReturning;
+  $("foot-booking").textContent   = totalBooking;
+  $("foot-ext").textContent       = totalExt;
+  $("foot-absence").textContent   = totalAbsence;
+  $("foot-pay").textContent       = fmtMoney(totalPay);
+  $("foot-shop").textContent      = fmtMoney(totalShop);
+}
+
+// =========================================================
+// EVENTS
+// =========================================================
+$("date-start").addEventListener("change", e => {
+  startDate = e.target.value;
+  if (startDate > endDate) {
+    endDate = startDate;
+    $("date-end").value = endDate;
+  }
+  highlightPreset(detectActivePreset());
+  loadData();
+});
+
+$("date-end").addEventListener("change", e => {
+  endDate = e.target.value;
+  if (endDate < startDate) {
+    startDate = endDate;
+    $("date-start").value = startDate;
+  }
+  highlightPreset(detectActivePreset());
+  loadData();
+});
+
+$("branch-filter").addEventListener("change", e => {
+  branchFilter = e.target.value;
+  render();  // ไม่ต้อง reload — แค่ filter ใหม่
+});
+
+document.querySelectorAll(".preset-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    applyPreset(btn.dataset.preset);
+    loadData();
+  });
+});
+
+// =========================================================
+// INIT
+// =========================================================
+await loadTherapists();
+applyPreset("thisMonth");
+await loadData();
+</script>
+
+</body>
+</html>
