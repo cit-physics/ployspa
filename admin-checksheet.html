@@ -85,6 +85,26 @@
     }
     .cell-edit-note:focus { outline:none; border-color:#ec4899; box-shadow:0 0 0 2px #fbcfe8; }
 
+    /* Returning-customer toggle (bullet) */
+    .returning-toggle {
+      width:24px; height:24px; border-radius:50%;
+      border:1.5px solid #f3a4c4; background:#fff;
+      display:inline-flex; align-items:center; justify-content:center;
+      cursor:pointer; padding:0; line-height:1;
+      transition: background .12s, border-color .12s, transform .12s;
+    }
+    .returning-toggle:hover { background:#fce7f3; }
+    .returning-toggle .dot {
+      width:10px; height:10px; border-radius:50%; background:transparent;
+      transition: background .12s;
+    }
+    .returning-toggle[aria-pressed="true"] {
+      background:#ec4899; border-color:#ec4899;
+    }
+    .returning-toggle[aria-pressed="true"] .dot { background:#fff; }
+    .returning-toggle[aria-pressed="true"]:hover { background:#db2777; border-color:#db2777; }
+    .returning-toggle:focus { outline:none; box-shadow:0 0 0 2px #fbcfe8; }
+
     /* Bottom totals row */
     .checksheet tfoot td {
       padding:10px 8px; background:#fce7f3; font-weight:700; color:#831843;
@@ -187,6 +207,7 @@
           <th>ก่อน/เกิน</th>
           <th>ชม.</th>
           <th>จอง</th>
+          <th title="ลูกค้าเก่ากลับมาจอง">ลูกค้าเก่า</th>
           <th>ต่อ</th>
           <th>ล/ค</th>
           <th>ร้าน</th>
@@ -197,7 +218,7 @@
       <tbody id="rows"></tbody>
       <tfoot>
         <tr>
-          <td colspan="9" style="text-align:right;">รวม</td>
+          <td colspan="10" style="text-align:right;">รวม</td>
           <td class="col-num" id="foot-revenue">—</td>
           <td class="col-num" id="foot-shop">—</td>
           <td class="col-num" id="foot-pay">—</td>
@@ -466,6 +487,48 @@ function renderTable() {
     input.addEventListener("input", onCellInput);
     input.addEventListener("blur", onCellBlur);
   });
+
+  // Bind returning-customer toggle
+  tbody.querySelectorAll("[data-toggle='isReturningCustomer']").forEach(btn => {
+    btn.addEventListener("click", onReturningToggle);
+  });
+}
+
+function onReturningToggle(e) {
+  const btn = e.currentTarget;
+  const sessionId = btn.dataset.id;
+  const session = sessions.find(s => s.id === sessionId);
+  if (!session) return;
+
+  const cur = dirty.get(sessionId) || {};
+  const before = cur.isReturningCustomer != null
+    ? cur.isReturningCustomer
+    : !!session.isReturningCustomer;
+  const after = !before;
+
+  // ถ้า toggle กลับไปเท่ากับค่าใน DB → ลบ field ออกจาก dirty
+  if (after === !!session.isReturningCustomer) {
+    delete cur.isReturningCustomer;
+  } else {
+    cur.isReturningCustomer = after;
+  }
+
+  if (Object.keys(cur).length === 0) {
+    dirty.delete(sessionId);
+  } else {
+    dirty.set(sessionId, cur);
+  }
+
+  // Update UI
+  btn.setAttribute("aria-pressed", after ? "true" : "false");
+  btn.title = after
+    ? "ลูกค้าเก่ากลับมาจอง — คลิกเพื่อยกเลิก"
+    : "คลิกถ้าเคสนี้เป็นลูกค้าเก่ากลับมาจอง";
+
+  const row = document.querySelector(`[data-row="${sessionId}"]`);
+  if (row) row.classList.toggle("modified-row", dirty.has(sessionId));
+
+  updateSaveBar();
 }
 
 /**
@@ -526,6 +589,9 @@ function renderRow(s, ord) {
   const dirtyRow = dirty.get(s.id) || {};
   const revenueCur = dirtyRow.revenue != null ? dirtyRow.revenue : (s.revenue || 0);
   const noteCur    = dirtyRow.adminNote != null ? dirtyRow.adminNote : (s.adminNote || "");
+  const isReturning = dirtyRow.isReturningCustomer != null
+    ? dirtyRow.isReturningCustomer
+    : !!s.isReturningCustomer;
   // shopCut: dirty > shopCutOverride (DB) > computed default (endTime-startTime)
   const shopCutCur = dirtyRow.shopCut != null
     ? dirtyRow.shopCut
@@ -545,6 +611,15 @@ function renderRow(s, ord) {
       <td>${diffCellHtml}</td>
       <td>${escapeHtml(hoursStr)}</td>
       <td class="col-name" style="font-weight:400; min-width:80px;">${escapeHtml(bookingName)}</td>
+      <td>
+        <button type="button"
+                class="returning-toggle"
+                data-toggle="isReturningCustomer" data-id="${s.id}"
+                aria-pressed="${isReturning ? "true" : "false"}"
+                title="${isReturning ? "ลูกค้าเก่ากลับมาจอง — คลิกเพื่อยกเลิก" : "คลิกถ้าเคสนี้เป็นลูกค้าเก่ากลับมาจอง"}">
+          <span class="dot"></span>
+        </button>
+      </td>
       <td>${escapeHtml(extStr)}</td>
       <td>
         <input type="number" min="0" step="any" inputmode="decimal"
@@ -741,6 +816,9 @@ async function saveAll() {
       if (changes.adminNote != null) {
         updates.adminNote = changes.adminNote.trim() || null;
       }
+      if (changes.isReturningCustomer != null) {
+        updates.isReturningCustomer = changes.isReturningCustomer;
+      }
 
       batch.update(doc(db, "sessions", sessionId), updates);
     }
@@ -764,6 +842,9 @@ async function saveAll() {
       }
       if (changes.adminNote != null) {
         s.adminNote = changes.adminNote.trim() || null;
+      }
+      if (changes.isReturningCustomer != null) {
+        s.isReturningCustomer = changes.isReturningCustomer;
       }
     }
     dirty.clear();
