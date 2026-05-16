@@ -81,6 +81,13 @@
         </select>
       </div>
 
+      <!-- Date -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">วันที่ <span class="text-red-500">*</span></label>
+        <input type="date" id="f-date" required class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300" />
+        <p class="text-xs text-gray-500 mt-1">ใช้ business date — ถ้า session เริ่มก่อน 06:00 ให้เลือกวันก่อนหน้า</p>
+      </div>
+
       <!-- Time -->
       <div class="grid grid-cols-2 gap-3">
         <div>
@@ -256,6 +263,35 @@ function diffH(s, e) {
   return Math.max(0, (toMin(e) - toMin(s)) / 60);
 }
 
+// เช็คเวลาทับซ้อนกับ session อื่นของหมอคนเดียวกันในวันเดียวกัน
+// คืน session ที่ทับซ้อนตัวแรก (หรือ null)
+async function findOverlappingSession(therapistId, date, startTime, endTime, excludeSessionId) {
+  if (!therapistId || !date || !startTime || !endTime) return null;
+  const snap = await getDocs(query(
+    collection(db, "sessions"),
+    where("therapistId", "==", therapistId),
+    where("date", "==", date)
+  ));
+  const toMin = t => { const [h,m] = t.split(":").map(Number); return h*60+m; };
+  const ns = toMin(startTime);
+  let ne = toMin(endTime);
+  if (ne <= ns) ne += 1440; // ข้ามเที่ยงคืน
+  for (const d of snap.docs) {
+    if (d.id === excludeSessionId) continue;
+    const s = d.data();
+    if (s.status === "cancelled") continue;
+    if (!s.startTime || !s.endTime) continue;
+    const ss = toMin(s.startTime);
+    let se = toMin(s.endTime);
+    if (se <= ss) se += 1440;
+    // Overlap if ns < se && ne > ss
+    if (ns < se && ne > ss) {
+      return { id: d.id, ...s };
+    }
+  }
+  return null;
+}
+
 function renderSessions() {
   const list = $("session-list");
 
@@ -371,6 +407,7 @@ function openModal(sessionId = null) {
     const s = sessions.find(x => x.id === sessionId);
     if (s) {
       $("f-therapist").value = s.therapistId || "";
+      $("f-date").value = s.date || selectedDate;
       $("f-start").value = s.startTime || "";
       $("f-end").value = s.endTime || "";
       $("f-branch").value = s.branch || "พ1";
@@ -385,6 +422,7 @@ function openModal(sessionId = null) {
     }
   } else {
     $("modal-title").textContent = "เพิ่ม Session";
+    $("f-date").value = selectedDate;
     $("f-status").value = "completed";
     // default time = now
     const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
@@ -489,10 +527,37 @@ $("session-form").addEventListener("submit", async e => {
         return;
       }
     }
+    const sessionDate = $("f-date").value || selectedDate;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(sessionDate)) {
+      alert("กรุณาเลือกวันที่");
+      btn.disabled = false;
+      btn.textContent = "บันทึก";
+      return;
+    }
+
+    // เตือนเมื่อเวลาทับซ้อนกับ session อื่นของหมอคนเดียวกัน
+    if (therapistId) {
+      const overlap = await findOverlappingSession(
+        therapistId, sessionDate, $("f-start").value, $("f-end").value, editingId
+      );
+      if (overlap) {
+        const ok = confirm(
+          `⚠️ เวลาทับซ้อนกับ session อื่นของหมอคนเดียวกัน:\n` +
+          `${overlap.startTime}-${overlap.endTime} (${overlap.status})\n` +
+          `บันทึกต่อหรือไม่?`
+        );
+        if (!ok) {
+          btn.disabled = false;
+          btn.textContent = "บันทึก";
+          return;
+        }
+      }
+    }
+
     const data = {
       therapistId,
       therapistName: th?.nameTh || th?.nameEn || "",
-      date: selectedDate,
+      date: sessionDate,
       startTime: $("f-start").value,
       endTime: $("f-end").value,
       branch: $("f-branch").value,

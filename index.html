@@ -108,6 +108,8 @@
       const status = statuses[th.id];
       const lbl = statusLabel(status);
       const altName = escapeHtml(pickName(th));
+      const isReady = !!checkins[th.id] && status?.status === "ready";
+      const reviewCount = Array.isArray(th.reviews) ? th.reviews.length : 0;
 
       // Photo: stack 2 layers (profile + random gallery) เฉพาะการ์ดในกลุ่มพร้อม
       // กลุ่มไม่พร้อม (และ/หรือไม่มี profile) → รูปนิ่ง
@@ -129,8 +131,9 @@
         }
       }
 
+      const badgePulseCls = isReady ? "badge-pulse" : "";
       const badges = (th.badges || []).map((b) => `
-        <span class="inline-block text-[10px] font-bold px-1.5 py-0.5 rounded ${badgeStyle(b)}">${escapeHtml(badgeLabel(b))}</span>
+        <span class="inline-block text-[10px] font-bold px-1.5 py-0.5 rounded ${badgeStyle(b)} ${badgePulseCls}">${escapeHtml(badgeLabel(b))}</span>
       `).join("");
 
       const pulseClass = lbl.color === "green" ? "pulse-green" : "";
@@ -148,9 +151,9 @@
           </div>
           <div class="p-3">
             <div class="text-xs text-gray-400 mb-1">${escapeHtml(t(th.branch || "branch1"))}</div>
-            <div class="font-semibold text-gray-800 truncate">
-              ${escapeHtml(pickName(th))}${formatMeasurements(th.measurements) ? ` <span class="text-pink-500 font-mono text-xs font-normal">${formatMeasurements(th.measurements)}</span>` : ""}
-            </div>
+            <div class="font-semibold text-gray-800 truncate">${escapeHtml(pickName(th))}</div>
+            ${formatMeasurements(th.measurements) ? `<div class="text-pink-500 font-mono text-xs mt-0.5">${formatMeasurements(th.measurements)}</div>` : ""}
+            ${reviewCount > 0 ? `<div class="mt-0.5"><span class="review-count text-xs text-pink-600 hover:text-pink-700 hover:underline cursor-pointer" data-id="${escapeHtml(th.id)}">⭐ ${reviewCount} ${t("reviewCount")}</span></div>` : ""}
             ${th.specialties ? `<div class="text-xs text-gray-500 truncate mt-0.5">${escapeHtml(th.specialties)}</div>` : ""}
           </div>
         </a>
@@ -226,6 +229,16 @@
 
       wrapper.innerHTML = sections.join("");
     }
+
+    // Click ตรง "X รีวิว" → ไปหน้าโปรไฟล์ส่วน #reviews โดยตรง (ไม่ใช่ top ของ page)
+    document.getElementById("grid-wrapper").addEventListener("click", (e) => {
+      const link = e.target.closest(".review-count");
+      if (!link) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const id = link.dataset.id;
+      if (id) window.location.href = `therapist.html?id=${encodeURIComponent(id)}#reviews`;
+    });
 
     watchTherapists((list) => {
       therapists = list;

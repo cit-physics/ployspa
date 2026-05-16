@@ -73,6 +73,60 @@
     }
     .preset-btn:hover { background:#fce7f3; }
     .preset-btn.active { background:#ec4899; color:#fff; border-color:#ec4899; }
+
+    /* Manage button */
+    .manage-btn {
+      width:28px; height:28px; border-radius:6px;
+      background:#fce7f3; border:1px solid #f3a4c4; cursor:pointer;
+      font-size:14px; line-height:1;
+      transition: background .12s, transform .12s;
+    }
+    .manage-btn:hover { background:#fbcfe8; transform: scale(1.05); }
+
+    /* Modal */
+    .modal-overlay {
+      position:fixed; inset:0; background:rgba(0,0,0,.5);
+      z-index:50; display:none; align-items:flex-start; justify-content:center;
+      padding:20px 16px; overflow-y:auto;
+    }
+    .modal-overlay.open { display:flex; }
+    .modal-box {
+      background:#fff; border-radius:14px; max-width:720px; width:100%;
+      box-shadow:0 10px 40px rgba(0,0,0,.15); max-height:calc(100vh - 40px); display:flex; flex-direction:column;
+    }
+    .modal-header {
+      padding:14px 20px; border-bottom:1px solid #f3e0e8;
+      display:flex; align-items:center; justify-content:space-between;
+      position:sticky; top:0; background:#fff; border-radius:14px 14px 0 0; z-index:1;
+    }
+    .modal-body { padding:18px 20px; overflow-y:auto; flex:1; }
+    .modal-close {
+      background:none; border:none; font-size:24px; line-height:1; color:#999; cursor:pointer;
+    }
+    .modal-close:hover { color:#333; }
+
+    .sess-item {
+      border:1px solid #f3e0e8; border-radius:10px; padding:10px 14px;
+      display:flex; align-items:center; gap:10px; background:#fff;
+    }
+    .sess-item.cancelled { opacity:.55; background:#fafafa; }
+    .sess-actions { display:flex; gap:6px; }
+    .sess-btn {
+      padding:4px 10px; border-radius:6px; font-size:12px; border:1px solid;
+      cursor:pointer; background:#fff;
+    }
+    .sess-btn-edit { border-color:#cbd5e1; color:#475569; }
+    .sess-btn-edit:hover { background:#f1f5f9; }
+    .sess-btn-del { border-color:#fca5a5; color:#dc2626; }
+    .sess-btn-del:hover { background:#fef2f2; }
+
+    .form-grid label { display:block; font-size:12px; font-weight:500; color:#374151; margin-bottom:2px; }
+    .form-grid input, .form-grid select {
+      width:100%; border:1px solid #d1d5db; border-radius:6px; padding:6px 10px; font-size:13px;
+    }
+    .form-grid input:focus, .form-grid select:focus {
+      outline:none; border-color:#ec4899; box-shadow:0 0 0 2px #fbcfe8;
+    }
   </style>
 </head>
 <body class="min-h-screen pb-10">
@@ -159,6 +213,7 @@
           <th title="จำนวนวันขาดงาน + ลา รวมกัน">ขาด/ลา (วัน)</th>
           <th title="ทำเงินให้ตัวเอง">เงินพนง.</th>
           <th title="ทำเงินให้ร้าน">เงินร้าน</th>
+          <th title="จัดการ session">จัดการ</th>
         </tr>
       </thead>
       <tbody id="rows"></tbody>
@@ -173,22 +228,115 @@
           <td class="col-num" id="foot-absence">—</td>
           <td class="col-num" id="foot-pay">—</td>
           <td class="col-num" id="foot-shop">—</td>
+          <td></td>
         </tr>
       </tfoot>
     </table>
   </div>
 </main>
 
+<!-- SESSION MANAGEMENT MODAL -->
+<div id="session-modal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="text-base font-bold text-gray-800">
+        🗂 Sessions ของ <span id="modal-th-name" class="text-pink-600"></span>
+      </h2>
+      <button class="modal-close" id="btn-close-session-modal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-xs text-gray-600">ช่วง: <strong id="modal-range" class="text-gray-800"></strong></p>
+        <button id="btn-modal-add" class="px-3 py-1.5 bg-pink-500 text-white text-xs font-semibold rounded-lg hover:bg-pink-600">+ เพิ่ม session</button>
+      </div>
+
+      <!-- Session list -->
+      <div id="modal-session-list" class="space-y-2"></div>
+      <p id="modal-empty" class="hidden text-center text-sm text-gray-400 py-6">ไม่มี session ในช่วงนี้</p>
+
+      <!-- Form (เพิ่ม/แก้ไข) -->
+      <div id="modal-form-wrap" class="hidden mt-4 border-2 border-pink-200 rounded-xl p-4 bg-pink-50/50">
+        <h3 id="modal-form-title" class="font-semibold text-gray-800 mb-3 text-sm">+ เพิ่ม session</h3>
+        <div class="form-grid grid grid-cols-2 gap-3">
+          <div class="col-span-2">
+            <label>วันที่ <span class="text-red-500">*</span></label>
+            <input type="date" id="mf-date" required />
+          </div>
+          <div>
+            <label>เวลาเริ่ม <span class="text-red-500">*</span></label>
+            <input type="text" id="mf-start" placeholder="HH:MM เช่น 14:30" required />
+          </div>
+          <div>
+            <label>เวลาจบ <span class="text-red-500">*</span></label>
+            <input type="text" id="mf-end" placeholder="HH:MM" required />
+          </div>
+          <div>
+            <label>สาขา</label>
+            <select id="mf-branch">
+              <option value="พ1">พ1 — สาขา 1</option>
+              <option value="พ2">พ2 — สาขา 2</option>
+            </select>
+          </div>
+          <div>
+            <label>ห้อง</label>
+            <select id="mf-room">
+              <option value="">— ไม่ระบุ —</option>
+              <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+              <option value="4">4</option><option value="5">5</option>
+            </select>
+          </div>
+          <div>
+            <label>ชื่อลูกค้า</label>
+            <input type="text" id="mf-customer" placeholder="ไม่บังคับ" />
+          </div>
+          <div>
+            <label>ชำระเงิน</label>
+            <select id="mf-payment">
+              <option value="ไม่ระบุ">ไม่ระบุ</option>
+              <option value="โอน">โอน</option>
+              <option value="เงินสด">เงินสด</option>
+            </select>
+          </div>
+          <div>
+            <label>สถานะ</label>
+            <select id="mf-status">
+              <option value="completed">เสร็จแล้ว</option>
+              <option value="active">กำลังนวด</option>
+              <option value="cancelled">ยกเลิก</option>
+            </select>
+          </div>
+          <div>
+            <label>ลูกค้าเก่า?</label>
+            <select id="mf-returning">
+              <option value="false">ไม่ใช่</option>
+              <option value="true">ใช่ (กลับมาจอง)</option>
+            </select>
+          </div>
+          <div class="col-span-2">
+            <label>หมายเหตุ</label>
+            <input type="text" id="mf-note" placeholder="ไม่บังคับ" />
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 mt-3">
+          <button id="btn-modal-form-cancel" class="px-3 py-1.5 text-gray-600 text-xs">ยกเลิก</button>
+          <button id="btn-modal-form-save" class="px-4 py-1.5 bg-pink-500 text-white text-xs font-semibold rounded-lg hover:bg-pink-600">บันทึก</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script type="module">
 import {
   db,
-  collection, getDocs, query, where,
+  collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
+  query, where, serverTimestamp,
 } from "./js/firebase-config.js";
 import { requireAuth } from "./js/auth.js";
 import {
   listTherapists, escapeHtml,
   getBusinessDate, shiftDate,
-  calcShopCut,
+  calcShopCut, setStatus,
 } from "./js/helpers.js";
 
 await requireAuth();
@@ -456,9 +604,17 @@ function render() {
         <td class="col-num">${r.absenceDays}</td>
         <td class="col-num">${fmtMoneyZero(r.therapistPay)}</td>
         <td class="col-num">${fmtMoneyZero(r.shopCut)}</td>
+        <td>
+          <button class="manage-btn" data-th-id="${escapeHtml(t.id)}" title="จัดการ session ของหมอคนนี้">🗂</button>
+        </td>
       </tr>
     `;
   }).join("");
+
+  // bind manage buttons
+  document.querySelectorAll(".manage-btn").forEach(b => {
+    b.addEventListener("click", () => openSessionModal(b.dataset.thId));
+  });
 
   renderSummary(rows);
 }
@@ -547,6 +703,288 @@ document.querySelectorAll(".preset-btn").forEach(btn => {
     loadData();
   });
 });
+
+// =========================================================
+// SESSION MANAGEMENT MODAL
+// =========================================================
+let modalTherapistId = null;
+let modalSessions = [];   // sessions ของหมอคนนี้ใน range
+let modalEditingId = null;
+
+function normalizeTimeInput(v) {
+  if (!v) return v;
+  let s = String(v).trim();
+  s = s.replace(/[.．]/g, ":");           // 14.30 → 14:30
+  s = s.replace(/[^\d:]/g, "");               // strip non-digits/colon
+  // pure digits: 1430 → 14:30, 930 → 9:30
+  if (!s.includes(":")) {
+    if (s.length === 3) s = s[0] + ":" + s.slice(1);
+    else if (s.length === 4) s = s.slice(0, 2) + ":" + s.slice(2);
+    else if (s.length === 1 || s.length === 2) s = s + ":00";
+  }
+  const m = s.match(/^(\d{1,2}):(\d{1,2})$/);
+  if (!m) return null;
+  const h = parseInt(m[1], 10), mm = parseInt(m[2], 10);
+  if (isNaN(h) || isNaN(mm) || h < 0 || h > 23 || mm < 0 || mm > 59) return null;
+  return `${String(h).padStart(2,"0")}:${String(mm).padStart(2,"0")}`;
+}
+
+function fmtSessionLine(s) {
+  const cust = s.customerName ? ` · คุณ${escapeHtml(s.customerName)}` : "";
+  const room = s.roomNumber ? ` · ห้อง ${escapeHtml(String(s.roomNumber))}` : "";
+  const ret = s.isReturningCustomer === true ? ` · <span class="text-pink-600">⭐ ลูกค้าเก่า</span>` : "";
+  const status = s.status === "cancelled" ? ' <span class="text-red-500">(ยกเลิก)</span>' :
+                  s.status === "active" ? ' <span class="text-orange-500">(active)</span>' : "";
+  return `<strong>${escapeHtml(s.date)}</strong> ${escapeHtml(s.startTime || "?")}–${escapeHtml(s.endTime || "?")} <span class="text-xs text-gray-500">${escapeHtml(s.branch || "")}${room}${cust}</span>${ret}${status}`;
+}
+
+async function openSessionModal(therapistId) {
+  modalTherapistId = therapistId;
+  modalEditingId = null;
+  const th = therapists.find(t => t.id === therapistId);
+  if (!th) return;
+
+  $("modal-th-name").textContent = stripPrefix(th.nameTh || th.nameEn || "?");
+  $("modal-range").textContent = `${startDate} ถึง ${endDate}`;
+  $("modal-form-wrap").classList.add("hidden");
+  $("session-modal").classList.add("open");
+
+  await loadModalSessions();
+}
+
+async function loadModalSessions() {
+  $("modal-session-list").innerHTML = '<div class="text-center py-4 text-gray-400 text-sm">กำลังโหลด…</div>';
+  $("modal-empty").classList.add("hidden");
+
+  const endPlus1 = shiftDate(endDate, 1);
+  const snap = await getDocs(query(
+    collection(db, "sessions"),
+    where("therapistId", "==", modalTherapistId),
+    where("date", ">=", startDate),
+    where("date", "<=", endPlus1),
+  ));
+
+  modalSessions = snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .map(s => ({ ...s, bizDate: sessionBizDate(s) }))
+    .filter(s => s.bizDate >= startDate && s.bizDate <= endDate)
+    .sort((a, b) => {
+      const dd = (a.bizDate || "").localeCompare(b.bizDate || "");
+      if (dd !== 0) return dd;
+      return (a.startTime || "").localeCompare(b.startTime || "");
+    });
+
+  renderModalSessions();
+}
+
+function renderModalSessions() {
+  const list = $("modal-session-list");
+  if (modalSessions.length === 0) {
+    list.innerHTML = "";
+    $("modal-empty").classList.remove("hidden");
+    return;
+  }
+  $("modal-empty").classList.add("hidden");
+
+  list.innerHTML = modalSessions.map(s => `
+    <div class="sess-item ${s.status === 'cancelled' ? 'cancelled' : ''}">
+      <div class="flex-1 text-sm">${fmtSessionLine(s)}</div>
+      <div class="sess-actions">
+        <button class="sess-btn sess-btn-edit" data-edit-id="${escapeHtml(s.id)}">แก้ไข</button>
+        <button class="sess-btn sess-btn-del" data-del-id="${escapeHtml(s.id)}">ลบ</button>
+      </div>
+    </div>
+  `).join("");
+
+  list.querySelectorAll("[data-edit-id]").forEach(b => {
+    b.addEventListener("click", () => showForm(b.dataset.editId));
+  });
+  list.querySelectorAll("[data-del-id]").forEach(b => {
+    b.addEventListener("click", () => deleteModalSession(b.dataset.delId));
+  });
+}
+
+function showForm(editingId) {
+  modalEditingId = editingId || null;
+  const th = therapists.find(t => t.id === modalTherapistId);
+
+  if (editingId) {
+    const s = modalSessions.find(x => x.id === editingId);
+    if (!s) return;
+    $("modal-form-title").textContent = `✏ แก้ไข session`;
+    $("mf-date").value = s.date || startDate;
+    $("mf-start").value = s.startTime || "";
+    $("mf-end").value = s.endTime || "";
+    $("mf-branch").value = s.branch || (th?.branch === "branch2" ? "พ2" : "พ1");
+    $("mf-room").value = s.roomNumber || "";
+    $("mf-customer").value = s.customerName || "";
+    $("mf-payment").value = s.paymentType || "ไม่ระบุ";
+    $("mf-status").value = s.status || "completed";
+    $("mf-returning").value = s.isReturningCustomer === true ? "true" : "false";
+    $("mf-note").value = s.adminNote || "";
+  } else {
+    $("modal-form-title").textContent = `+ เพิ่ม session ใหม่`;
+    $("mf-date").value = endDate;  // ใช้ end ของ range เป็น default (น่าจะใกล้วันนี้สุด)
+    $("mf-start").value = "";
+    $("mf-end").value = "";
+    $("mf-branch").value = th?.branch === "branch2" ? "พ2" : "พ1";
+    $("mf-room").value = "";
+    $("mf-customer").value = "";
+    $("mf-payment").value = "ไม่ระบุ";
+    $("mf-status").value = "completed";
+    $("mf-returning").value = "false";
+    $("mf-note").value = "";
+  }
+
+  $("modal-form-wrap").classList.remove("hidden");
+  $("modal-form-wrap").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function hideForm() {
+  modalEditingId = null;
+  $("modal-form-wrap").classList.add("hidden");
+}
+
+// เช็คเวลาทับซ้อนกับ session อื่นของหมอคนเดียวกันในวันเดียวกัน
+async function findOverlap(therapistId, date, startTime, endTime, excludeId) {
+  if (!therapistId || !date || !startTime || !endTime) return null;
+  const snap = await getDocs(query(
+    collection(db, "sessions"),
+    where("therapistId", "==", therapistId),
+    where("date", "==", date),
+  ));
+  const toMin = t => { const [h,m] = t.split(":").map(Number); return h*60+m; };
+  const ns = toMin(startTime);
+  let ne = toMin(endTime);
+  if (ne <= ns) ne += 1440;
+  for (const d of snap.docs) {
+    if (d.id === excludeId) continue;
+    const s = d.data();
+    if (s.status === "cancelled") continue;
+    if (!s.startTime || !s.endTime) continue;
+    const ss = toMin(s.startTime);
+    let se = toMin(s.endTime);
+    if (se <= ss) se += 1440;
+    if (ns < se && ne > ss) return { id: d.id, ...s };
+  }
+  return null;
+}
+
+async function saveModalSession() {
+  const btn = $("btn-modal-form-save");
+  btn.disabled = true;
+  btn.textContent = "กำลังบันทึก…";
+
+  try {
+    const date = $("mf-date").value;
+    const start = normalizeTimeInput($("mf-start").value);
+    const end = normalizeTimeInput($("mf-end").value);
+
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) { alert("กรุณาเลือกวันที่"); return; }
+    if (!start) { alert("เวลาเริ่มไม่ถูกต้อง (HH:MM)"); return; }
+    if (!end) { alert("เวลาจบไม่ถูกต้อง (HH:MM)"); return; }
+
+    // Overlap check
+    const overlap = await findOverlap(modalTherapistId, date, start, end, modalEditingId);
+    if (overlap) {
+      const ok = confirm(
+        `⚠️ เวลาทับซ้อนกับ session อื่นของหมอคนเดียวกัน:\n` +
+        `${overlap.startTime}–${overlap.endTime} (${overlap.status})\n` +
+        `บันทึกต่อหรือไม่?`
+      );
+      if (!ok) return;
+    }
+
+    const th = therapists.find(t => t.id === modalTherapistId);
+    const status = $("mf-status").value;
+    const branch = $("mf-branch").value;
+    const room = parseInt($("mf-room").value) || null;
+    const customer = $("mf-customer").value.trim() || null;
+    const note = $("mf-note").value.trim() || null;
+    const payment = $("mf-payment").value;
+    const returning = $("mf-returning").value === "true";
+
+    const data = {
+      therapistId: modalTherapistId,
+      therapistName: th?.nameTh || th?.nameEn || "",
+      date, startTime: start, endTime: end,
+      branch, roomNumber: room,
+      customerName: customer,
+      paymentType: payment,
+      status,
+      adminNote: note,
+      isReturningCustomer: returning,
+      source: modalEditingId ? undefined : "admin_manual",
+      updatedAt: serverTimestamp(),
+    };
+
+    if (modalEditingId) {
+      // ใน update ไม่ overwrite source
+      delete data.source;
+      await updateDoc(doc(db, "sessions", modalEditingId), data);
+    } else {
+      data.createdAt = serverTimestamp();
+      await addDoc(collection(db, "sessions"), data);
+    }
+
+    // Sync status: ถ้าเป็น active วันนี้ → set busy; completed/cancelled → reset busy
+    try {
+      const bizToday = getBusinessDate();
+      const bizSess = start < "06:00" ? shiftDate(date, -1) : date;
+      if (bizSess === bizToday) {
+        if (status === "active") {
+          await setStatus(modalTherapistId, "busy", end);
+        } else {
+          const statusSnap = await getDoc(doc(db, "statuses", modalTherapistId));
+          if (statusSnap.exists() && statusSnap.data().status === "busy") {
+            await setStatus(modalTherapistId, "ready");
+          }
+        }
+      }
+    } catch (e) { console.warn("status sync failed:", e); }
+
+    hideForm();
+    await loadModalSessions();
+    await loadData();   // refresh summary table
+  } catch (err) {
+    console.error(err);
+    alert("เกิดข้อผิดพลาด: " + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "บันทึก";
+  }
+}
+
+async function deleteModalSession(sessionId) {
+  const s = modalSessions.find(x => x.id === sessionId);
+  if (!s) return;
+  const ok = confirm(
+    `ลบ session นี้ถาวรเลยใช่ไหม?\n` +
+    `${s.date} ${s.startTime}–${s.endTime}${s.customerName ? ` · คุณ${s.customerName}` : ""}`
+  );
+  if (!ok) return;
+  try {
+    await deleteDoc(doc(db, "sessions", sessionId));
+    await loadModalSessions();
+    await loadData();
+  } catch (err) {
+    alert("ลบไม่สำเร็จ: " + err.message);
+  }
+}
+
+$("btn-close-session-modal").addEventListener("click", () => {
+  $("session-modal").classList.remove("open");
+  hideForm();
+});
+$("session-modal").addEventListener("click", e => {
+  if (e.target.id === "session-modal") {
+    $("session-modal").classList.remove("open");
+    hideForm();
+  }
+});
+$("btn-modal-add").addEventListener("click", () => showForm(null));
+$("btn-modal-form-cancel").addEventListener("click", hideForm);
+$("btn-modal-form-save").addEventListener("click", saveModalSession);
 
 // =========================================================
 // INIT

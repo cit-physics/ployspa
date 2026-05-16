@@ -112,6 +112,7 @@ const translations = {
     // Detail page
     aboutTherapist: "เกี่ยวกับหมอ",
     customerReviews: "รูปรีวิวจากลูกค้า",
+    reviewCount: "รีวิว",
     photoGallery: "แกลเลอรี",
     backToList: "← กลับไปหน้ารวมหมอ",
 
@@ -244,6 +245,7 @@ const translations = {
     // Detail page
     aboutTherapist: "About",
     customerReviews: "Customer Reviews",
+    reviewCount: "reviews",
     photoGallery: "Gallery",
     backToList: "← Back to all therapists",
 
