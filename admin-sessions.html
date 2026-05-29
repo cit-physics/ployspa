@@ -100,6 +100,12 @@
         </div>
       </div>
 
+      <!-- Actual end time -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">เวลาลงจริง <span class="text-gray-400 text-xs">(ไม่บังคับ)</span></label>
+        <input type="text" id="f-actual-end" data-time-input placeholder="HH:MM — ถ้าหมอลงต่างจากเวลาจบ" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300" />
+      </div>
+
       <!-- Branch + Room -->
       <div class="grid grid-cols-2 gap-3">
         <div>
@@ -152,6 +158,14 @@
           <option value="completed">เสร็จแล้ว (completed)</option>
           <option value="cancelled">ยกเลิก (cancelled)</option>
         </select>
+      </div>
+
+      <!-- Returning customer -->
+      <div>
+        <label class="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+          <input type="checkbox" id="f-returning" class="w-4 h-4 accent-pink-500" />
+          ⭐ ลูกค้าเก่ากลับมาจอง
+        </label>
       </div>
 
       <!-- Booking section (optional — เผื่อ session นี้มาจากการจอง) -->
@@ -410,12 +424,14 @@ function openModal(sessionId = null) {
       $("f-date").value = s.date || selectedDate;
       $("f-start").value = s.startTime || "";
       $("f-end").value = s.endTime || "";
+      $("f-actual-end").value = s.actualEndTime || "";
       $("f-branch").value = s.branch || "พ1";
       $("f-room").value = s.roomNumber || "";
       $("f-customer").value = s.customerName || "";
       $("f-service").value = s.serviceName || "";
       $("f-payment").value = s.paymentType || "ไม่ระบุ";
       $("f-status").value = s.status || "completed";
+      $("f-returning").checked = s.isReturningCustomer === true;
       $("f-note").value = s.adminNote || "";
       $("f-booking-customer").value = s.bookingCustomerName || "";
       $("f-booking-time").value = s.bookingTime || "";
@@ -423,6 +439,8 @@ function openModal(sessionId = null) {
   } else {
     $("modal-title").textContent = "เพิ่ม Session";
     $("f-date").value = selectedDate;
+    $("f-actual-end").value = "";
+    $("f-returning").checked = false;
     $("f-status").value = "completed";
     // default time = now
     const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Bangkok" }));
@@ -442,7 +460,7 @@ function closeModal() {
 }
 
 // Attach 24-hour HH:MM formatter
-["f-start", "f-end", "f-booking-time"].forEach(id => attachTimeFormatter($(id)));
+["f-start", "f-end", "f-actual-end", "f-booking-time"].forEach(id => attachTimeFormatter($(id)));
 
 $("btn-close-modal").addEventListener("click", closeModal);
 $("btn-cancel-modal").addEventListener("click", closeModal);
@@ -518,8 +536,10 @@ $("session-form").addEventListener("submit", async e => {
     const bookingCust = $("f-booking-customer").value.trim();
     const bookingTime = $("f-booking-time").value;
 
+    const actualEndVal = $("f-actual-end").value.trim();
+
     // Validate time formats
-    for (const [name, val] of [["เริ่ม", $("f-start").value], ["จบ", $("f-end").value], ["เวลาที่จอง", bookingTime]]) {
+    for (const [name, val] of [["เริ่ม", $("f-start").value], ["จบ", $("f-end").value], ["ลงจริง", actualEndVal], ["เวลาที่จอง", bookingTime]]) {
       if (val && !isValidTime(val)) {
         alert(`เวลา "${name}" รูปแบบไม่ถูกต้อง ต้องเป็น HH:MM (เช่น 22:15)`);
         btn.disabled = false;
@@ -560,12 +580,14 @@ $("session-form").addEventListener("submit", async e => {
       date: sessionDate,
       startTime: $("f-start").value,
       endTime: $("f-end").value,
+      actualEndTime: actualEndVal || null,
       branch: $("f-branch").value,
       roomNumber: parseInt($("f-room").value) || null,
       customerName: $("f-customer").value.trim() || null,
       serviceName: $("f-service").value.trim() || null,
       paymentType: $("f-payment").value,
       status: $("f-status").value,
+      isReturningCustomer: $("f-returning").checked,
       adminNote: $("f-note").value.trim() || null,
       source: "admin_manual",
       // booking fields — กรอกเมื่อ session นี้มาจากการจองล่วงหน้า
@@ -574,6 +596,15 @@ $("session-form").addEventListener("submit", async e => {
       // synthetic bookingId เพื่อให้ checks `s.bookingId` ใน dashboard เห็นว่าเป็น session-from-booking
       bookingId: (bookingCust || bookingTime) ? (editingId ? sessions.find(x => x.id === editingId)?.bookingId || `manual_${Date.now()}` : `manual_${Date.now()}`) : null,
     };
+
+    // คำนวณ isEarlyCheckout จาก actualEndTime vs endTime
+    if (actualEndVal && data.endTime) {
+      const toMin = t => { const [h,m] = t.split(":").map(Number); return h*60+m; };
+      let d = toMin(actualEndVal) - toMin(data.endTime);
+      if (d < -720) d += 1440;
+      if (d > 720) d -= 1440;
+      data.isEarlyCheckout = d < 0;
+    }
 
     if (editingId) {
       await updateDoc(doc(db, "sessions", editingId), { ...data, updatedAt: serverTimestamp() });

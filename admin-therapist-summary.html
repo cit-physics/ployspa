@@ -270,6 +270,10 @@
             <label>เวลาจบ <span class="text-red-500">*</span></label>
             <input type="text" id="mf-end" placeholder="HH:MM" required />
           </div>
+          <div class="col-span-2">
+            <label>เวลาลงจริง <span class="text-gray-400 text-xs">(ไม่บังคับ)</span></label>
+            <input type="text" id="mf-actual-end" placeholder="HH:MM — ถ้าหมอลงต่างจากเวลาจบ" />
+          </div>
           <div>
             <label>สาขา</label>
             <select id="mf-branch">
@@ -815,6 +819,7 @@ function showForm(editingId) {
     $("mf-date").value = s.date || startDate;
     $("mf-start").value = s.startTime || "";
     $("mf-end").value = s.endTime || "";
+    $("mf-actual-end").value = s.actualEndTime || "";
     $("mf-branch").value = s.branch || (th?.branch === "branch2" ? "พ2" : "พ1");
     $("mf-room").value = s.roomNumber || "";
     $("mf-customer").value = s.customerName || "";
@@ -827,6 +832,7 @@ function showForm(editingId) {
     $("mf-date").value = endDate;  // ใช้ end ของ range เป็น default (น่าจะใกล้วันนี้สุด)
     $("mf-start").value = "";
     $("mf-end").value = "";
+    $("mf-actual-end").value = "";
     $("mf-branch").value = th?.branch === "branch2" ? "พ2" : "พ1";
     $("mf-room").value = "";
     $("mf-customer").value = "";
@@ -879,6 +885,13 @@ async function saveModalSession() {
     const date = $("mf-date").value;
     const start = normalizeTimeInput($("mf-start").value);
     const end = normalizeTimeInput($("mf-end").value);
+    const actualEndRaw = $("mf-actual-end").value.trim();
+    let actualEnd = null;
+    if (actualEndRaw) {
+      const a = normalizeTimeInput(actualEndRaw);
+      if (a === null) { alert("เวลาลงจริงไม่ถูกต้อง (HH:MM)"); return; }
+      actualEnd = a || null;
+    }
 
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) { alert("กรุณาเลือกวันที่"); return; }
     if (!start) { alert("เวลาเริ่มไม่ถูกต้อง (HH:MM)"); return; }
@@ -904,10 +917,22 @@ async function saveModalSession() {
     const payment = $("mf-payment").value;
     const returning = $("mf-returning").value === "true";
 
+    // คำนวณ isEarlyCheckout จาก actualEnd vs end
+    let isEarly = false;
+    if (actualEnd && end) {
+      const toMin = t => { const [h,m] = t.split(":").map(Number); return h*60+m; };
+      let d = toMin(actualEnd) - toMin(end);
+      if (d < -720) d += 1440;
+      if (d > 720) d -= 1440;
+      isEarly = d < 0;
+    }
+
     const data = {
       therapistId: modalTherapistId,
       therapistName: th?.nameTh || th?.nameEn || "",
       date, startTime: start, endTime: end,
+      actualEndTime: actualEnd,
+      isEarlyCheckout: isEarly,
       branch, roomNumber: room,
       customerName: customer,
       paymentType: payment,

@@ -85,6 +85,23 @@
     }
     .cell-edit-note:focus { outline:none; border-color:#ec4899; box-shadow:0 0 0 2px #fbcfe8; }
 
+    /* Time + extension inputs (เล็กกว่า cell-edit) */
+    .cell-time-input {
+      width:54px; padding:3px 5px;
+      border:1px solid #f3a4c4; border-radius:5px; background:#fff;
+      text-align:center; font-variant-numeric:tabular-nums; font-size:12px;
+      font-family:'Sarabun', sans-serif;
+    }
+    .cell-time-input:focus { outline:none; border-color:#ec4899; box-shadow:0 0 0 2px #fbcfe8; }
+    .cell-time-pair { display:inline-flex; align-items:center; gap:2px; }
+    .cell-time-pair .dash { color:#999; font-size:11px; }
+    .cell-ext-input {
+      width:46px; padding:3px 5px;
+      border:1px solid #f3a4c4; border-radius:5px; background:#fff;
+      text-align:center; font-variant-numeric:tabular-nums; font-size:12px;
+    }
+    .cell-ext-input:focus { outline:none; border-color:#ec4899; box-shadow:0 0 0 2px #fbcfe8; }
+
     /* Returning-customer toggle (bullet) */
     .returning-toggle {
       width:24px; height:24px; border-radius:50%;
@@ -104,6 +121,39 @@
     .returning-toggle[aria-pressed="true"] .dot { background:#fff; }
     .returning-toggle[aria-pressed="true"]:hover { background:#db2777; border-color:#db2777; }
     .returning-toggle:focus { outline:none; box-shadow:0 0 0 2px #fbcfe8; }
+
+    /* Add-session modal */
+    .modal-overlay {
+      position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:50;
+      display:none; align-items:flex-start; justify-content:center;
+      padding:20px 16px; overflow-y:auto;
+    }
+    .modal-overlay.open { display:flex; }
+    .modal-box {
+      background:#fff; border-radius:14px; max-width:520px; width:100%;
+      box-shadow:0 10px 40px rgba(0,0,0,.15); max-height:calc(100vh - 40px);
+      display:flex; flex-direction:column;
+    }
+    .modal-header {
+      padding:14px 20px; border-bottom:1px solid #f3e0e8;
+      display:flex; align-items:center; justify-content:space-between;
+      position:sticky; top:0; background:#fff; border-radius:14px 14px 0 0; z-index:1;
+    }
+    .modal-body { padding:18px 20px; overflow-y:auto; flex:1; }
+    .modal-close {
+      background:none; border:none; font-size:24px; line-height:1; color:#999; cursor:pointer;
+    }
+    .modal-close:hover { color:#333; }
+    .form-grid label { display:block; font-size:12px; font-weight:500; color:#374151; margin-bottom:2px; }
+    .form-grid input, .form-grid select {
+      width:100%; border:1px solid #d1d5db; border-radius:6px; padding:6px 10px; font-size:13px;
+      font-family:'Sarabun', sans-serif;
+    }
+    .form-grid input:focus, .form-grid select:focus {
+      outline:none; border-color:#ec4899; box-shadow:0 0 0 2px #fbcfe8;
+    }
+    .check-row { display:flex; align-items:center; gap:8px; font-size:13px; color:#374151; }
+    .check-row input[type="checkbox"] { width:16px; height:16px; accent-color:#ec4899; }
 
     /* Bottom totals row */
     .checksheet tfoot td {
@@ -138,6 +188,7 @@
     <input type="date" id="date-picker" class="border rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-pink-300" />
     <button id="btn-next" class="px-2 py-1 border rounded-lg text-sm hover:bg-gray-50">›</button>
     <button id="btn-today" class="px-3 py-1 bg-pink-100 text-pink-700 text-sm rounded-lg hover:bg-pink-200 font-medium">วันนี้</button>
+    <button id="btn-add-session" class="px-3 py-1.5 bg-pink-500 text-white text-sm rounded-lg hover:bg-pink-600 font-medium">+ เพิ่ม Session</button>
   </div>
 </header>
 
@@ -206,7 +257,6 @@
           <th>ลง</th>
           <th>ก่อน/เกิน</th>
           <th>ชม.</th>
-          <th>จอง</th>
           <th title="ลูกค้าเก่ากลับมาจอง">ลูกค้าเก่า</th>
           <th>ต่อ</th>
           <th>ล/ค</th>
@@ -218,7 +268,7 @@
       <tbody id="rows"></tbody>
       <tfoot>
         <tr>
-          <td colspan="10" style="text-align:right;">รวม</td>
+          <td colspan="9" style="text-align:right;">รวม</td>
           <td class="col-num" id="foot-revenue">—</td>
           <td class="col-num" id="foot-shop">—</td>
           <td class="col-num" id="foot-pay">—</td>
@@ -229,6 +279,99 @@
   </div>
 </main>
 
+<!-- ADD SESSION MODAL -->
+<div id="session-modal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="text-base font-bold text-gray-800">+ เพิ่ม Session</h2>
+      <button class="modal-close" id="btn-close-modal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid grid grid-cols-2 gap-3">
+        <div class="col-span-2">
+          <label>หมอ <span class="text-red-500">*</span></label>
+          <select id="mf-therapist" required>
+            <option value="">— เลือกหมอ —</option>
+          </select>
+        </div>
+        <div class="col-span-2">
+          <label>วันที่ <span class="text-red-500">*</span></label>
+          <input type="date" id="mf-date" required />
+        </div>
+        <div>
+          <label>เวลาเริ่ม <span class="text-red-500">*</span></label>
+          <input type="text" id="mf-start" placeholder="HH:MM เช่น 14:30" required />
+        </div>
+        <div>
+          <label>เวลาจบ <span class="text-red-500">*</span></label>
+          <input type="text" id="mf-end" placeholder="HH:MM" required />
+        </div>
+        <div>
+          <label>เวลาลงจริง</label>
+          <input type="text" id="mf-actual-end" placeholder="HH:MM (ไม่บังคับ)" />
+        </div>
+        <div>
+          <label>ต่อ (ชม.)</label>
+          <input type="number" id="mf-ext" step="0.5" min="0" placeholder="0" />
+        </div>
+        <div>
+          <label>สาขา</label>
+          <select id="mf-branch">
+            <option value="พ1">พ1 — สาขา 1</option>
+            <option value="พ2">พ2 — สาขา 2</option>
+          </select>
+        </div>
+        <div>
+          <label>ห้อง</label>
+          <select id="mf-room">
+            <option value="">— ไม่ระบุ —</option>
+            <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+            <option value="4">4</option><option value="5">5</option>
+          </select>
+        </div>
+        <div>
+          <label>ชื่อลูกค้า</label>
+          <input type="text" id="mf-customer" placeholder="ไม่บังคับ" />
+        </div>
+        <div>
+          <label>บริการ</label>
+          <input type="text" id="mf-service" placeholder="เช่น นวดไทย 60 นาที" />
+        </div>
+        <div>
+          <label>ชำระเงิน</label>
+          <select id="mf-payment">
+            <option value="ไม่ระบุ">ไม่ระบุ</option>
+            <option value="โอน">โอน</option>
+            <option value="เงินสด">เงินสด</option>
+          </select>
+        </div>
+        <div>
+          <label>สถานะ</label>
+          <select id="mf-status">
+            <option value="completed">เสร็จแล้ว</option>
+            <option value="active">กำลังนวด</option>
+            <option value="cancelled">ยกเลิก</option>
+          </select>
+        </div>
+        <div class="col-span-2">
+          <label class="check-row">
+            <input type="checkbox" id="mf-returning" />
+            ⭐ ลูกค้าเก่ากลับมาจอง
+          </label>
+        </div>
+        <div class="col-span-2">
+          <label>หมายเหตุ</label>
+          <input type="text" id="mf-note" placeholder="ไม่บังคับ" />
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 mt-4 pt-3 border-t">
+        <button id="btn-modal-cancel" class="px-4 py-1.5 text-gray-600 text-sm">ยกเลิก</button>
+        <button id="btn-modal-save" class="px-5 py-1.5 bg-pink-500 text-white text-sm font-semibold rounded-lg hover:bg-pink-600">บันทึก</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- SAVE BAR (sticky bottom) -->
 <div id="save-bar" class="hidden">
   <span id="save-status" class="text-sm text-gray-500">ไม่มีการแก้ไข</span>
@@ -238,13 +381,15 @@
 <script type="module">
 import {
   db,
-  collection, doc, getDoc, getDocs, query, where, writeBatch, serverTimestamp,
+  collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
+  query, where, writeBatch, serverTimestamp,
 } from "./js/firebase-config.js";
 import { requireAuth } from "./js/auth.js";
 import {
   listTherapists, escapeHtml,
   getBusinessDate, shiftDate, isInBizWindow,
   calcShopCut, SHOP_RATE_TABLE,
+  setStatus,
 } from "./js/helpers.js";
 
 await requireAuth();
@@ -374,6 +519,25 @@ function fmtHours(min) {
 function fmtExt(min) {
   if (!min || min <= 0) return "";
   return (min / 60).toString();
+}
+
+/** Normalize ข้อความเวลาให้เป็น HH:MM (24h) หรือ null ถ้าไม่ valid */
+function normalizeTimeInput(v) {
+  if (v == null) return null;
+  let s = String(v).trim();
+  if (s === "") return "";   // ว่าง = ลบค่า (สำหรับ optional fields)
+  s = s.replace(/[.．]/g, ":");
+  s = s.replace(/[^\d:]/g, "");
+  if (!s.includes(":")) {
+    if (s.length === 3) s = s[0] + ":" + s.slice(1);
+    else if (s.length === 4) s = s.slice(0, 2) + ":" + s.slice(2);
+    else if (s.length === 1 || s.length === 2) s = s + ":00";
+  }
+  const m = s.match(/^(\d{1,2}):(\d{1,2})$/);
+  if (!m) return null;
+  const h = parseInt(m[1], 10), mm = parseInt(m[2], 10);
+  if (isNaN(h) || isNaN(mm) || h < 0 || h > 23 || mm < 0 || mm > 59) return null;
+  return `${String(h).padStart(2,"0")}:${String(mm).padStart(2,"0")}`;
 }
 
 // =========================================================
@@ -547,57 +711,53 @@ function defaultShopCut(s) {
   return calcShopCut(min);
 }
 
+/** effective values — ดึงค่า dirty > DB ตามลำดับ */
+function effectiveValues(s) {
+  const d = dirty.get(s.id) || {};
+  return {
+    startTime: d.startTime != null ? d.startTime : (s.startTime || ""),
+    endTime: d.endTime != null ? d.endTime : (s.endTime || ""),
+    actualEndTime: d.actualEndTime != null ? d.actualEndTime : (s.actualEndTime || ""),
+    extensionMinutes: d.extensionMinutes != null ? d.extensionMinutes : (s.extensionMinutes || 0),
+    revenue: d.revenue != null ? d.revenue : (s.revenue || 0),
+    shopCut: d.shopCut != null ? d.shopCut
+              : (s.shopCutOverride != null ? s.shopCutOverride : defaultShopCut(s)),
+    adminNote: d.adminNote != null ? d.adminNote : (s.adminNote || ""),
+    isReturningCustomer: d.isReturningCustomer != null ? d.isReturningCustomer : !!s.isReturningCustomer,
+  };
+}
+
+/** คำนวณ ก่อน/เกิน badge HTML จาก actualEnd vs endTime */
+function diffBadgeHtml(actualEnd, endTime) {
+  if (!actualEnd || !endTime) return `<span style="color:#999;">—</span>`;
+  const d = timeDiffMin(actualEnd, endTime);
+  if (d === null) return `<span style="color:#999;">—</span>`;
+  if (d === 0) return `<span class="badge badge-ontime">ตรง</span>`;
+  if (d < 0) {
+    const ad = Math.abs(d);
+    const cls = ad >= 15 ? "badge-early-big" : "badge-early";
+    return `<span class="badge ${cls}">ก่อน ${ad} น.</span>`;
+  }
+  const cls = d >= 15 ? "badge-late-big" : "badge-late";
+  return `<span class="badge ${cls}">เกิน ${d} น.</span>`;
+}
+
 function renderRow(s, ord) {
   const t = therapists.find(x => x.id === s.therapistId);
   const nameStr = nong(t || { nameTh: s.therapistName });
+  const ev = effectiveValues(s);
 
-  // เริ่ม-สิ้นสุด (รวมต่อ) — endTime ใน DB รวม extensionMinutes อยู่แล้ว
-  const startEnd = `${s.startTime || "—"}-${s.endTime || "—"}`;
-  const actualEnd = s.actualEndTime || "";
+  // ก่อน/เกิน (ใช้ effective values)
+  const diffCellHtml = diffBadgeHtml(ev.actualEndTime, ev.endTime);
 
-  // ก่อน/เกิน
-  let diffStr = "—", diffCls = "";
-  if (actualEnd && s.endTime) {
-    const d = timeDiffMin(actualEnd, s.endTime);
-    if (d === null) { /* — */ }
-    else if (d === 0) { diffStr = "ตรง"; diffCls = "badge-ontime"; }
-    else if (d < 0) {
-      const ad = Math.abs(d);
-      diffStr = `ก่อน ${ad} น.`;
-      diffCls = ad >= 15 ? "badge-early-big" : "badge-early";
-    } else {
-      diffStr = `เกิน ${d} น.`;
-      diffCls = d >= 15 ? "badge-late-big" : "badge-late";
-    }
-  }
-  const diffCellHtml = diffCls
-    ? `<span class="badge ${diffCls}">${diffStr}</span>`
-    : `<span style="color:#999;">${diffStr}</span>`;
+  // ชม. คำนวณจาก endTime - startTime (effective)
+  const totMin = timeDiffMin(ev.endTime, ev.startTime);
+  const hoursStr = totMin ? (totMin / 60).toString() : "—";
 
-  // ชม. คำนวณจาก endTime - startTime ตรงๆ (ไม่อิง durationMinutes)
-  const totMin = totalMinutes(s);
-  const hours = totMin ? totMin / 60 : 0;
-  const hoursStr = hours ? hours.toString() : "—";
+  // ต่อ (เป็นชั่วโมง)
+  const extHours = ev.extensionMinutes > 0 ? (ev.extensionMinutes / 60) : "";
 
-  // จอง — ชื่อลูกค้าจอง (ว่างถ้าไม่มี)
-  const bookingName = s.bookingCustomerName ? stripPrefix(s.bookingCustomerName) : "";
-
-  // ต่อ
-  const extStr = fmtExt(s.extensionMinutes);
-
-  // ดึงค่า dirty / DB / default ตามลำดับ
-  const dirtyRow = dirty.get(s.id) || {};
-  const revenueCur = dirtyRow.revenue != null ? dirtyRow.revenue : (s.revenue || 0);
-  const noteCur    = dirtyRow.adminNote != null ? dirtyRow.adminNote : (s.adminNote || "");
-  const isReturning = dirtyRow.isReturningCustomer != null
-    ? dirtyRow.isReturningCustomer
-    : !!s.isReturningCustomer;
-  // shopCut: dirty > shopCutOverride (DB) > computed default (endTime-startTime)
-  const shopCutCur = dirtyRow.shopCut != null
-    ? dirtyRow.shopCut
-    : (s.shopCutOverride != null ? s.shopCutOverride : defaultShopCut(s));
-  const therapistPay = revenueCur - shopCutCur;
-
+  const therapistPay = ev.revenue - ev.shopCut;
   const isModified = dirty.has(s.id);
   const rowCls = isModified ? "modified-row" : "";
 
@@ -606,39 +766,51 @@ function renderRow(s, ord) {
       <td>${ord}</td>
       <td class="col-name">${escapeHtml(nameStr)}</td>
       <td>${escapeHtml(branchShort(s.branch))}</td>
-      <td class="col-time">${escapeHtml(startEnd)}</td>
-      <td class="col-time">${escapeHtml(actualEnd || "—")}</td>
-      <td>${diffCellHtml}</td>
-      <td>${escapeHtml(hoursStr)}</td>
-      <td class="col-name" style="font-weight:400; min-width:80px;">${escapeHtml(bookingName)}</td>
+      <td class="col-time">
+        <span class="cell-time-pair">
+          <input type="text" class="cell-time-input" data-edit="startTime" data-id="${s.id}" value="${escapeHtml(ev.startTime)}" placeholder="HH:MM" />
+          <span class="dash">-</span>
+          <input type="text" class="cell-time-input" data-edit="endTime" data-id="${s.id}" value="${escapeHtml(ev.endTime)}" placeholder="HH:MM" />
+        </span>
+      </td>
+      <td class="col-time">
+        <input type="text" class="cell-time-input" data-edit="actualEndTime" data-id="${s.id}" value="${escapeHtml(ev.actualEndTime)}" placeholder="—" />
+      </td>
+      <td data-diff="${s.id}">${diffCellHtml}</td>
+      <td data-hours="${s.id}">${escapeHtml(hoursStr)}</td>
       <td>
         <button type="button"
                 class="returning-toggle"
                 data-toggle="isReturningCustomer" data-id="${s.id}"
-                aria-pressed="${isReturning ? "true" : "false"}"
-                title="${isReturning ? "ลูกค้าเก่ากลับมาจอง — คลิกเพื่อยกเลิก" : "คลิกถ้าเคสนี้เป็นลูกค้าเก่ากลับมาจอง"}">
+                aria-pressed="${ev.isReturningCustomer ? "true" : "false"}"
+                title="${ev.isReturningCustomer ? "ลูกค้าเก่ากลับมาจอง — คลิกเพื่อยกเลิก" : "คลิกถ้าเคสนี้เป็นลูกค้าเก่ากลับมาจอง"}">
           <span class="dot"></span>
         </button>
       </td>
-      <td>${escapeHtml(extStr)}</td>
+      <td>
+        <input type="number" min="0" step="0.5" inputmode="decimal"
+               class="cell-ext-input"
+               data-edit="extensionHours" data-id="${s.id}"
+               value="${extHours}" placeholder="—" />
+      </td>
       <td>
         <input type="number" min="0" step="any" inputmode="decimal"
                class="cell-edit"
                data-edit="revenue" data-id="${s.id}"
-               value="${revenueCur}" />
+               value="${ev.revenue}" />
       </td>
       <td>
         <input type="number" min="0" step="any" inputmode="decimal"
                class="cell-edit"
                data-edit="shopCut" data-id="${s.id}"
-               value="${shopCutCur}" />
+               value="${ev.shopCut}" />
       </td>
       <td class="col-num" data-pay="${s.id}">${fmtMoney(therapistPay)}</td>
       <td class="col-note">
         <input type="text"
                class="cell-edit-note"
                data-edit="adminNote" data-id="${s.id}"
-               value="${escapeHtml(noteCur)}"
+               value="${escapeHtml(ev.adminNote)}"
                placeholder="—" />
       </td>
     </tr>
@@ -648,6 +820,32 @@ function renderRow(s, ord) {
 // =========================================================
 // INLINE EDIT HANDLERS
 // =========================================================
+
+/** อัปเดต cells ที่ derived จาก values อื่น (badge ก่อน/เกิน, ชม., พนง.) */
+function refreshDerivedCells(sessionId) {
+  const session = sessions.find(s => s.id === sessionId);
+  if (!session) return;
+  const ev = effectiveValues(session);
+
+  const diffCell = document.querySelector(`[data-diff="${sessionId}"]`);
+  if (diffCell) diffCell.innerHTML = diffBadgeHtml(ev.actualEndTime, ev.endTime);
+
+  const hoursCell = document.querySelector(`[data-hours="${sessionId}"]`);
+  if (hoursCell) {
+    const tot = timeDiffMin(ev.endTime, ev.startTime);
+    hoursCell.textContent = tot ? (tot / 60).toString() : "—";
+  }
+
+  const payCell = document.querySelector(`[data-pay="${sessionId}"]`);
+  if (payCell) payCell.textContent = fmtMoney(ev.revenue - ev.shopCut);
+}
+
+/** Update value ของ endTime input ใน UI หลังการแก้ "ต่อ" */
+function syncEndTimeInput(sessionId, newEndTime) {
+  const inp = document.querySelector(`input[data-edit="endTime"][data-id="${sessionId}"]`);
+  if (inp) inp.value = newEndTime;
+}
+
 function onCellInput(e) {
   const input = e.target;
   const sessionId = input.dataset.id;
@@ -662,18 +860,30 @@ function onCellInput(e) {
     const val = parseFloat(input.value);
     if (isNaN(val) || val < 0) return;
     cur[field] = val;
-
-    // Live recalc therapistPay = revenue - shopCut
-    // ดึงค่า current ของอีกฝั่งจาก dirty หรือ DB หรือ default
-    const revenue = cur.revenue != null ? cur.revenue : (session.revenue || 0);
-    const shopCut = cur.shopCut != null
-      ? cur.shopCut
-      : (session.shopCutOverride != null ? session.shopCutOverride : defaultShopCut(session));
-    const pay = revenue - shopCut;
-    const payCell = document.querySelector(`[data-pay="${sessionId}"]`);
-    if (payCell) payCell.textContent = fmtMoney(pay);
   } else if (field === "adminNote") {
     cur.adminNote = input.value;
+  } else if (field === "startTime" || field === "endTime" || field === "actualEndTime") {
+    // เก็บค่าดิบไว้ก่อน — normalize ตอน blur
+    cur[field] = input.value;
+  } else if (field === "extensionHours") {
+    // แก้ "ต่อ" → คำนวณ endTime ใหม่ตามสูตร: newEndTime = currentEndTime + (newExt - oldExt)
+    const raw = input.value.trim();
+    let newExtMin;
+    if (raw === "") {
+      newExtMin = 0;
+    } else {
+      const hrs = parseFloat(raw);
+      if (isNaN(hrs) || hrs < 0) return;
+      newExtMin = Math.round(hrs * 60);
+    }
+    const oldExtMin = cur.extensionMinutes != null ? cur.extensionMinutes : (session.extensionMinutes || 0);
+    const delta = newExtMin - oldExtMin;
+    const curEnd = cur.endTime != null ? normalizeTimeInput(cur.endTime) || cur.endTime : session.endTime;
+    if (curEnd && /^\d{2}:\d{2}$/.test(curEnd)) {
+      cur.endTime = addMinutes(curEnd, delta);
+      syncEndTimeInput(sessionId, cur.endTime);
+    }
+    cur.extensionMinutes = newExtMin;
   }
 
   dirty.set(sessionId, cur);
@@ -681,12 +891,49 @@ function onCellInput(e) {
   const row = document.querySelector(`[data-row="${sessionId}"]`);
   if (row) row.classList.add("modified-row");
 
+  refreshDerivedCells(sessionId);
   updateSaveBar();
   renderSummary();  // live update ยอดรวม
 }
 
 function onCellBlur(e) {
-  // Re-render summary one more time on blur (กันเคส input ผิด)
+  const input = e.target;
+  const sessionId = input.dataset.id;
+  const field = input.dataset.edit;
+
+  // Normalize time inputs on blur
+  if (field === "startTime" || field === "endTime" || field === "actualEndTime") {
+    const raw = input.value;
+    const norm = normalizeTimeInput(raw);
+    if (norm === null) {
+      // invalid → revert ไปค่าเดิมใน dirty/DB
+      const session = sessions.find(s => s.id === sessionId);
+      const ev = effectiveValues(session);
+      input.value = ev[field] || "";
+      const cur = dirty.get(sessionId) || {};
+      delete cur[field];
+      if (Object.keys(cur).length === 0) dirty.delete(sessionId);
+      else dirty.set(sessionId, cur);
+    } else {
+      input.value = norm;
+      const cur = dirty.get(sessionId) || {};
+      const session = sessions.find(s => s.id === sessionId);
+      // ถ้าค่า normalize === DB → ลบออกจาก dirty
+      const dbVal = session[field] || "";
+      if (norm === dbVal) {
+        delete cur[field];
+        if (Object.keys(cur).length === 0) dirty.delete(sessionId);
+        else dirty.set(sessionId, cur);
+      } else {
+        cur[field] = norm;
+        dirty.set(sessionId, cur);
+      }
+    }
+    const row = document.querySelector(`[data-row="${sessionId}"]`);
+    if (row) row.classList.toggle("modified-row", dirty.has(sessionId));
+    refreshDerivedCells(sessionId);
+    updateSaveBar();
+  }
   renderSummary();
 }
 
@@ -793,7 +1040,7 @@ async function saveAll() {
       const s = sessions.find(x => x.id === sessionId);
       if (!s) continue;
 
-      // คำนวณ shopCut/revenue สุดท้าย: dirty > existing override > computed default
+      // คำนวณ shopCut/revenue สุดท้าย
       const finalRevenue = changes.revenue != null
         ? changes.revenue
         : (s.revenue || 0);
@@ -802,13 +1049,10 @@ async function saveAll() {
         : (s.shopCutOverride != null ? s.shopCutOverride : defaultShopCut(s));
 
       const updates = { updatedAt: serverTimestamp() };
-      if (changes.revenue != null) {
-        updates.revenue = changes.revenue;
-      }
-      // เก็บ shopCutOverride แยก field — รู้ว่า admin ตั้งเองหรือใช้ default
+      if (changes.revenue != null) updates.revenue = changes.revenue;
       if (changes.shopCut != null) {
         updates.shopCutOverride = changes.shopCut;
-        updates.shopCut = changes.shopCut;  // sync field เดิม เผื่อโค้ดเก่าอ่าน
+        updates.shopCut = changes.shopCut;
       }
       if (changes.revenue != null || changes.shopCut != null) {
         updates.therapistPay = finalRevenue - finalShopCut;
@@ -819,6 +1063,42 @@ async function saveAll() {
       if (changes.isReturningCustomer != null) {
         updates.isReturningCustomer = changes.isReturningCustomer;
       }
+      // เวลา (normalize อีกครั้งก่อน save กัน raw value หลุดมา)
+      if (changes.startTime != null) {
+        const n = normalizeTimeInput(changes.startTime);
+        if (n) updates.startTime = n;
+      }
+      if (changes.endTime != null) {
+        const n = normalizeTimeInput(changes.endTime);
+        if (n) updates.endTime = n;
+      }
+      if (changes.actualEndTime != null) {
+        const n = normalizeTimeInput(changes.actualEndTime);
+        if (n === "") updates.actualEndTime = null;
+        else if (n) updates.actualEndTime = n;
+      }
+      if (changes.extensionMinutes != null) {
+        updates.extensionMinutes = changes.extensionMinutes;
+        updates.isExtension = changes.extensionMinutes > 0;
+      }
+      // recompute isEarlyCheckout ถ้าทั้ง endTime หรือ actualEndTime เปลี่ยน
+      if (changes.endTime != null || changes.actualEndTime != null) {
+        const newEnd = updates.endTime || s.endTime;
+        const newAct = (updates.actualEndTime !== undefined ? updates.actualEndTime : s.actualEndTime);
+        if (newAct && newEnd) {
+          const d = timeDiffMin(newAct, newEnd);
+          updates.isEarlyCheckout = (d !== null && d < 0);
+        }
+      }
+      // recompute durationMinutes ถ้า startTime/endTime เปลี่ยน
+      if (changes.startTime != null || changes.endTime != null) {
+        const newStart = updates.startTime || s.startTime;
+        const newEnd = updates.endTime || s.endTime;
+        if (newStart && newEnd) {
+          const d = timeDiffMin(newEnd, newStart);
+          if (d != null && d > 0) updates.durationMinutes = d;
+        }
+      }
 
       batch.update(doc(db, "sessions", sessionId), updates);
     }
@@ -828,9 +1108,7 @@ async function saveAll() {
     for (const [sessionId, changes] of dirty.entries()) {
       const s = sessions.find(x => x.id === sessionId);
       if (!s) continue;
-      if (changes.revenue != null) {
-        s.revenue = changes.revenue;
-      }
+      if (changes.revenue != null) s.revenue = changes.revenue;
       if (changes.shopCut != null) {
         s.shopCutOverride = changes.shopCut;
         s.shopCut = changes.shopCut;
@@ -840,11 +1118,23 @@ async function saveAll() {
         const shopCut = s.shopCutOverride != null ? s.shopCutOverride : defaultShopCut(s);
         s.therapistPay = revenue - shopCut;
       }
-      if (changes.adminNote != null) {
-        s.adminNote = changes.adminNote.trim() || null;
+      if (changes.adminNote != null) s.adminNote = changes.adminNote.trim() || null;
+      if (changes.isReturningCustomer != null) s.isReturningCustomer = changes.isReturningCustomer;
+      if (changes.startTime != null) {
+        const n = normalizeTimeInput(changes.startTime);
+        if (n) s.startTime = n;
       }
-      if (changes.isReturningCustomer != null) {
-        s.isReturningCustomer = changes.isReturningCustomer;
+      if (changes.endTime != null) {
+        const n = normalizeTimeInput(changes.endTime);
+        if (n) s.endTime = n;
+      }
+      if (changes.actualEndTime != null) {
+        const n = normalizeTimeInput(changes.actualEndTime);
+        s.actualEndTime = (n === "" ? null : (n || s.actualEndTime));
+      }
+      if (changes.extensionMinutes != null) {
+        s.extensionMinutes = changes.extensionMinutes;
+        s.isExtension = changes.extensionMinutes > 0;
       }
     }
     dirty.clear();
@@ -866,9 +1156,184 @@ async function saveAll() {
 }
 
 // =========================================================
+// ADD-SESSION MODAL
+// =========================================================
+function fillTherapistSelect() {
+  const sel = $("mf-therapist");
+  sel.innerHTML = '<option value="">— เลือกหมอ —</option>' +
+    therapists
+      .filter(t => t.active !== false)
+      .sort((a, b) => (a.code || "").localeCompare(b.code || ""))
+      .map(t => `<option value="${escapeHtml(t.id)}" data-branch="${escapeHtml(t.branch || "")}">${escapeHtml(stripPrefix(t.nameTh || t.nameEn || t.code))}</option>`)
+      .join("");
+}
+
+function openAddModal() {
+  $("mf-therapist").value = "";
+  $("mf-date").value = selectedDate;
+  $("mf-start").value = "";
+  $("mf-end").value = "";
+  $("mf-actual-end").value = "";
+  $("mf-ext").value = "";
+  $("mf-branch").value = "พ1";
+  $("mf-room").value = "";
+  $("mf-customer").value = "";
+  $("mf-service").value = "";
+  $("mf-payment").value = "ไม่ระบุ";
+  $("mf-status").value = "completed";
+  $("mf-returning").checked = false;
+  $("mf-note").value = "";
+  $("session-modal").classList.add("open");
+}
+
+function closeAddModal() {
+  $("session-modal").classList.remove("open");
+}
+
+// auto-set branch จาก therapist เลือก
+$("mf-therapist").addEventListener("change", () => {
+  const opt = $("mf-therapist").selectedOptions[0];
+  const b = opt?.dataset.branch;
+  if (b === "branch1") $("mf-branch").value = "พ1";
+  else if (b === "branch2") $("mf-branch").value = "พ2";
+});
+
+// เช็คเวลาทับซ้อนกับ session อื่นของหมอคนเดียวกัน (วันเดียวกัน)
+async function findOverlapForAdd(therapistId, date, startTime, endTime) {
+  if (!therapistId || !date || !startTime || !endTime) return null;
+  const snap = await getDocs(query(
+    collection(db, "sessions"),
+    where("therapistId", "==", therapistId),
+    where("date", "==", date),
+  ));
+  const toMin = t => { const [h,m] = t.split(":").map(Number); return h*60+m; };
+  const ns = toMin(startTime);
+  let ne = toMin(endTime);
+  if (ne <= ns) ne += 1440;
+  for (const d of snap.docs) {
+    const s = d.data();
+    if (s.status === "cancelled") continue;
+    if (!s.startTime || !s.endTime) continue;
+    const ss = toMin(s.startTime);
+    let se = toMin(s.endTime);
+    if (se <= ss) se += 1440;
+    if (ns < se && ne > ss) return { id: d.id, ...s };
+  }
+  return null;
+}
+
+async function saveAddSession() {
+  const btn = $("btn-modal-save");
+  btn.disabled = true;
+  btn.textContent = "กำลังบันทึก…";
+  try {
+    const therapistId = $("mf-therapist").value;
+    if (!therapistId) { alert("เลือกหมอ"); return; }
+    const date = $("mf-date").value;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { alert("เลือกวันที่"); return; }
+    const start = normalizeTimeInput($("mf-start").value);
+    const end = normalizeTimeInput($("mf-end").value);
+    if (!start) { alert("เวลาเริ่มไม่ถูกต้อง (HH:MM)"); return; }
+    if (!end) { alert("เวลาจบไม่ถูกต้อง (HH:MM)"); return; }
+    const actualEndRaw = $("mf-actual-end").value.trim();
+    let actualEnd = null;
+    if (actualEndRaw) {
+      const a = normalizeTimeInput(actualEndRaw);
+      if (a === null) { alert("เวลาลงจริงไม่ถูกต้อง (HH:MM)"); return; }
+      actualEnd = a || null;
+    }
+    const extHrs = parseFloat($("mf-ext").value);
+    const extMin = (!isNaN(extHrs) && extHrs > 0) ? Math.round(extHrs * 60) : 0;
+
+    // Overlap check
+    const overlap = await findOverlapForAdd(therapistId, date, start, end);
+    if (overlap) {
+      const ok = confirm(
+        `⚠️ เวลาทับซ้อนกับ session อื่นของหมอคนเดียวกัน:\n` +
+        `${overlap.startTime}–${overlap.endTime} (${overlap.status})\nบันทึกต่อหรือไม่?`
+      );
+      if (!ok) return;
+    }
+
+    const th = therapists.find(t => t.id === therapistId);
+    const durationMin = timeDiffMin(end, start) || 0;
+    const shopCut = calcShopCut(durationMin);
+    const isEarly = actualEnd ? ((timeDiffMin(actualEnd, end) || 0) < 0) : false;
+
+    const data = {
+      therapistId,
+      therapistName: th?.nameTh || th?.nameEn || "",
+      date,
+      startTime: start,
+      endTime: end,
+      actualEndTime: actualEnd,
+      durationMinutes: durationMin,
+      isEarlyCheckout: isEarly,
+      branch: $("mf-branch").value,
+      roomNumber: parseInt($("mf-room").value) || null,
+      customerName: $("mf-customer").value.trim() || null,
+      serviceName: $("mf-service").value.trim() || null,
+      paymentType: $("mf-payment").value,
+      status: $("mf-status").value,
+      adminNote: $("mf-note").value.trim() || null,
+      isReturningCustomer: $("mf-returning").checked,
+      extensionMinutes: extMin,
+      isExtension: extMin > 0,
+      extensionCount: extMin > 0 ? 1 : 0,
+      shopCut,
+      shopCutPerHour: 520,
+      revenue: 0,
+      therapistPay: 0 - shopCut,
+      hasExtraCharge: false,
+      extraChargeNote: "",
+      transferConfirmed: false,
+      transferConfirmedAt: null,
+      source: "admin_manual",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    await addDoc(collection(db, "sessions"), data);
+
+    // sync status เฉพาะ session ใน biz-day ปัจจุบัน
+    try {
+      const bizToday = getBusinessDate();
+      if (isInBizWindow(date, start, bizToday)) {
+        if (data.status === "active") {
+          await setStatus(therapistId, "busy", end);
+        } else {
+          const ss = await getDoc(doc(db, "statuses", therapistId));
+          if (ss.exists() && ss.data().status === "busy") {
+            await setStatus(therapistId, "ready");
+          }
+        }
+      }
+    } catch (e) { console.warn("status sync:", e); }
+
+    closeAddModal();
+    await loadSessions();
+  } catch (err) {
+    console.error(err);
+    alert("เกิดข้อผิดพลาด: " + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "บันทึก";
+  }
+}
+
+$("btn-add-session").addEventListener("click", openAddModal);
+$("btn-close-modal").addEventListener("click", closeAddModal);
+$("btn-modal-cancel").addEventListener("click", closeAddModal);
+$("btn-modal-save").addEventListener("click", saveAddSession);
+$("session-modal").addEventListener("click", e => {
+  if (e.target.id === "session-modal") closeAddModal();
+});
+
+// =========================================================
 // INIT
 // =========================================================
 await loadTherapists();
+fillTherapistSelect();
 await loadSessions();
 
 // เตือนเมื่อพยายามปิดแท็บโดยมี dirty
