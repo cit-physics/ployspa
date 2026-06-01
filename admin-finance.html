@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>รายรับ-รายจ่าย — PloySpa Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Sarabun', sans-serif; background: #f9f5f7; color: #2d2d2d; }
+    .spinner { width:32px; height:32px; border:3px solid #d1fae5; border-top-color:#10b981; border-radius:50%; animation:spin .7s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* Summary card */
+    .sum-card {
+      background:#fff; border:1px solid #e5e7eb; border-radius:14px;
+      padding:14px 18px; flex:1; min-width:160px;
+    }
+    .sum-card-title { font-size:12px; color:#6b7280; font-weight:600; }
+    .sum-card-value { font-size:20px; font-weight:700; margin-top:4px; }
+    .sum-card-meta  { font-size:11px; color:#9ca3af; margin-top:4px; }
+
+    .card-bring  { border-color:#fde68a; }
+    .card-bring  .sum-card-value { color:#92400e; }
+    .card-income { border-color:#a7f3d0; }
+    .card-income .sum-card-value { color:#065f46; }
+    .card-expense { border-color:#fecaca; }
+    .card-expense .sum-card-value { color:#991b1b; }
+    .card-balance { border-color:#bae6fd; }
+    .card-balance .sum-card-value { color:#075985; }
+
+    /* List items */
+    .tx-section {
+      background:#fff; border:1px solid #e5e7eb; border-radius:12px;
+      margin-bottom:16px; overflow:hidden;
+    }
+    .tx-section-head {
+      padding:12px 16px; border-bottom:1px solid #e5e7eb;
+      font-weight:600; font-size:14px; display:flex; align-items:center; gap:8px;
+    }
+    .tx-head-income { background:#ecfdf5; color:#065f46; }
+    .tx-head-expense { background:#fef2f2; color:#991b1b; }
+    .tx-item {
+      padding:10px 16px; border-bottom:1px solid #f3f4f6;
+      display:flex; align-items:center; gap:12px; font-size:14px;
+    }
+    .tx-item:last-child { border-bottom:none; }
+    .tx-item-info { flex:1; min-width:0; }
+    .tx-item-category { font-weight:600; color:#1f2937; }
+    .tx-item-detail { font-size:12px; color:#6b7280; margin-top:1px; }
+    .tx-item-amount {
+      font-variant-numeric:tabular-nums; font-weight:600; font-size:15px;
+      flex-shrink:0;
+    }
+    .tx-amount-income { color:#065f46; }
+    .tx-amount-expense { color:#991b1b; }
+    .tx-actions { display:flex; gap:4px; flex-shrink:0; }
+    .tx-btn {
+      padding:3px 8px; border-radius:5px; font-size:11px; border:1px solid;
+      cursor:pointer; background:#fff;
+    }
+    .tx-btn-edit { border-color:#cbd5e1; color:#475569; }
+    .tx-btn-edit:hover { background:#f1f5f9; }
+    .tx-btn-del { border-color:#fca5a5; color:#dc2626; }
+    .tx-btn-del:hover { background:#fef2f2; }
+    .tx-auto-badge {
+      background:#dcfce7; color:#15803d;
+      padding:2px 6px; border-radius:4px; font-size:10px; font-weight:600;
+    }
+    .tx-empty { padding:20px; text-align:center; color:#9ca3af; font-size:13px; }
+
+    /* Modal */
+    .modal-overlay {
+      position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:50;
+      display:none; align-items:flex-start; justify-content:center;
+      padding:20px 16px; overflow-y:auto;
+    }
+    .modal-overlay.open { display:flex; }
+    .modal-box {
+      background:#fff; border-radius:14px; max-width:480px; width:100%;
+      box-shadow:0 10px 40px rgba(0,0,0,.15); max-height:calc(100vh - 40px);
+      display:flex; flex-direction:column;
+    }
+    .modal-header {
+      padding:14px 20px; border-bottom:1px solid #f3e0e8;
+      display:flex; align-items:center; justify-content:space-between;
+      position:sticky; top:0; background:#fff; border-radius:14px 14px 0 0; z-index:1;
+    }
+    .modal-body { padding:18px 20px; overflow-y:auto; flex:1; }
+    .modal-close {
+      background:none; border:none; font-size:24px; line-height:1; color:#999; cursor:pointer;
+    }
+    .form-grid label { display:block; font-size:12px; font-weight:500; color:#374151; margin-bottom:2px; }
+    .form-grid input, .form-grid select {
+      width:100%; border:1px solid #d1d5db; border-radius:6px; padding:6px 10px; font-size:13px;
+      font-family:'Sarabun', sans-serif;
+    }
+    .form-grid input:focus, .form-grid select:focus {
+      outline:none; border-color:#10b981; box-shadow:0 0 0 2px #d1fae5;
+    }
+
+    .type-toggle {
+      display:flex; gap:0; border:1px solid #d1d5db; border-radius:6px; overflow:hidden;
+    }
+    .type-toggle button {
+      flex:1; padding:8px; background:#fff; border:none; cursor:pointer;
+      font-size:13px; font-weight:500; color:#6b7280;
+    }
+    .type-toggle button.active.income { background:#10b981; color:#fff; }
+    .type-toggle button.active.expense { background:#ef4444; color:#fff; }
+
+    /* Category chips for management modal */
+    .chip {
+      display:inline-flex; align-items:center; gap:4px;
+      padding:4px 10px; border-radius:16px; background:#f3f4f6;
+      font-size:12px; margin:3px;
+    }
+    .chip button {
+      background:none; border:none; color:#9ca3af; cursor:pointer; font-size:14px; line-height:1;
+    }
+    .chip button:hover { color:#dc2626; }
+
+    /* Monthly ledger */
+    table.ledger {
+      width:100%; border-collapse:collapse; background:#fff;
+      border-radius:10px; overflow:hidden; box-shadow:0 1px 6px rgba(0,0,0,.06);
+      font-size:13px;
+    }
+    .ledger thead th {
+      background:#dbeafe; color:#1e40af; font-weight:700; padding:10px 12px;
+      border-bottom:2px solid #93c5fd; text-align:right;
+    }
+    .ledger thead th:first-child { text-align:left; }
+    .ledger tbody td {
+      padding:8px 12px; border-bottom:1px solid #e5e7eb;
+      text-align:right; font-variant-numeric:tabular-nums;
+    }
+    .ledger tbody td:first-child { text-align:left; font-weight:500; }
+    .ledger tbody tr:hover td { background:#f0f9ff; cursor:pointer; }
+    .ledger .num-pos { color:#065f46; }
+    .ledger .num-neg { color:#991b1b; }
+    .ledger tfoot td {
+      background:#dbeafe; color:#1e40af; font-weight:700;
+      padding:10px 12px; border-top:2px solid #93c5fd;
+    }
+
+    .view-toggle {
+      display:inline-flex; gap:0; border:1px solid #d1d5db; border-radius:6px; overflow:hidden;
+    }
+    .view-toggle button {
+      padding:5px 12px; background:#fff; border:none; cursor:pointer;
+      font-size:13px; color:#6b7280;
+    }
+    .view-toggle button.active { background:#10b981; color:#fff; }
+  </style>
+</head>
+<body class="min-h-screen pb-10">
+
+<!-- HEADER -->
+<header class="bg-white border-b border-emerald-200 sticky top-0 z-20 shadow-sm">
+  <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-2 flex-wrap">
+    <a href="admin.html" class="text-emerald-600 hover:text-emerald-700 text-sm">← Admin</a>
+    <span class="text-gray-300">|</span>
+    <h1 class="text-base font-bold text-gray-800 flex-1">💰 รายรับ-รายจ่าย</h1>
+
+    <div class="view-toggle">
+      <button id="btn-view-day" class="active">รายวัน</button>
+      <button id="btn-view-month">สรุปเดือน</button>
+    </div>
+
+    <button id="btn-prev" class="px-2 py-1 border rounded-lg text-sm hover:bg-gray-50">‹</button>
+    <input type="date" id="date-picker" class="border rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-emerald-300" />
+    <button id="btn-next" class="px-2 py-1 border rounded-lg text-sm hover:bg-gray-50">›</button>
+    <button id="btn-today" class="px-3 py-1 bg-emerald-100 text-emerald-700 text-sm rounded-lg hover:bg-emerald-200 font-medium">วันนี้</button>
+
+    <button id="btn-settings" class="px-3 py-1.5 border rounded-lg text-sm hover:bg-gray-50" title="จัดการหมวด + ตั้งยอดเริ่ม">⚙</button>
+    <button id="btn-add" class="px-3 py-1.5 bg-emerald-500 text-white text-sm rounded-lg hover:bg-emerald-600 font-medium">+ เพิ่ม</button>
+  </div>
+</header>
+
+<main class="max-w-5xl mx-auto px-4 pt-4">
+
+  <!-- Initial-setup banner -->
+  <div id="init-banner" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4 text-sm text-amber-900">
+    ⚠️ ยังไม่ได้ตั้งยอดเริ่มต้นบัญชี — กดปุ่ม ⚙ ที่มุมขวาบนเพื่อตั้งค่าก่อนใช้งาน
+  </div>
+
+  <!-- Loading -->
+  <div id="loading" class="text-center py-16 text-gray-400">
+    <div class="spinner mx-auto mb-3"></div>
+    <p>กำลังโหลด…</p>
+  </div>
+
+  <!-- DAILY VIEW -->
+  <div id="daily-view" class="hidden">
+    <!-- SUMMARY CARDS -->
+    <div class="flex gap-3 flex-wrap mb-4">
+      <div class="sum-card card-bring">
+        <div class="sum-card-title">🌅 ยกยอดมา</div>
+        <div class="sum-card-value" id="sum-bring">฿ 0</div>
+        <div class="sum-card-meta">เงินคงเหลือเมื่อวาน</div>
+      </div>
+      <div class="sum-card card-income">
+        <div class="sum-card-title">💵 รายรับ</div>
+        <div class="sum-card-value" id="sum-income">฿ 0</div>
+        <div class="sum-card-meta" id="sum-income-meta">วันนี้</div>
+      </div>
+      <div class="sum-card card-expense">
+        <div class="sum-card-title">💸 รายจ่าย</div>
+        <div class="sum-card-value" id="sum-expense">฿ 0</div>
+        <div class="sum-card-meta" id="sum-expense-meta">วันนี้</div>
+      </div>
+      <div class="sum-card card-balance">
+        <div class="sum-card-title">🏦 เงินเหลือในบัญชี</div>
+        <div class="sum-card-value" id="sum-balance">฿ 0</div>
+        <div class="sum-card-meta">หลังคำนวณวันนี้</div>
+      </div>
+    </div>
+
+    <!-- รายรับ -->
+    <div class="tx-section">
+      <div class="tx-section-head tx-head-income">
+        💵 รายรับ <span id="income-count" class="text-xs font-normal opacity-70">(0)</span>
+      </div>
+      <div id="income-list"></div>
+    </div>
+
+    <!-- รายจ่าย -->
+    <div class="tx-section">
+      <div class="tx-section-head tx-head-expense">
+        💸 รายจ่าย <span id="expense-count" class="text-xs font-normal opacity-70">(0)</span>
+      </div>
+      <div id="expense-list"></div>
+    </div>
+  </div>
+
+  <!-- MONTHLY VIEW -->
+  <div id="monthly-view" class="hidden">
+    <div class="bg-white border border-blue-100 rounded-xl p-3 mb-3 text-sm flex items-center justify-between flex-wrap gap-2">
+      <span class="text-gray-700">📅 สรุปเดือน <strong id="month-label">—</strong></span>
+      <div class="flex items-center gap-2">
+        <button id="btn-month-prev" class="px-2 py-1 border rounded text-sm hover:bg-gray-50">‹</button>
+        <input type="month" id="month-picker" class="border rounded px-2 py-1 text-sm focus:ring-2 focus:ring-emerald-300" />
+        <button id="btn-month-next" class="px-2 py-1 border rounded text-sm hover:bg-gray-50">›</button>
+      </div>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="ledger">
+        <thead>
+          <tr>
+            <th>วันที่</th>
+            <th>ยกยอดมา</th>
+            <th>รายรับ</th>
+            <th>รายจ่าย</th>
+            <th>เงินเหลือในบัญชี</th>
+          </tr>
+        </thead>
+        <tbody id="ledger-rows"></tbody>
+        <tfoot>
+          <tr>
+            <td>รวมเดือน</td>
+            <td></td>
+            <td id="ledger-foot-income">—</td>
+            <td id="ledger-foot-expense">—</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- TRANSACTION MODAL -->
+<div id="tx-modal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="text-base font-bold text-gray-800" id="tx-modal-title">+ เพิ่มรายการ</h2>
+      <button class="modal-close" id="btn-close-tx">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid space-y-3">
+        <div>
+          <label>ประเภท <span class="text-red-500">*</span></label>
+          <div class="type-toggle">
+            <button type="button" id="type-income" class="income active">💵 รายรับ</button>
+            <button type="button" id="type-expense" class="expense">💸 รายจ่าย</button>
+          </div>
+        </div>
+        <div>
+          <label>หมวด <span class="text-red-500">*</span></label>
+          <select id="tx-category"></select>
+        </div>
+        <div>
+          <label>รายละเอียดเพิ่มเติม <span class="text-gray-400 text-xs">(ไม่บังคับ)</span></label>
+          <input type="text" id="tx-detail" placeholder="เช่น สัมตำ, สั่งไลน์แมน, บิลพฤษภาคม" />
+        </div>
+        <div>
+          <label>วันที่ <span class="text-red-500">*</span></label>
+          <input type="date" id="tx-date" required />
+        </div>
+        <div>
+          <label>จำนวน (บาท) <span class="text-red-500">*</span></label>
+          <input type="number" id="tx-amount" min="0" step="any" inputmode="decimal" required />
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 mt-4 pt-3 border-t">
+        <button id="btn-tx-cancel" class="px-4 py-1.5 text-gray-600 text-sm">ยกเลิก</button>
+        <button id="btn-tx-save" class="px-5 py-1.5 bg-emerald-500 text-white text-sm font-semibold rounded-lg hover:bg-emerald-600">บันทึก</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div id="settings-modal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="text-base font-bold text-gray-800">⚙ ตั้งค่ารายรับ-รายจ่าย</h2>
+      <button class="modal-close" id="btn-close-settings">&times;</button>
+    </div>
+    <div class="modal-body space-y-5">
+      <!-- Account init -->
+      <div class="bg-amber-50 border border-amber-200 rounded-lg p-3">
+        <h3 class="text-sm font-semibold text-amber-900 mb-2">🌅 ยอดเริ่มต้นบัญชี</h3>
+        <p class="text-xs text-amber-800 mb-3">วันที่เริ่มใช้ระบบ + ยอดเงินตอนเริ่ม (เช็คกับบัญชีธนาคารวันที่ตั้ง)</p>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-gray-600 mb-1">วันที่เริ่ม</label>
+            <input type="date" id="init-date" class="w-full border rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-amber-300" />
+          </div>
+          <div>
+            <label class="block text-xs text-gray-600 mb-1">ยอดเงินเริ่มต้น</label>
+            <input type="number" id="init-amount" step="any" min="0" class="w-full border rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-amber-300" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Income categories -->
+      <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+        <h3 class="text-sm font-semibold text-emerald-900 mb-2">💵 หมวดรายรับ</h3>
+        <div id="income-cats-chips" class="mb-2"></div>
+        <div class="flex gap-2">
+          <input type="text" id="new-income-cat" placeholder="หมวดใหม่ เช่น ขายของ" class="flex-1 border rounded px-2 py-1 text-sm focus:ring-2 focus:ring-emerald-300" />
+          <button id="btn-add-income-cat" class="px-3 py-1 bg-emerald-500 text-white text-sm rounded hover:bg-emerald-600">+ เพิ่ม</button>
+        </div>
+      </div>
+
+      <!-- Expense categories -->
+      <div class="bg-rose-50 border border-rose-200 rounded-lg p-3">
+        <h3 class="text-sm font-semibold text-rose-900 mb-2">💸 หมวดรายจ่าย</h3>
+        <div id="expense-cats-chips" class="mb-2"></div>
+        <div class="flex gap-2">
+          <input type="text" id="new-expense-cat" placeholder="หมวดใหม่ เช่น ค่าซ่อม" class="flex-1 border rounded px-2 py-1 text-sm focus:ring-2 focus:ring-rose-300" />
+          <button id="btn-add-expense-cat" class="px-3 py-1 bg-rose-500 text-white text-sm rounded hover:bg-rose-600">+ เพิ่ม</button>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-3 border-t">
+        <button id="btn-settings-cancel" class="px-4 py-1.5 text-gray-600 text-sm">ปิด</button>
+        <button id="btn-settings-save" class="px-5 py-1.5 bg-emerald-500 text-white text-sm font-semibold rounded-lg hover:bg-emerald-600">💾 บันทึก</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import {
+  db,
+  collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc,
+  query, where, serverTimestamp,
+} from "./js/firebase-config.js";
+import { requireAuth } from "./js/auth.js";
+import { escapeHtml, getBusinessDate, shiftDate, isInBizWindow, calcShopCut } from "./js/helpers.js";
+
+const user = await requireAuth();
+
+const $ = id => document.getElementById(id);
+
+// =========================================================
+// STATE
+// =========================================================
+const DEFAULT_INCOME_CATEGORIES = ["ทิป", "ขายของ", "อื่นๆ"];
+const DEFAULT_EXPENSE_CATEGORIES = [
+  "เงินเดือนแม่บ้าน", "เงินเดือนแคชเชียร์", "ค่าน้ำ-ไฟ", "ค่าอินเตอร์เน็ต",
+  "ค่าอาหารหมอ", "ค่าของใช้ในร้าน", "ค่าเช่าร้าน", "ค่าซ่อมแซม", "อื่นๆ"
+];
+
+let financeConfig = {
+  startDate: null,
+  startingAmount: 0,
+  incomeCategories: DEFAULT_INCOME_CATEGORIES.slice(),
+  expenseCategories: DEFAULT_EXPENSE_CATEGORIES.slice(),
+};
+let txns = [];           // เก็บ txns ของวัน/เดือนที่ดูอยู่
+let autoIncomeByDate = {}; // { "YYYY-MM-DD": ฿ } — sum shopCut per biz day
+let viewMode = "day";    // "day" | "month"
+let selectedDate = getBusinessDate();
+let selectedMonth = selectedDate.slice(0, 7);  // "YYYY-MM"
+
+// =========================================================
+// UTILS
+// =========================================================
+function fmtMoney(n) {
+  if (n == null || isNaN(n)) return "0";
+  return Math.round(n).toLocaleString();
+}
+
+function fmtSigned(n) {
+  if (n == null || isNaN(n)) return "0";
+  const r = Math.round(n);
+  return r >= 0 ? `+${r.toLocaleString()}` : `-${Math.abs(r).toLocaleString()}`;
+}
+
+function monthLabel(ym) {
+  const [y, m] = ym.split("-").map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString("th-TH", { month: "long", year: "numeric" });
+}
+
+function daysInMonth(ym) {
+  const [y, m] = ym.split("-").map(Number);
+  return new Date(y, m, 0).getDate();
+}
+
+// =========================================================
+// LOAD CONFIG
+// =========================================================
+async function loadConfig() {
+  const snap = await getDoc(doc(db, "settings", "financeConfig"));
+  if (snap.exists()) {
+    const d = snap.data();
+    financeConfig = {
+      startDate: d.startDate || null,
+      startingAmount: d.startingAmount || 0,
+      incomeCategories: Array.isArray(d.incomeCategories) && d.incomeCategories.length
+        ? d.incomeCategories : DEFAULT_INCOME_CATEGORIES.slice(),
+      expenseCategories: Array.isArray(d.expenseCategories) && d.expenseCategories.length
+        ? d.expenseCategories : DEFAULT_EXPENSE_CATEGORIES.slice(),
+    };
+  }
+}
+
+async function saveConfig() {
+  await setDoc(doc(db, "settings", "financeConfig"), {
+    startDate: financeConfig.startDate,
+    startingAmount: financeConfig.startingAmount,
+    incomeCategories: financeConfig.incomeCategories,
+    expenseCategories: financeConfig.expenseCategories,
+    updatedAt: serverTimestamp(),
+    updatedBy: user?.email || user?.uid || "admin",
+  }, { merge: true });
+}
+
+// =========================================================
+// LOAD TRANSACTIONS (manual)
+// =========================================================
+async function loadTransactionsForDate(date) {
+  const snap = await getDocs(query(
+    collection(db, "dailyTransactions"),
+    where("date", "==", date),
+  ));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+async function loadTransactionsForRange(start, end) {
+  const snap = await getDocs(query(
+    collection(db, "dailyTransactions"),
+    where("date", ">=", start),
+    where("date", "<=", end),
+  ));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+// =========================================================
+// COMPUTE auto session income (Σ shopCut per biz date)
+// =========================================================
+async function loadAutoIncomeForDate(bizDate) {
+  // sessions อาจอยู่ใน calendar date X หรือ X+1 (cross-midnight)
+  const nextDate = shiftDate(bizDate, 1);
+  const snap = await getDocs(query(
+    collection(db, "sessions"),
+    where("date", "in", [bizDate, nextDate]),
+  ));
+  let sum = 0;
+  snap.docs.forEach(d => {
+    const s = d.data();
+    if (s.status === "cancelled") return;
+    if (!isInBizWindow(s.date, s.startTime, bizDate)) return;
+    const min = (() => {
+      if (!s.startTime || !s.endTime) return s.durationMinutes || 0;
+      const [sh, sm] = s.startTime.split(":").map(Number);
+      const [eh, em] = s.endTime.split(":").map(Number);
+      let d2 = (eh * 60 + em) - (sh * 60 + sm);
+      if (d2 < 0) d2 += 1440;
+      return d2;
+    })();
+    const sc = s.shopCutOverride != null ? s.shopCutOverride
+              : (s.shopCut != null ? s.shopCut : calcShopCut(min));
+    sum += (sc || 0);
+  });
+  return sum;
+}
+
+async function loadAutoIncomeForRange(start, end) {
+  // for monthly view — load all sessions in range, group by biz date
+  const endNext = shiftDate(end, 1);
+  const snap = await getDocs(query(
+    collection(db, "sessions"),
+    where("date", ">=", start),
+    where("date", "<=", endNext),
+  ));
+  const result = {};
+  snap.docs.forEach(d => {
+    const s = d.data();
+    if (s.status === "cancelled") return;
+    if (!s.startTime || !s.date) return;
+    // biz date = date if startTime >= 06:00, else date-1
+    const bizDate = s.startTime < "06:00" ? shiftDate(s.date, -1) : s.date;
+    if (bizDate < start || bizDate > end) return;
+    const min = (() => {
+      if (!s.endTime) return s.durationMinutes || 0;
+      const [sh, sm] = s.startTime.split(":").map(Number);
+      const [eh, em] = s.endTime.split(":").map(Number);
+      let dm = (eh * 60 + em) - (sh * 60 + sm);
+      if (dm < 0) dm += 1440;
+      return dm;
+    })();
+    const sc = s.shopCutOverride != null ? s.shopCutOverride
+              : (s.shopCut != null ? s.shopCut : calcShopCut(min));
+    result[bizDate] = (result[bizDate] || 0) + (sc || 0);
+  });
+  return result;
+}
+
+// =========================================================
+// COMPUTE balance up to (but not including) date
+// = startingAmount + Σ(income - expense) from startDate to date-1
+// =========================================================
+async function computeBalanceBefore(date) {
+  if (!financeConfig.startDate || date <= financeConfig.startDate) {
+    return financeConfig.startingAmount;
+  }
+  const dayBefore = shiftDate(date, -1);
+  // manual txns from startDate to dayBefore
+  const manualTxns = await loadTransactionsForRange(financeConfig.startDate, dayBefore);
+  let manualNet = 0;
+  manualTxns.forEach(t => {
+    if (t.type === "income") manualNet += (t.amount || 0);
+    else if (t.type === "expense") manualNet -= (t.amount || 0);
+  });
+  // auto income (Σ shopCut) from startDate to dayBefore
+  const autoMap = await loadAutoIncomeForRange(financeConfig.startDate, dayBefore);
+  let autoNet = 0;
+  Object.values(autoMap).forEach(v => { autoNet += v; });
+  return financeConfig.startingAmount + manualNet + autoNet;
+}
+
+// =========================================================
+// DAILY VIEW
+// =========================================================
+async function renderDailyView() {
+  $("loading").classList.remove("hidden");
+  $("daily-view").classList.add("hidden");
+  $("monthly-view").classList.add("hidden");
+
+  const [txnsArr, autoIncome, openingBalance] = await Promise.all([
+    loadTransactionsForDate(selectedDate),
+    loadAutoIncomeForDate(selectedDate),
+    computeBalanceBefore(selectedDate),
+  ]);
+
+  txns = txnsArr;
+
+  const manualIncome = txns.filter(t => t.type === "income").reduce((s, t) => s + (t.amount || 0), 0);
+  const expense = txns.filter(t => t.type === "expense").reduce((s, t) => s + (t.amount || 0), 0);
+  const income = autoIncome + manualIncome;
+  const balance = openingBalance + income - expense;
+
+  $("sum-bring").textContent = `฿ ${fmtMoney(openingBalance)}`;
+  $("sum-income").textContent = `฿ ${fmtMoney(income)}`;
+  $("sum-expense").textContent = `฿ ${fmtMoney(expense)}`;
+  $("sum-balance").textContent = `฿ ${fmtMoney(balance)}`;
+
+  // Render lists
+  const incomeList = $("income-list");
+  const expenseList = $("expense-list");
+  const incomeItems = [];
+  if (autoIncome > 0) {
+    incomeItems.push(`
+      <div class="tx-item">
+        <span class="tx-auto-badge">AUTO</span>
+        <div class="tx-item-info">
+          <div class="tx-item-category">ค่าชั่วโมงพนักงาน</div>
+          <div class="tx-item-detail">จาก sessions ของวันนี้</div>
+        </div>
+        <div class="tx-item-amount tx-amount-income">+${fmtMoney(autoIncome)}</div>
+      </div>
+    `);
+  }
+  txns.filter(t => t.type === "income").forEach(t => {
+    incomeItems.push(renderTxItem(t, "income"));
+  });
+  incomeList.innerHTML = incomeItems.length ? incomeItems.join("") : '<div class="tx-empty">ยังไม่มีรายรับ</div>';
+  $("income-count").textContent = `(${incomeItems.length})`;
+
+  const expenseItems = txns.filter(t => t.type === "expense").map(t => renderTxItem(t, "expense"));
+  expenseList.innerHTML = expenseItems.length ? expenseItems.join("") : '<div class="tx-empty">ยังไม่มีรายจ่าย</div>';
+  $("expense-count").textContent = `(${expenseItems.length})`;
+
+  // Bind row buttons
+  document.querySelectorAll("[data-edit-tx]").forEach(b => b.addEventListener("click", () => openTxModal(b.dataset.editTx)));
+  document.querySelectorAll("[data-del-tx]").forEach(b => b.addEventListener("click", () => deleteTx(b.dataset.delTx)));
+
+  $("loading").classList.add("hidden");
+  $("daily-view").classList.remove("hidden");
+}
+
+function renderTxItem(t, type) {
+  const amountCls = type === "income" ? "tx-amount-income" : "tx-amount-expense";
+  const sign = type === "income" ? "+" : "-";
+  const detail = t.detail ? `<div class="tx-item-detail">${escapeHtml(t.detail)}</div>` : "";
+  return `
+    <div class="tx-item">
+      <div class="tx-item-info">
+        <div class="tx-item-category">${escapeHtml(t.category || "—")}</div>
+        ${detail}
+      </div>
+      <div class="tx-item-amount ${amountCls}">${sign}${fmtMoney(t.amount || 0)}</div>
+      <div class="tx-actions">
+        <button class="tx-btn tx-btn-edit" data-edit-tx="${escapeHtml(t.id)}">แก้</button>
+        <button class="tx-btn tx-btn-del" data-del-tx="${escapeHtml(t.id)}">ลบ</button>
+      </div>
+    </div>
+  `;
+}
+
+// =========================================================
+// MONTHLY VIEW
+// =========================================================
+async function renderMonthlyView() {
+  $("loading").classList.remove("hidden");
+  $("daily-view").classList.add("hidden");
+  $("monthly-view").classList.add("hidden");
+
+  $("month-label").textContent = monthLabel(selectedMonth);
+  $("month-picker").value = selectedMonth;
+
+  const start = `${selectedMonth}-01`;
+  const end = `${selectedMonth}-${String(daysInMonth(selectedMonth)).padStart(2, "0")}`;
+
+  const [allTxns, autoMap, openingMonth] = await Promise.all([
+    loadTransactionsForRange(start, end),
+    loadAutoIncomeForRange(start, end),
+    computeBalanceBefore(start),
+  ]);
+
+  // Group txns by date
+  const manualByDate = {};
+  allTxns.forEach(t => {
+    if (!manualByDate[t.date]) manualByDate[t.date] = { income: 0, expense: 0 };
+    if (t.type === "income") manualByDate[t.date].income += (t.amount || 0);
+    else if (t.type === "expense") manualByDate[t.date].expense += (t.amount || 0);
+  });
+
+  let running = openingMonth;
+  let totalIncome = 0, totalExpense = 0;
+  const rows = [];
+  const ndays = daysInMonth(selectedMonth);
+  for (let i = 1; i <= ndays; i++) {
+    const d = `${selectedMonth}-${String(i).padStart(2, "0")}`;
+    const autoInc = autoMap[d] || 0;
+    const manual = manualByDate[d] || { income: 0, expense: 0 };
+    const inc = autoInc + manual.income;
+    const exp = manual.expense;
+    const closing = running + inc - exp;
+    totalIncome += inc;
+    totalExpense += exp;
+
+    const hasActivity = inc > 0 || exp > 0;
+    rows.push(`
+      <tr data-go-date="${d}" ${hasActivity ? "" : 'style="color:#bbb;"'}>
+        <td>${d.slice(8)} ${new Date(d).toLocaleDateString("th-TH", { weekday: "short" })}</td>
+        <td>${fmtMoney(running)}</td>
+        <td class="num-pos">${inc > 0 ? "+" + fmtMoney(inc) : "—"}</td>
+        <td class="num-neg">${exp > 0 ? "-" + fmtMoney(exp) : "—"}</td>
+        <td><strong>${fmtMoney(closing)}</strong></td>
+      </tr>
+    `);
+    running = closing;
+  }
+
+  $("ledger-rows").innerHTML = rows.join("");
+  $("ledger-foot-income").textContent = "+" + fmtMoney(totalIncome);
+  $("ledger-foot-expense").textContent = "-" + fmtMoney(totalExpense);
+
+  // Bind row click → switch to daily
+  document.querySelectorAll("[data-go-date]").forEach(tr => {
+    tr.addEventListener("click", () => {
+      selectedDate = tr.dataset.goDate;
+      $("date-picker").value = selectedDate;
+      switchView("day");
+    });
+  });
+
+  $("loading").classList.add("hidden");
+  $("monthly-view").classList.remove("hidden");
+}
+
+// =========================================================
+// VIEW SWITCH
+// =========================================================
+function switchView(mode) {
+  viewMode = mode;
+  $("btn-view-day").classList.toggle("active", mode === "day");
+  $("btn-view-month").classList.toggle("active", mode === "month");
+  if (mode === "day") renderDailyView();
+  else renderMonthlyView();
+}
+
+// =========================================================
+// TX MODAL
+// =========================================================
+let editingTxId = null;
+let modalType = "income";
+
+function populateCategorySelect() {
+  const cats = modalType === "income" ? financeConfig.incomeCategories : financeConfig.expenseCategories;
+  $("tx-category").innerHTML = cats.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+}
+
+function setModalType(t) {
+  modalType = t;
+  $("type-income").classList.toggle("active", t === "income");
+  $("type-expense").classList.toggle("active", t === "expense");
+  populateCategorySelect();
+}
+
+function openTxModal(id) {
+  editingTxId = id || null;
+  if (id) {
+    const t = txns.find(x => x.id === id);
+    if (!t) return;
+    $("tx-modal-title").textContent = "✏ แก้ไขรายการ";
+    setModalType(t.type);
+    $("tx-category").value = t.category;
+    $("tx-detail").value = t.detail || "";
+    $("tx-date").value = t.date;
+    $("tx-amount").value = t.amount;
+  } else {
+    $("tx-modal-title").textContent = "+ เพิ่มรายการ";
+    setModalType("income");
+    $("tx-detail").value = "";
+    $("tx-date").value = selectedDate;
+    $("tx-amount").value = "";
+  }
+  $("tx-modal").classList.add("open");
+}
+
+function closeTxModal() {
+  editingTxId = null;
+  $("tx-modal").classList.remove("open");
+}
+
+async function saveTx() {
+  const btn = $("btn-tx-save");
+  btn.disabled = true;
+  btn.textContent = "กำลังบันทึก…";
+  try {
+    const category = $("tx-category").value;
+    const detail = $("tx-detail").value.trim();
+    const date = $("tx-date").value;
+    const amount = parseFloat($("tx-amount").value);
+
+    if (!category) { alert("เลือกหมวด"); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { alert("เลือกวันที่"); return; }
+    if (isNaN(amount) || amount < 0) { alert("ใส่จำนวนเงิน"); return; }
+
+    const data = {
+      type: modalType,
+      category,
+      detail: detail || null,
+      date,
+      amount,
+      updatedAt: serverTimestamp(),
+    };
+
+    if (editingTxId) {
+      await updateDoc(doc(db, "dailyTransactions", editingTxId), data);
+    } else {
+      data.createdAt = serverTimestamp();
+      data.createdBy = user?.email || user?.uid || "admin";
+      await addDoc(collection(db, "dailyTransactions"), data);
+    }
+
+    closeTxModal();
+    if (viewMode === "day") await renderDailyView();
+    else await renderMonthlyView();
+  } catch (err) {
+    console.error(err);
+    alert("เกิดข้อผิดพลาด: " + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "บันทึก";
+  }
+}
+
+async function deleteTx(id) {
+  const t = txns.find(x => x.id === id);
+  if (!t) return;
+  if (!confirm(`ลบรายการนี้?\n${t.category} ${t.detail ? "— " + t.detail : ""} ฿${fmtMoney(t.amount)}`)) return;
+  try {
+    await deleteDoc(doc(db, "dailyTransactions", id));
+    if (viewMode === "day") await renderDailyView();
+    else await renderMonthlyView();
+  } catch (err) {
+    alert("ลบไม่สำเร็จ: " + err.message);
+  }
+}
+
+// =========================================================
+// SETTINGS MODAL
+// =========================================================
+let settingsCats = { income: [], expense: [] };
+let settingsInit = { date: null, amount: 0 };
+
+function openSettingsModal() {
+  settingsCats.income = financeConfig.incomeCategories.slice();
+  settingsCats.expense = financeConfig.expenseCategories.slice();
+  settingsInit.date = financeConfig.startDate;
+  settingsInit.amount = financeConfig.startingAmount;
+  $("init-date").value = settingsInit.date || "";
+  $("init-amount").value = settingsInit.amount || 0;
+  renderCatChips();
+  $("settings-modal").classList.add("open");
+}
+
+function closeSettingsModal() {
+  $("settings-modal").classList.remove("open");
+}
+
+function renderCatChips() {
+  const renderChips = (list, type) => list.map((c, i) => `
+    <span class="chip">${escapeHtml(c)} <button data-rm-cat="${type}" data-rm-idx="${i}">×</button></span>
+  `).join("");
+  $("income-cats-chips").innerHTML = renderChips(settingsCats.income, "income");
+  $("expense-cats-chips").innerHTML = renderChips(settingsCats.expense, "expense");
+  document.querySelectorAll("[data-rm-cat]").forEach(b => {
+    b.addEventListener("click", () => {
+      const type = b.dataset.rmCat;
+      const idx = parseInt(b.dataset.rmIdx, 10);
+      settingsCats[type].splice(idx, 1);
+      renderCatChips();
+    });
+  });
+}
+
+$("btn-add-income-cat").addEventListener("click", () => {
+  const v = $("new-income-cat").value.trim();
+  if (!v) return;
+  if (settingsCats.income.includes(v)) { alert("มีหมวดนี้แล้ว"); return; }
+  settingsCats.income.push(v);
+  $("new-income-cat").value = "";
+  renderCatChips();
+});
+$("btn-add-expense-cat").addEventListener("click", () => {
+  const v = $("new-expense-cat").value.trim();
+  if (!v) return;
+  if (settingsCats.expense.includes(v)) { alert("มีหมวดนี้แล้ว"); return; }
+  settingsCats.expense.push(v);
+  $("new-expense-cat").value = "";
+  renderCatChips();
+});
+
+$("btn-settings-save").addEventListener("click", async () => {
+  const btn = $("btn-settings-save");
+  btn.disabled = true;
+  try {
+    const dateVal = $("init-date").value;
+    const amtVal = parseFloat($("init-amount").value);
+    if (dateVal && !isNaN(amtVal)) {
+      financeConfig.startDate = dateVal;
+      financeConfig.startingAmount = amtVal;
+    }
+    financeConfig.incomeCategories = settingsCats.income.length ? settingsCats.income : DEFAULT_INCOME_CATEGORIES.slice();
+    financeConfig.expenseCategories = settingsCats.expense.length ? settingsCats.expense : DEFAULT_EXPENSE_CATEGORIES.slice();
+    await saveConfig();
+    closeSettingsModal();
+    updateInitBanner();
+    if (viewMode === "day") await renderDailyView();
+    else await renderMonthlyView();
+  } catch (err) {
+    alert("บันทึกไม่สำเร็จ: " + err.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+function updateInitBanner() {
+  if (!financeConfig.startDate) $("init-banner").classList.remove("hidden");
+  else $("init-banner").classList.add("hidden");
+}
+
+// =========================================================
+// EVENTS
+// =========================================================
+$("btn-view-day").addEventListener("click", () => switchView("day"));
+$("btn-view-month").addEventListener("click", () => switchView("month"));
+
+$("date-picker").value = selectedDate;
+$("date-picker").addEventListener("change", e => {
+  selectedDate = e.target.value;
+  if (viewMode === "day") renderDailyView();
+});
+$("btn-prev").addEventListener("click", () => {
+  selectedDate = shiftDate(selectedDate, -1);
+  $("date-picker").value = selectedDate;
+  if (viewMode === "day") renderDailyView();
+});
+$("btn-next").addEventListener("click", () => {
+  selectedDate = shiftDate(selectedDate, 1);
+  $("date-picker").value = selectedDate;
+  if (viewMode === "day") renderDailyView();
+});
+$("btn-today").addEventListener("click", () => {
+  selectedDate = getBusinessDate();
+  $("date-picker").value = selectedDate;
+  if (viewMode === "day") renderDailyView();
+});
+
+$("month-picker").addEventListener("change", e => {
+  selectedMonth = e.target.value;
+  renderMonthlyView();
+});
+$("btn-month-prev").addEventListener("click", () => {
+  const [y, m] = selectedMonth.split("-").map(Number);
+  const prev = new Date(y, m - 2, 1);
+  selectedMonth = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`;
+  renderMonthlyView();
+});
+$("btn-month-next").addEventListener("click", () => {
+  const [y, m] = selectedMonth.split("-").map(Number);
+  const next = new Date(y, m, 1);
+  selectedMonth = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
+  renderMonthlyView();
+});
+
+$("btn-add").addEventListener("click", () => openTxModal(null));
+$("btn-close-tx").addEventListener("click", closeTxModal);
+$("btn-tx-cancel").addEventListener("click", closeTxModal);
+$("btn-tx-save").addEventListener("click", saveTx);
+$("type-income").addEventListener("click", () => setModalType("income"));
+$("type-expense").addEventListener("click", () => setModalType("expense"));
+$("tx-modal").addEventListener("click", e => { if (e.target.id === "tx-modal") closeTxModal(); });
+
+$("btn-settings").addEventListener("click", openSettingsModal);
+$("btn-close-settings").addEventListener("click", closeSettingsModal);
+$("btn-settings-cancel").addEventListener("click", closeSettingsModal);
+$("settings-modal").addEventListener("click", e => { if (e.target.id === "settings-modal") closeSettingsModal(); });
+
+// =========================================================
+// INIT
+// =========================================================
+await loadConfig();
+updateInitBanner();
+renderDailyView();
+</script>
+
+</body>
+</html>

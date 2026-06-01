@@ -69,5 +69,11 @@ service cloud.firestore {
       allow read: if true;
       allow write, delete: if request.auth != null;
     }
+
+    // Daily transactions (รายรับ-รายจ่ายที่ admin บันทึก): admin-only read/write
+    match /dailyTransactions/{docId} {
+      allow read: if request.auth != null;
+      allow write, delete: if request.auth != null;
+    }
   }
 }
