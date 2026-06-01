@@ -505,6 +505,14 @@ function branchKey(b) {
   return null;
 }
 
+/** branch ของ session — fallback ใช้ therapist.branch ถ้า session.branch ไม่ valid */
+function sessionBranchKey(s) {
+  const bk = branchKey(s.branch);
+  if (bk) return bk;
+  const t = therapists.find(x => x.id === s.therapistId);
+  return t ? branchKey(t.branch) : null;
+}
+
 function fmtMoney(n) {
   if (n == null || isNaN(n)) return "—";
   return Math.round(n).toLocaleString();
@@ -945,7 +953,7 @@ function renderSummary() {
   let totalRevenue = 0, totalShop = 0, totalPay = 0;
 
   sessions.forEach(s => {
-    const bk = branchKey(s.branch);
+    const bk = sessionBranchKey(s);  // fallback ใช้ therapist.branch ถ้า session.branch ไม่ valid
     if (!bk) return;
 
     const dirtyRow = dirty.get(s.id) || {};
