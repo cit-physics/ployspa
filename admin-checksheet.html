@@ -1237,8 +1237,8 @@ async function saveAddSession() {
   try {
     const therapistId = $("mf-therapist").value;
     if (!therapistId) { alert("เลือกหมอ"); return; }
-    const date = $("mf-date").value;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { alert("เลือกวันที่"); return; }
+    const bizDate = $("mf-date").value;  // วันที่ใบบันทึก (business date)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(bizDate)) { alert("เลือกวันที่"); return; }
     const start = normalizeTimeInput($("mf-start").value);
     const end = normalizeTimeInput($("mf-end").value);
     if (!start) { alert("เวลาเริ่มไม่ถูกต้อง (HH:MM)"); return; }
@@ -1253,7 +1253,13 @@ async function saveAddSession() {
     const extHrs = parseFloat($("mf-ext").value);
     const extMin = (!isNaN(extHrs) && extHrs > 0) ? Math.round(extHrs * 60) : 0;
 
-    // Overlap check
+    // Map biz date → calendar date:
+    //   - time >= 06:00 → calendar = biz date (ปกติ)
+    //   - time <  06:00 → calendar = biz date + 1 (session คาบเที่ยงคืน → start ใน calendar ถัดไป)
+    // ที่ใส่เพราะ admin จะคิดในมุม "วันใบบันทึก" — ระบบเก็บ calendar ให้ถูก
+    const date = start < "06:00" ? shiftDate(bizDate, 1) : bizDate;
+
+    // Overlap check (ใช้ calendar date ของ session จริง)
     const overlap = await findOverlapForAdd(therapistId, date, start, end);
     if (overlap) {
       const ok = confirm(
