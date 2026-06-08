@@ -74,6 +74,30 @@
     .preset-btn:hover { background:#fce7f3; }
     .preset-btn.active { background:#ec4899; color:#fff; border-color:#ec4899; }
 
+    /* Sortable headers */
+    .report thead th.sortable {
+      cursor: pointer; user-select: none;
+    }
+    .report thead th.sortable:hover { background:#fbcfe8; }
+    .report thead th.sortable .sort-arrow {
+      display:inline-block; margin-left:3px; font-size:9px; opacity:.35;
+    }
+    .report thead th.sortable .sort-arrow::before { content:"⇅"; }
+    .report thead th.sortable.active { background:#fbcfe8; }
+    .report thead th.sortable.active .sort-arrow { opacity:1; color:#be185d; }
+    .report thead th.sortable.active.desc .sort-arrow::before { content:"▼"; }
+    .report thead th.sortable.active.asc  .sort-arrow::before { content:"▲"; }
+    .report thead th.col-score {
+      background:#fde6f1; color:#9f1239;
+    }
+    .report thead th.col-score.active { background:#fbcfe8; }
+    .report tbody td.cell-score {
+      font-weight:700; color:#9f1239; background:#fff5fa;
+    }
+    .report tfoot td.cell-score {
+      color:#9f1239;
+    }
+
     /* Manage button */
     .manage-btn {
       width:28px; height:28px; border-radius:6px;
@@ -205,14 +229,15 @@
           <th>รูป</th>
           <th>ชื่อหมอ</th>
           <th>ส.</th>
-          <th title="จำนวนเคสที่นวด">เคส</th>
-          <th title="จำนวนชั่วโมงรวม">ชม.</th>
-          <th title="ลูกค้าเก่ากลับมาจองกี่เคส">ลูกค้าเก่า</th>
-          <th title="เคสที่มาจากการจองล่วงหน้า">จอง</th>
-          <th title="จำนวนครั้งที่ต่อเวลา">ต่อ (ครั้ง)</th>
-          <th title="จำนวนวันขาดงาน + ลา รวมกัน">ขาด/ลา (วัน)</th>
-          <th title="ทำเงินให้ตัวเอง">เงินพนง.</th>
-          <th title="ทำเงินให้ร้าน">เงินร้าน</th>
+          <th class="sortable col-score" data-sort="score" title="คะแนน = ชม. + ลูกค้าเก่า — กดเพื่อเรียง">คะแนน<span class="sort-arrow"></span></th>
+          <th class="sortable" data-sort="cases" title="จำนวนเคสที่นวด — กดเพื่อเรียง">เคส<span class="sort-arrow"></span></th>
+          <th class="sortable" data-sort="hours" title="จำนวนชั่วโมงรวม — กดเพื่อเรียง">ชม.<span class="sort-arrow"></span></th>
+          <th class="sortable" data-sort="returning" title="ลูกค้าเก่ากลับมาจองกี่เคส — กดเพื่อเรียง">ลูกค้าเก่า<span class="sort-arrow"></span></th>
+          <th class="sortable" data-sort="booking" title="เคสที่มาจากการจองล่วงหน้า — กดเพื่อเรียง">งานจอง<span class="sort-arrow"></span></th>
+          <th class="sortable" data-sort="ext" title="จำนวนครั้งที่ต่อเวลา — กดเพื่อเรียง">ต่อเวลา (ครั้ง)<span class="sort-arrow"></span></th>
+          <th class="sortable" data-sort="absence" title="จำนวนวันขาดงาน + ลา รวมกัน — กดเพื่อเรียง">ขาด/ลา (วัน)<span class="sort-arrow"></span></th>
+          <th class="sortable" data-sort="pay" title="ทำเงินให้ตัวเอง — กดเพื่อเรียง">เงินพนง.<span class="sort-arrow"></span></th>
+          <th class="sortable" data-sort="shop" title="ทำเงินให้ร้าน — กดเพื่อเรียง">เงินร้าน<span class="sort-arrow"></span></th>
           <th title="จัดการ session">จัดการ</th>
         </tr>
       </thead>
@@ -220,6 +245,7 @@
       <tfoot>
         <tr>
           <td colspan="4" style="text-align:right;">รวม</td>
+          <td class="col-num cell-score" id="foot-score">—</td>
           <td class="col-num" id="foot-cases">—</td>
           <td class="col-num" id="foot-hours">—</td>
           <td class="col-num" id="foot-returning">—</td>
@@ -357,6 +383,21 @@ let allAbsences = [];
 let startDate = "";  // biz date "YYYY-MM-DD"
 let endDate   = "";  // biz date "YYYY-MM-DD"
 let branchFilter = "all";
+
+let sortKey = "score";  // score | cases | hours | returning | booking | ext | absence | pay | shop
+let sortDir = "desc";   // "desc" | "asc"
+
+const SORT_GETTERS = {
+  score:     r => r.score,
+  cases:     r => r.cases,
+  hours:     r => r.hoursMin,
+  returning: r => r.returningCases,
+  booking:   r => r.bookingCases,
+  ext:       r => r.extensionCount,
+  absence:   r => r.absenceDays,
+  pay:       r => r.therapistPay,
+  shop:      r => r.shopCut,
+};
 
 // =========================================================
 // HELPERS
@@ -574,12 +615,19 @@ function render() {
     if (row) row.absenceDays += 1;
   });
 
-  // Sort: hours desc, then cases desc
+  // Score = ชม. + ลูกค้าเก่า
+  byTherapist.forEach(r => {
+    r.score = r.hoursMin / 60 + r.returningCases;
+  });
+
+  const getter = SORT_GETTERS[sortKey] || SORT_GETTERS.score;
+  const dir = sortDir === "asc" ? 1 : -1;
   const rows = [...byTherapist.values()].sort((a, b) => {
-    const dh = b.hoursMin - a.hoursMin;
-    if (dh !== 0) return dh;
-    const dc = b.cases - a.cases;
-    if (dc !== 0) return dc;
+    const diff = (getter(a) - getter(b)) * dir;
+    if (diff !== 0) return diff;
+    // Tie-breakers: score desc → cases desc → code asc
+    if (b.score !== a.score) return b.score - a.score;
+    if (b.cases !== a.cases) return b.cases - a.cases;
     return (a.therapist.code || "").localeCompare(b.therapist.code || "");
   });
 
@@ -600,6 +648,7 @@ function render() {
         <td>${photoCell(t)}</td>
         <td class="col-name">${escapeHtml(nong(t))}</td>
         <td>${escapeHtml(branchShortFromTh(t.branch))}</td>
+        <td class="col-num cell-score">${r.score.toFixed(1)}</td>
         <td class="col-num">${r.cases}</td>
         <td class="col-num">${fmtHours(r.hoursMin)}</td>
         <td class="col-num">${r.returningCases}</td>
@@ -630,7 +679,7 @@ function renderSummary(rows) {
   };
   let totalCases = 0, totalHoursMin = 0, totalReturning = 0,
       totalBooking = 0, totalExt = 0, totalAbsence = 0,
-      totalPay = 0, totalShop = 0;
+      totalPay = 0, totalShop = 0, totalScore = 0;
 
   rows.forEach(r => {
     const bk = thBranchKey(r.therapist.branch);
@@ -647,6 +696,7 @@ function renderSummary(rows) {
     totalAbsence   += r.absenceDays;
     totalPay       += r.therapistPay;
     totalShop      += r.shopCut;
+    totalScore     += (r.score || 0);
   });
 
   $("sum-1-hours").textContent = `${stats.branch1.hours.toFixed(1)} ชม.`;
@@ -663,6 +713,7 @@ function renderSummary(rows) {
   $("sum-all-shop").textContent  = `฿ ${fmtMoney(totalShop)}`;
   $("sum-all-cases").textContent = `${allCases} เคส`;
 
+  $("foot-score").textContent     = totalScore.toFixed(1);
   $("foot-cases").textContent     = totalCases;
   $("foot-hours").textContent     = fmtHours(totalHoursMin);
   $("foot-returning").textContent = totalReturning;
@@ -671,6 +722,35 @@ function renderSummary(rows) {
   $("foot-absence").textContent   = totalAbsence;
   $("foot-pay").textContent       = fmtMoney(totalPay);
   $("foot-shop").textContent      = fmtMoney(totalShop);
+}
+
+// =========================================================
+// SORTING
+// =========================================================
+function updateSortIndicators() {
+  document.querySelectorAll("th.sortable").forEach(th => {
+    const isActive = th.dataset.sort === sortKey;
+    th.classList.toggle("active", isActive);
+    th.classList.toggle("desc", isActive && sortDir === "desc");
+    th.classList.toggle("asc",  isActive && sortDir === "asc");
+  });
+}
+
+function bindSortHeaders() {
+  document.querySelectorAll("th.sortable").forEach(th => {
+    th.addEventListener("click", () => {
+      const key = th.dataset.sort;
+      if (sortKey === key) {
+        sortDir = sortDir === "desc" ? "asc" : "desc";
+      } else {
+        sortKey = key;
+        sortDir = "desc";
+      }
+      updateSortIndicators();
+      render();
+    });
+  });
+  updateSortIndicators();
 }
 
 // =========================================================
@@ -1014,6 +1094,7 @@ $("btn-modal-form-save").addEventListener("click", saveModalSession);
 // =========================================================
 // INIT
 // =========================================================
+bindSortHeaders();
 await loadTherapists();
 applyPreset("thisMonth");
 await loadData();
