@@ -230,12 +230,12 @@
           <th>ชื่อหมอ</th>
           <th>ส.</th>
           <th class="sortable col-score" data-sort="score" title="คะแนน = ชม. + ลูกค้าเก่า — กดเพื่อเรียง">คะแนน<span class="sort-arrow"></span></th>
-          <th class="sortable" data-sort="cases" title="จำนวนเคสที่นวด — กดเพื่อเรียง">เคส<span class="sort-arrow"></span></th>
-          <th class="sortable" data-sort="hours" title="จำนวนชั่วโมงรวม — กดเพื่อเรียง">ชม.<span class="sort-arrow"></span></th>
           <th class="sortable" data-sort="returning" title="ลูกค้าเก่ากลับมาจองกี่เคส — กดเพื่อเรียง">ลูกค้าเก่า<span class="sort-arrow"></span></th>
-          <th class="sortable" data-sort="booking" title="เคสที่มาจากการจองล่วงหน้า — กดเพื่อเรียง">งานจอง<span class="sort-arrow"></span></th>
+          <th class="sortable" data-sort="cases" title="จำนวนเคสที่นวด — กดเพื่อเรียง">เคส<span class="sort-arrow"></span></th>
           <th class="sortable" data-sort="ext" title="จำนวนครั้งที่ต่อเวลา — กดเพื่อเรียง">ต่อเวลา (ครั้ง)<span class="sort-arrow"></span></th>
           <th class="sortable" data-sort="absence" title="จำนวนวันขาดงาน + ลา รวมกัน — กดเพื่อเรียง">ขาด/ลา (วัน)<span class="sort-arrow"></span></th>
+          <th class="sortable" data-sort="hours" title="จำนวนชั่วโมงรวม — กดเพื่อเรียง">ชม.<span class="sort-arrow"></span></th>
+          <th class="sortable" data-sort="booking" title="เคสที่มาจากการจองล่วงหน้า — กดเพื่อเรียง">งานจอง<span class="sort-arrow"></span></th>
           <th class="sortable" data-sort="pay" title="ทำเงินให้ตัวเอง — กดเพื่อเรียง">เงินพนง.<span class="sort-arrow"></span></th>
           <th class="sortable" data-sort="shop" title="ทำเงินให้ร้าน — กดเพื่อเรียง">เงินร้าน<span class="sort-arrow"></span></th>
           <th title="จัดการ session">จัดการ</th>
@@ -246,12 +246,12 @@
         <tr>
           <td colspan="4" style="text-align:right;">รวม</td>
           <td class="col-num cell-score" id="foot-score">—</td>
-          <td class="col-num" id="foot-cases">—</td>
-          <td class="col-num" id="foot-hours">—</td>
           <td class="col-num" id="foot-returning">—</td>
-          <td class="col-num" id="foot-booking">—</td>
+          <td class="col-num" id="foot-cases">—</td>
           <td class="col-num" id="foot-ext">—</td>
           <td class="col-num" id="foot-absence">—</td>
+          <td class="col-num" id="foot-hours">—</td>
+          <td class="col-num" id="foot-booking">—</td>
           <td class="col-num" id="foot-pay">—</td>
           <td class="col-num" id="foot-shop">—</td>
           <td></td>
@@ -649,12 +649,12 @@ function render() {
         <td class="col-name">${escapeHtml(nong(t))}</td>
         <td>${escapeHtml(branchShortFromTh(t.branch))}</td>
         <td class="col-num cell-score">${r.score.toFixed(1)}</td>
-        <td class="col-num">${r.cases}</td>
-        <td class="col-num">${fmtHours(r.hoursMin)}</td>
         <td class="col-num">${r.returningCases}</td>
-        <td class="col-num">${r.bookingCases}</td>
+        <td class="col-num">${r.cases}</td>
         <td class="col-num">${r.extensionCount}</td>
         <td class="col-num">${r.absenceDays}</td>
+        <td class="col-num">${fmtHours(r.hoursMin)}</td>
+        <td class="col-num">${r.bookingCases}</td>
         <td class="col-num">${fmtMoneyZero(r.therapistPay)}</td>
         <td class="col-num">${fmtMoneyZero(r.shopCut)}</td>
         <td>
