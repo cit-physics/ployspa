@@ -179,9 +179,15 @@
        ============================================================ */
     .ps-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      grid-template-columns: repeat(2, 1fr);
       gap: 14px;
       padding: 16px 0 8px;
+    }
+    @media (min-width: 640px) {
+      .ps-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (min-width: 900px) {
+      .ps-grid { grid-template-columns: repeat(4, 1fr); }
     }
     .ps-section-divider {
       margin: 32px 0 24px;
@@ -282,6 +288,22 @@
     .ps-pill-green .dot {
       background: #5FD08A;
       box-shadow: 0 0 0 3px rgba(120,215,155,.22);
+      animation: ps-dot-pulse 1.6s ease-in-out infinite;
+    }
+    @keyframes ps-dot-pulse {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+        box-shadow: 0 0 0 3px rgba(120,215,155,.22);
+      }
+      50% {
+        opacity: 0.7;
+        transform: scale(1.25);
+        box-shadow: 0 0 0 5px rgba(120,215,155,.4);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .ps-pill-green .dot { animation: none !important; }
     }
     .ps-pill-orange {
       background: rgba(11,24,18,.78);
@@ -463,11 +485,11 @@
       </a>
       <a href="https://lin.ee/xNM9TXk" target="_blank" rel="noopener" class="ps-btn ps-btn-line">
         <span class="ps-btn-chip ps-btn-chip-line">L</span>
-        <span data-i18n="ctaBookLine">จองผ่าน LINE</span>
+        <span data-i18n="ctaBookLine">จองผ่าน Line OA</span>
       </a>
       <a href="tel:0853955458" class="ps-btn ps-btn-call">
         <span style="font-size:14px;">☎</span>
-        <span data-i18n="ctaCall">โทร</span>
+        <span data-i18n="ctaCall">โทรจองหมอ</span>
       </a>
     </div>
     <p class="ps-contact-line">LINE @ploymt · โทร 085-395-5458 (คุณพลอย)</p>
