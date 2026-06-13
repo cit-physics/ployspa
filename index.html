@@ -612,6 +612,14 @@
     return g[Math.floor(Math.random() * g.length)];
   }
 
+  // ใส่คำ "น้อง" หน้าชื่อหมอ (ภาษาไทยเท่านั้น) — strip prefix เดิมกัน "น้องน้อง"
+  function nong(th) {
+    const raw = pickName(th);
+    const stripped = String(raw).replace(/^(น้อง|พี่)\s*/, "").trim();
+    if (!stripped) return "?";
+    return getLang() === "th" ? `น้อง${stripped}` : stripped;
+  }
+
   // map statusLabel color → emerald pill CSS class
   function pillClass(color) {
     const map = {
@@ -695,7 +703,7 @@
         </div>
         <div class="ps-card-body">
           <div class="ps-card-branch">${escapeHtml(branchLabelText)}</div>
-          <div class="ps-card-name">${escapeHtml(pickName(th))}</div>
+          <div class="ps-card-name">${escapeHtml(nong(th))}</div>
           ${measureText ? `<div class="ps-card-measure">${escapeHtml(measureText)}</div>` : ""}
           ${reviewCount > 0 ? `<span class="ps-card-review" data-review-id="${escapeHtml(th.id)}">★ ${reviewCount} ${escapeHtml(t("reviewCount"))}</span>` : ""}
           ${th.specialties ? `<div class="ps-card-tag">${escapeHtml(th.specialties)}</div>` : ""}
