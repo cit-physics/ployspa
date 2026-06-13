@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ploy Spa - Our Therapists</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="bg-gradient-to-b from-pink-50 via-white to-pink-50 min-h-screen">
+  <!-- Header -->
+  <header class="bg-white/80 backdrop-blur border-b sticky top-0 z-10">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div>
+        <h1 class="text-xl font-bold text-pink-600" data-i18n="appName"></h1>
+      </div>
+      <div class="flex items-center gap-3">
+        <div id="lang-toggle" class="flex gap-1"></div>
+        <a href="admin.html" class="text-xs text-gray-400 hover:text-gray-600" data-i18n="adminLink"></a>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-6">
+    <!-- Title -->
+    <div class="text-center mb-6">
+      <h2 class="text-2xl sm:text-3xl font-bold text-gray-800" data-i18n="homeTitle"></h2>
+      <p class="text-gray-500 text-sm mt-1" data-i18n="homeSubtitle"></p>
+      <p class="text-pink-600 text-sm mt-1 font-medium" data-i18n="homeContact"></p>
+    </div>
+
+    <!-- Branch filter -->
+    <div id="branch-filter" class="flex flex-wrap gap-2 mb-6 justify-center"></div>
+
+    <!-- Therapist groups -->
+    <div id="grid-wrapper">
+      <div class="text-center py-12">
+        <div class="spinner mx-auto"></div>
+      </div>
+    </div>
+
+    <div id="empty" class="hidden text-center py-16 text-gray-400">
+      <div class="text-5xl mb-3">😴</div>
+      <p data-i18n="noTherapistsAvailable"></p>
+    </div>
+  </main>
+
+  <footer class="text-center py-6 text-xs text-gray-400">
+    <p>© Ploy Spa</p>
+  </footer>
+
+  <script type="module">
+    import { watchTherapists, watchStatuses, watchCheckins, statusLabel, statusBadgeClasses, badgeStyle, badgeLabel, escapeHtml, formatMeasurements, startReadyAtMonitor } from "./js/helpers.js";
+    import { t, getLang, pickName } from "./js/i18n.js";
+
+    let therapists = [];
+    let statuses = {};
+    let checkins = {};       // therapistId → checkin doc (เฉพาะ biz-day ปัจจุบัน)
+    let activeBranch = "all";
+
+    function renderBranchFilter() {
+      const branches = [
+        { key: "all", label: t("allBranches") },
+        { key: "branch1", label: t("branch1") },
+        { key: "branch2", label: t("branch2") },
+      ];
+      document.getElementById("branch-filter").innerHTML = branches.map((b) => `
+        <button data-branch="${b.key}" class="px-4 py-1.5 rounded-full text-sm font-medium border transition ${
+          activeBranch === b.key ? "bg-pink-500 text-white border-pink-500" : "bg-white text-gray-600 border-gray-200 hover:border-pink-300"
+        }">${escapeHtml(b.label)}</button>
+      `).join("");
+      document.querySelectorAll("[data-branch]").forEach((b) => {
+        b.addEventListener("click", () => {
+          activeBranch = b.dataset.branch;
+          renderBranchFilter();
+          renderGrid();
+        });
+      });
+    }
+
+    // Badge priority for sort: top=0, rising=1, new=2, none=3 (lower = earlier)
+    function badgePriority(th) {
+      const b = th.badges || [];
+      if (b.includes("top")) return 0;
+      if (b.includes("rising")) return 1;
+      if (b.includes("new")) return 2;
+      return 3;
+    }
+
+    function sortByBadgeThenName(list) {
+      return list.slice().sort((a, b) => {
+        const pa = badgePriority(a);
+        const pb = badgePriority(b);
+        if (pa !== pb) return pa - pb;
+        return (a.nameTh || a.nameEn || "").localeCompare(b.nameTh || b.nameEn || "");
+      });
+    }
+
+    // สุ่ม url จาก gallery — null ถ้าไม่มี
+    function pickRandomGallery(th) {
+      const g = Array.isArray(th.gallery) ? th.gallery.map(x => x?.url).filter(Boolean) : [];
+      if (g.length === 0) return null;
+      return g[Math.floor(Math.random() * g.length)];
+    }
+
+    function renderCard(th, isAvailable) {
+      const status = statuses[th.id];
+      const lbl = statusLabel(status);
+      const altName = escapeHtml(pickName(th));
+      const isReady = !!checkins[th.id] && status?.status === "ready";
+      const reviewCount = Array.isArray(th.reviews) ? th.reviews.length : 0;
+
+      // Photo: stack 2 layers (profile + random gallery) เฉพาะการ์ดในกลุ่มพร้อม
+      // กลุ่มไม่พร้อม (และ/หรือไม่มี profile) → รูปนิ่ง
+      let photoHtml;
+      if (!th.photoUrl) {
+        photoHtml = `<div class="w-full h-full bg-gray-100 flex items-center justify-center text-gray-300 text-4xl">👤</div>`;
+      } else {
+        const profileImg = `<img src="${escapeHtml(th.photoUrl)}" alt="${altName}" loading="lazy" />`;
+        const secondUrl = isAvailable ? pickRandomGallery(th) : null;
+        const kbClass = isAvailable ? "kb" : "no-anim";
+        if (secondUrl) {
+          photoHtml = `
+            <div class="photo-stack ${kbClass} w-full h-full">
+              <div class="layer active">${profileImg}</div>
+              <div class="layer"><img src="${escapeHtml(secondUrl)}" alt="${altName}" loading="lazy" /></div>
+            </div>`;
+        } else {
+          photoHtml = `<div class="photo-stack ${kbClass} w-full h-full">${profileImg}</div>`;
+        }
+      }
+
+      const badgePulseCls = isReady ? "badge-pulse" : "";
+      const badges = (th.badges || []).map((b) => `
+        <span class="inline-block text-[10px] font-bold px-1.5 py-0.5 rounded ${badgeStyle(b)} ${badgePulseCls}">${escapeHtml(badgeLabel(b))}</span>
+      `).join("");
+
+      const pulseClass = lbl.color === "green" ? "pulse-green" : "";
+
+      return `
+        <a href="therapist.html?id=${encodeURIComponent(th.id)}" class="therapist-card block bg-white rounded-2xl overflow-hidden border border-gray-100 fade-in">
+          <div class="aspect-photo bg-gray-50 relative overflow-hidden">
+            ${photoHtml}
+            <div class="absolute top-2 left-2 flex flex-col gap-1 z-10">${badges}</div>
+            <div class="absolute bottom-2 left-2 right-2 z-10">
+              <span class="inline-flex items-center text-xs font-medium px-2 py-1 rounded-full border ${statusBadgeClasses(lbl.color)} ${pulseClass} bg-white/90 backdrop-blur">
+                ${escapeHtml(lbl.text)}
+              </span>
+            </div>
+          </div>
+          <div class="p-3">
+            <div class="text-xs text-gray-400 mb-1">${escapeHtml(t(th.branch || "branch1"))}</div>
+            <div class="font-semibold text-gray-800 truncate">${escapeHtml(pickName(th))}</div>
+            ${formatMeasurements(th.measurements) ? `<div class="text-pink-500 font-mono text-xs mt-0.5">${formatMeasurements(th.measurements)}</div>` : ""}
+            ${reviewCount > 0 ? `<div class="mt-0.5"><span class="review-count text-xs text-pink-600 hover:text-pink-700 hover:underline cursor-pointer" data-id="${escapeHtml(th.id)}">⭐ ${reviewCount} ${t("reviewCount")}</span></div>` : ""}
+            ${th.specialties ? `<div class="text-xs text-gray-500 truncate mt-0.5">${escapeHtml(th.specialties)}</div>` : ""}
+          </div>
+        </a>
+      `;
+    }
+
+    function renderGroup(list, isAvailable = false) {
+      return `<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+        ${list.map(th => renderCard(th, isAvailable)).join("")}
+      </div>`;
+    }
+
+    function renderGrid() {
+      const filtered = therapists.filter((th) => {
+        if (th.active === false) return false;
+        if (activeBranch !== "all" && th.branch !== activeBranch) return false;
+        return true;
+      });
+
+      const wrapper = document.getElementById("grid-wrapper");
+      const empty = document.getElementById("empty");
+
+      if (filtered.length === 0) {
+        wrapper.innerHTML = "";
+        empty.classList.remove("hidden");
+        return;
+      }
+      empty.classList.add("hidden");
+
+      // Group by status: ready → ready_at → busy → booked → notArrived → unavailable
+      //   - notArrived: status พร้อมบริการ แต่ยังไม่ check-in (เช่น มีจองล่วงหน้า/อาจจะมาทำงาน)
+      //   - unavailable: status="not_ready"/"leave" หรือไม่ระบุ → ท้ายสุด
+      const ready = [], readyAt = [], busy = [], booked = [], notArrived = [], unavailable = [];
+      const PRESENT_STATUSES = new Set(["ready", "ready_at", "busy", "booked", "break"]);
+      filtered.forEach((th) => {
+        const s = statuses[th.id]?.status;
+        const checkedIn = !!checkins[th.id];
+
+        if (!checkedIn) {
+          // status พร้อมบริการแต่ไม่ check-in → "ยังไม่มา"
+          // status "not_ready"/"leave"/null → "ไม่พร้อม" (ท้ายสุด)
+          if (s && PRESENT_STATUSES.has(s)) notArrived.push(th);
+          else unavailable.push(th);
+          return;
+        }
+        // check-in แล้ว → group ตาม status
+        if (s === "ready")    ready.push(th);
+        else if (s === "ready_at") readyAt.push(th);
+        else if (s === "busy") busy.push(th);
+        else if (s === "booked") booked.push(th);
+        else if (s === "break") notArrived.push(th); // พักสักครู่ — กลุ่ม "ยังไม่มา" เพราะจะกลับมา
+        else unavailable.push(th); // status=not_ready/leave/null → "ไม่พร้อม / ลา" ท้ายสุด
+      });
+
+      const readySorted        = sortByBadgeThenName(ready);
+      const readyAtSorted      = sortByBadgeThenName(readyAt);
+      const busySorted         = sortByBadgeThenName(busy);
+      const bookedSorted       = sortByBadgeThenName(booked);
+      const notArrivedSorted   = sortByBadgeThenName(notArrived);
+      const unavailableSorted  = sortByBadgeThenName(unavailable);
+
+      // Available group = ready + ready_at + busy + booked
+      const availableGroup = [...readySorted, ...readyAtSorted, ...busySorted, ...bookedSorted];
+      // Others group: ยังไม่มา ก่อน → ไม่พร้อม/ลา ท้ายสุด
+      const othersGroup = [...notArrivedSorted, ...unavailableSorted];
+
+      const sections = [];
+      if (availableGroup.length) sections.push(renderGroup(availableGroup, true));
+      if (availableGroup.length && othersGroup.length) {
+        sections.push(`<div class="my-8 border-t-2 border-dashed border-pink-200"></div>`);
+      }
+      if (othersGroup.length) sections.push(renderGroup(othersGroup, false));
+
+      wrapper.innerHTML = sections.join("");
+    }
+
+    // Click ตรง "X รีวิว" → ไปหน้าโปรไฟล์ส่วน #reviews โดยตรง (ไม่ใช่ top ของ page)
+    document.getElementById("grid-wrapper").addEventListener("click", (e) => {
+      const link = e.target.closest(".review-count");
+      if (!link) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const id = link.dataset.id;
+      if (id) window.location.href = `therapist.html?id=${encodeURIComponent(id)}#reviews`;
+    });
+
+    watchTherapists((list) => {
+      therapists = list;
+      renderBranchFilter();
+      renderGrid();
+    });
+
+    watchStatuses((map) => {
+      statuses = map;
+      renderGrid();
+    });
+
+    watchCheckins((map) => {
+      checkins = map;
+      renderGrid();
+    });
+
+    // Auto-promote any "ready_at HH:MM" → "ready" when the time passes
+    startReadyAtMonitor(() => statuses);
+
+    // ============================================================
+    // Photo swap — สลับ profile ↔ random gallery ทุก 7s
+    // sync กับ Ken Burns 14s (swap ตอน peak ซูมเข้าสุดและซูมออกสุด)
+    // ทำเฉพาะการ์ดในกลุ่มพร้อม (.kb เท่านั้น) — กลุ่มไม่พร้อมใช้ .no-anim ข้าม
+    // ============================================================
+    function swapPhotoLayers() {
+      document.querySelectorAll(".photo-stack.kb").forEach(stack => {
+        const layers = stack.querySelectorAll(":scope > .layer");
+        if (layers.length < 2) return; // ไม่มี gallery → skip
+        layers.forEach(l => l.classList.toggle("active"));
+      });
+    }
+    // ครั้งแรกหลัง 7s (Ken Burns peak ครั้งแรก) → ทุก 7s
+    setTimeout(() => {
+      swapPhotoLayers();
+      setInterval(swapPhotoLayers, 7000);
+    }, 7000);
+
+    document.addEventListener("langchange", () => {
+      renderBranchFilter();
+      renderGrid();
+    });
+  </script>
+</body>
+</html>

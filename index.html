@@ -4,283 +4,809 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ploy Spa - Our Therapists</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" />
-  <link rel="stylesheet" href="css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&family=Noto+Serif+Thai:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ============================================================
+       Deep Emerald theme tokens
+       ============================================================ */
+    :root {
+      --bg-page: radial-gradient(130% 70% at 50% 0%, #1C3328 0%, #122620 50%, #0C1812 100%);
+      --bg-header: rgba(15,28,22,.82);
+      --ink: #EFF3EE;
+      --sub: #AFC1B6;
+      --muted: #7E9286;
+      --accent: #E0C98A;
+      --accent-text: #E6CF92;
+      --on-accent: #11201A;
+      --card: #192C24;
+      --card-border: #27433A;
+      --line: #22382F;
+      --soft-btn: #192C24;
+      --photo-grad: linear-gradient(160deg, #21392F, #192C24);
+      --photo-glyph: #2E4C40;
+      --photo-label: #5E7A6C;
+      --review-color: #B7A878;
+      --tag-color: #8AA196;
+      --footer-bg: #0E1A15;
+      --footer-text: #6E8276;
+      --line-green: #06C755;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: 'Anuphan', system-ui, sans-serif;
+      background: var(--bg-page);
+      min-height: 100vh;
+      color: var(--ink);
+    }
+
+    /* ============================================================
+       Header
+       ============================================================ */
+    .ps-header {
+      position: sticky; top: 0; z-index: 30;
+      background: var(--bg-header);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--line);
+    }
+    .ps-header-inner {
+      max-width: 1180px; margin: 0 auto;
+      padding: 14px clamp(14px, 4vw, 22px);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .ps-brand { display: flex; flex-direction: column; gap: 2px; }
+    .ps-brand-name {
+      font-family: 'Noto Serif Thai', serif;
+      font-weight: 600; font-size: 22px;
+      color: var(--ink); letter-spacing: -.01em; line-height: 1;
+    }
+    .ps-brand-loc {
+      font-size: 11px; color: var(--accent); font-weight: 600;
+      letter-spacing: .03em;
+    }
+    .ps-header-right { display: flex; align-items: center; gap: 12px; }
+    .ps-lang-toggle {
+      display: flex; background: var(--line);
+      border-radius: 999px; padding: 3px; gap: 2px;
+    }
+    .ps-lang-btn {
+      border: 0; cursor: pointer; font-family: inherit;
+      font-size: 12.5px; font-weight: 600; padding: 5px 12px;
+      border-radius: 999px; transition: .15s;
+      background: transparent; color: var(--muted);
+    }
+    .ps-lang-btn.active {
+      background: var(--accent); color: var(--on-accent);
+      box-shadow: 0 2px 8px -2px rgba(224,201,138,.6);
+    }
+    .ps-admin-link {
+      font-size: 12.5px; color: var(--muted);
+      text-decoration: none; font-weight: 500;
+    }
+    .ps-admin-link:hover { color: var(--sub); }
+
+    /* ============================================================
+       Main + Hero
+       ============================================================ */
+    main {
+      max-width: 1180px; margin: 0 auto;
+      padding: 0 clamp(14px, 4vw, 22px) 60px;
+    }
+    .ps-hero { padding: 38px 0 8px; max-width: 600px; }
+    .ps-hero h1 {
+      margin: 0;
+      font-family: 'Noto Serif Thai', serif;
+      font-weight: 600;
+      font-size: clamp(28px, 5vw, 40px);
+      line-height: 1.2;
+      color: var(--ink);
+      letter-spacing: -.01em;
+    }
+    .ps-hero p.ps-desc {
+      margin: 12px 0 0;
+      font-size: clamp(13.5px, 1.6vw, 16px);
+      line-height: 1.55;
+      color: var(--sub);
+    }
+    .ps-cta-row {
+      display: flex; gap: 10px; margin-top: 22px; flex-wrap: wrap;
+    }
+    .ps-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 9px; white-space: nowrap;
+      border-radius: 13px; font-size: 14px; font-weight: 700;
+      text-decoration: none; transition: .15s;
+      cursor: pointer; border: 0;
+      padding: 13px 22px;
+    }
+    .ps-btn:hover { transform: translateY(-1px); }
+    .ps-btn-chat {
+      background: var(--line-green); color: #ffffff;
+      box-shadow: 0 12px 28px -12px rgba(6,199,85,.6);
+    }
+    .ps-btn-line {
+      background: var(--accent); color: var(--on-accent);
+      box-shadow: 0 12px 28px -12px rgba(224,201,138,.6);
+    }
+    .ps-btn-call {
+      background: var(--soft-btn); color: var(--ink);
+      border: 1px solid var(--card-border);
+      padding: 13px 20px;
+      font-weight: 600;
+    }
+    .ps-btn-chip {
+      width: 18px; height: 18px;
+      border-radius: 5px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 800; flex-shrink: 0;
+    }
+    .ps-btn-chip-line { background: var(--on-accent); color: var(--accent); }
+    .ps-btn-chip-chat { background: rgba(255,255,255,.22); color: #ffffff; font-size: 11px; }
+    .ps-contact-line {
+      margin: 11px 2px 0; font-size: 12px; color: var(--muted);
+    }
+
+    /* ============================================================
+       Filter row
+       ============================================================ */
+    .ps-filter {
+      display: flex; gap: 9px; align-items: center;
+      padding: 26px 0 6px; overflow-x: auto;
+    }
+    .ps-filter::-webkit-scrollbar { height: 0; }
+    .ps-chip {
+      border: 1px solid; cursor: pointer; font-family: inherit;
+      font-size: 13px; font-weight: 600; padding: 8px 18px;
+      border-radius: 999px; white-space: nowrap; transition: .15s;
+      background: var(--soft-btn); color: var(--sub); border-color: var(--card-border);
+    }
+    .ps-chip:hover { color: var(--ink); }
+    .ps-chip.active {
+      background: var(--accent); color: var(--on-accent); border-color: var(--accent);
+    }
+    .ps-count {
+      margin-left: auto; font-size: 12.5px; color: var(--muted);
+      white-space: nowrap; padding-left: 12px;
+    }
+
+    /* ============================================================
+       Grid + Card
+       ============================================================ */
+    .ps-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 14px;
+      padding: 16px 0 8px;
+    }
+    .ps-section-divider {
+      margin: 32px 0 24px;
+      border-top: 1px dashed var(--card-border);
+      opacity: 0.6;
+    }
+
+    .ps-card {
+      display: block;
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 14px 30px -20px rgba(0,0,0,.8);
+      text-decoration: none;
+      color: inherit;
+      transition: transform .15s, box-shadow .15s;
+      animation: ps-fadein .3s ease-out;
+    }
+    .ps-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 20px 40px -15px rgba(0,0,0,.9);
+    }
+    @keyframes ps-fadein {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .ps-photo {
+      position: relative;
+      aspect-ratio: 3/4;
+      background: var(--photo-grad);
+      overflow: hidden;
+    }
+    .ps-photo-empty {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      width: 100%; height: 100%; gap: 8px;
+    }
+    .ps-photo-empty svg { color: var(--photo-glyph); }
+    .ps-photo-empty span {
+      font-family: ui-monospace, 'SF Mono', monospace;
+      font-size: 9.5px; letter-spacing: .06em;
+      color: var(--photo-label); text-transform: uppercase;
+    }
+
+    .ps-badges {
+      position: absolute; top: 9px; left: 9px;
+      display: flex; flex-direction: column; gap: 5px;
+      align-items: flex-start; z-index: 2;
+    }
+    .ps-badge {
+      font-size: 10px; font-weight: 700;
+      padding: 3px 8px; border-radius: 7px;
+      letter-spacing: .02em; white-space: nowrap;
+      line-height: 1.2;
+    }
+    .ps-badge-top {
+      background: var(--accent); color: var(--on-accent);
+      box-shadow: 0 3px 8px -2px rgba(0,0,0,.5);
+    }
+    .ps-badge-new {
+      background: rgba(224,201,138,.16);
+      color: var(--accent-text);
+      border: 1px solid rgba(224,201,138,.45);
+      padding: 2px 8px;
+    }
+    .ps-badge-rising {
+      background: rgba(196,181,253,.16);
+      color: #DDD6FE;
+      border: 1px solid rgba(196,181,253,.45);
+      padding: 2px 8px;
+    }
+
+    .ps-pill-wrap {
+      position: absolute; bottom: 9px; left: 9px; right: 9px; z-index: 2;
+    }
+    .ps-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      max-width: 100%; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+      font-size: 11px; font-weight: 600;
+      padding: 5px 10px;
+      border-radius: 999px;
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      border: 1px solid;
+    }
+    .ps-pill .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      flex-shrink: 0;
+    }
+    /* Status pill variants — emerald-friendly */
+    .ps-pill-green {
+      background: rgba(120,215,155,.16);
+      color: #9DE6B4;
+      border-color: rgba(120,215,155,.32);
+    }
+    .ps-pill-green .dot {
+      background: #5FD08A;
+      box-shadow: 0 0 0 3px rgba(120,215,155,.22);
+    }
+    .ps-pill-orange {
+      background: rgba(11,24,18,.78);
+      color: #FCD08D;
+      border-color: rgba(251,191,36,.32);
+    }
+    .ps-pill-orange .dot { background: #FB923C; }
+    .ps-pill-yellow {
+      background: rgba(11,24,18,.78);
+      color: #FFD787;
+      border-color: rgba(251,191,36,.32);
+    }
+    .ps-pill-yellow .dot { background: #FBBF24; }
+    .ps-pill-indigo {
+      background: rgba(11,24,18,.78);
+      color: #C4B5FD;
+      border-color: rgba(167,139,250,.32);
+    }
+    .ps-pill-indigo .dot { background: #A78BFA; }
+    .ps-pill-blue {
+      background: rgba(11,24,18,.78);
+      color: #93C5FD;
+      border-color: rgba(96,165,250,.32);
+    }
+    .ps-pill-blue .dot { background: #60A5FA; }
+    .ps-pill-purple {
+      background: rgba(11,24,18,.78);
+      color: #DDD6FE;
+      border-color: rgba(196,181,253,.32);
+    }
+    .ps-pill-purple .dot { background: #C4B5FD; }
+    .ps-pill-red {
+      background: rgba(11,24,18,.78);
+      color: #FCA5A5;
+      border-color: rgba(248,113,113,.32);
+    }
+    .ps-pill-red .dot { background: #F87171; }
+    .ps-pill-gray {
+      background: rgba(11,24,18,.78);
+      color: #9CA3AF;
+      border-color: rgba(156,163,175,.32);
+    }
+    .ps-pill-gray .dot { background: #6B7280; }
+
+    .ps-card-body { padding: 12px 13px 14px; }
+    .ps-card-branch {
+      font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+      color: var(--muted); font-weight: 600;
+    }
+    .ps-card-name {
+      font-size: 17px; font-weight: 600; color: var(--ink);
+      margin-top: 2px; line-height: 1.15;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .ps-card-measure {
+      font-size: 12.5px; color: var(--accent); font-weight: 500;
+      margin-top: 5px; letter-spacing: .01em;
+    }
+    .ps-card-review {
+      display: inline-block;
+      font-size: 11.5px; color: var(--review-color);
+      margin-top: 5px; font-weight: 500;
+      cursor: pointer; text-decoration: none;
+    }
+    .ps-card-review:hover { text-decoration: underline; }
+    .ps-card-tag {
+      font-size: 11.5px; color: var(--tag-color);
+      margin-top: 6px; line-height: 1.4;
+      overflow: hidden; display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+
+    /* ============================================================
+       Photo stack — Ken Burns + swap (เก็บจากเดิม)
+       ============================================================ */
+    .photo-stack { position: relative; width: 100%; height: 100%; }
+    .photo-stack .layer {
+      position: absolute; inset: 0;
+      opacity: 0;
+      transition: opacity 1.2s ease-in-out;
+    }
+    .photo-stack .layer.active { opacity: 1; }
+    .photo-stack .layer img,
+    .photo-stack > img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+    }
+    @keyframes kenburns {
+      0%   { transform: scale(1); }
+      50%  { transform: scale(1.12); }
+      100% { transform: scale(1); }
+    }
+    .kb img {
+      will-change: transform;
+      animation: kenburns 14s ease-in-out infinite;
+    }
+    .no-anim img { animation: none !important; }
+    .no-anim .layer { transition: none !important; }
+    @media (prefers-reduced-motion: reduce) {
+      .kb img { animation: none !important; }
+      .photo-stack .layer { transition: none !important; }
+    }
+
+    /* Badge pulse for "ready" */
+    @keyframes badge-pulse {
+      0%, 100% { transform: scale(1); }
+      50%      { transform: scale(1.15); }
+    }
+    .badge-pulse {
+      animation: badge-pulse 1.4s ease-in-out infinite;
+      transform-origin: left center;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .badge-pulse { animation: none !important; }
+    }
+
+    /* ============================================================
+       Loading + Empty + Footer
+       ============================================================ */
+    .ps-loading { text-align: center; padding: 48px 16px; }
+    .ps-spinner {
+      width: 32px; height: 32px;
+      border: 3px solid var(--card-border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+      margin: 0 auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .ps-empty {
+      text-align: center; padding: 64px 16px;
+      color: var(--muted);
+    }
+    .ps-empty-icon { font-size: 48px; margin-bottom: 12px; }
+
+    .ps-footer {
+      text-align: center;
+      border-top: 1px solid var(--line);
+      background: var(--footer-bg);
+      padding: 26px 22px;
+    }
+    .ps-footer p { margin: 0; }
+    .ps-footer-brand {
+      font-family: 'Noto Serif Thai', serif;
+      font-size: 15px; color: var(--accent); font-weight: 500;
+    }
+    .ps-footer-copy {
+      margin-top: 5px !important; font-size: 11.5px; color: var(--footer-text);
+    }
+  </style>
 </head>
-<body class="bg-gradient-to-b from-pink-50 via-white to-pink-50 min-h-screen">
-  <!-- Header -->
-  <header class="bg-white/80 backdrop-blur border-b sticky top-0 z-10">
-    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-      <div>
-        <h1 class="text-xl font-bold text-pink-600" data-i18n="appName"></h1>
-      </div>
-      <div class="flex items-center gap-3">
-        <div id="lang-toggle" class="flex gap-1"></div>
-        <a href="admin.html" class="text-xs text-gray-400 hover:text-gray-600" data-i18n="adminLink"></a>
-      </div>
+<body>
+
+<!-- ===== HEADER ===== -->
+<header class="ps-header">
+  <div class="ps-header-inner">
+    <div class="ps-brand">
+      <span class="ps-brand-name">Ploy Spa</span>
+      <span class="ps-brand-loc" data-i18n="brandLocation">เมืองทองธานี</span>
     </div>
-  </header>
-
-  <main class="max-w-5xl mx-auto px-4 py-6">
-    <!-- Title -->
-    <div class="text-center mb-6">
-      <h2 class="text-2xl sm:text-3xl font-bold text-gray-800" data-i18n="homeTitle"></h2>
-      <p class="text-gray-500 text-sm mt-1" data-i18n="homeSubtitle"></p>
-      <p class="text-pink-600 text-sm mt-1 font-medium" data-i18n="homeContact"></p>
+    <div class="ps-header-right">
+      <div id="ps-lang-toggle" class="ps-lang-toggle"></div>
+      <a href="admin.html" class="ps-admin-link" data-i18n="adminLink">Admin</a>
     </div>
+  </div>
+</header>
 
-    <!-- Branch filter -->
-    <div id="branch-filter" class="flex flex-wrap gap-2 mb-6 justify-center"></div>
+<main>
+  <!-- ===== HERO ===== -->
+  <section class="ps-hero">
+    <h1 data-i18n="heroTitle">น้องหมอของร้าน</h1>
+    <p class="ps-desc" data-i18n="heroDesc">ดูสถานะน้องหมอแบบเรียลไทม์ ว่าง / ไม่ว่าง อัปเดตตลอดวัน</p>
 
-    <!-- Therapist groups -->
-    <div id="grid-wrapper">
-      <div class="text-center py-12">
-        <div class="spinner mx-auto"></div>
-      </div>
+    <div class="ps-cta-row">
+      <a href="https://line.me/ti/g2/FujTHalh48iJJ9CDS_reGEUAu9sRIFrd7Zwpwg?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener" class="ps-btn ps-btn-chat">
+        <span class="ps-btn-chip ps-btn-chip-chat">💬</span>
+        <span data-i18n="ctaOpenChat">Open Chat ร้าน</span>
+      </a>
+      <a href="https://lin.ee/xNM9TXk" target="_blank" rel="noopener" class="ps-btn ps-btn-line">
+        <span class="ps-btn-chip ps-btn-chip-line">L</span>
+        <span data-i18n="ctaBookLine">จองผ่าน LINE</span>
+      </a>
+      <a href="tel:0853955458" class="ps-btn ps-btn-call">
+        <span style="font-size:14px;">☎</span>
+        <span data-i18n="ctaCall">โทร</span>
+      </a>
     </div>
+    <p class="ps-contact-line">LINE @ploymt · โทร 085-395-5458 (คุณพลอย)</p>
+  </section>
 
-    <div id="empty" class="hidden text-center py-16 text-gray-400">
-      <div class="text-5xl mb-3">😴</div>
-      <p data-i18n="noTherapistsAvailable"></p>
+  <!-- ===== FILTER ===== -->
+  <div id="branch-filter" class="ps-filter"></div>
+
+  <!-- ===== GRID ===== -->
+  <div id="grid-wrapper">
+    <div class="ps-loading">
+      <div class="ps-spinner"></div>
     </div>
-  </main>
+  </div>
 
-  <footer class="text-center py-6 text-xs text-gray-400">
-    <p>© Ploy Spa</p>
-  </footer>
+  <div id="empty" class="ps-empty" style="display:none;">
+    <div class="ps-empty-icon">😴</div>
+    <p data-i18n="noTherapistsAvailable"></p>
+  </div>
+</main>
 
-  <script type="module">
-    import { watchTherapists, watchStatuses, watchCheckins, statusLabel, statusBadgeClasses, badgeStyle, badgeLabel, escapeHtml, formatMeasurements, startReadyAtMonitor } from "./js/helpers.js";
-    import { t, getLang, pickName } from "./js/i18n.js";
+<!-- ===== FOOTER ===== -->
+<footer class="ps-footer">
+  <p class="ps-footer-brand">Ploy Spa</p>
+  <p class="ps-footer-copy">© 2026 · <span data-i18n="brandLocation">เมืองทองธานี</span></p>
+</footer>
 
-    let therapists = [];
-    let statuses = {};
-    let checkins = {};       // therapistId → checkin doc (เฉพาะ biz-day ปัจจุบัน)
-    let activeBranch = "all";
+<script type="module">
+  import {
+    watchTherapists, watchStatuses, watchCheckins,
+    statusLabel, escapeHtml,
+    formatMeasurements, startReadyAtMonitor,
+  } from "./js/helpers.js";
+  import { t, getLang, setLang, pickName } from "./js/i18n.js";
 
-    function renderBranchFilter() {
-      const branches = [
-        { key: "all", label: t("allBranches") },
-        { key: "branch1", label: t("branch1") },
-        { key: "branch2", label: t("branch2") },
-      ];
-      document.getElementById("branch-filter").innerHTML = branches.map((b) => `
-        <button data-branch="${b.key}" class="px-4 py-1.5 rounded-full text-sm font-medium border transition ${
-          activeBranch === b.key ? "bg-pink-500 text-white border-pink-500" : "bg-white text-gray-600 border-gray-200 hover:border-pink-300"
-        }">${escapeHtml(b.label)}</button>
-      `).join("");
-      document.querySelectorAll("[data-branch]").forEach((b) => {
-        b.addEventListener("click", () => {
-          activeBranch = b.dataset.branch;
-          renderBranchFilter();
-          renderGrid();
-        });
+  // ============================================================
+  // STATE
+  // ============================================================
+  let therapists = [];
+  let statuses = {};
+  let checkins = {};
+  let activeBranch = "all";
+
+  // ============================================================
+  // LANG TOGGLE (emerald-themed, override default i18n.js toggle)
+  // ============================================================
+  function renderLangToggle() {
+    const lang = getLang();
+    const el = document.getElementById("ps-lang-toggle");
+    el.innerHTML = `
+      <button type="button" class="ps-lang-btn ${lang === "th" ? "active" : ""}" data-lang="th">ไทย</button>
+      <button type="button" class="ps-lang-btn ${lang === "en" ? "active" : ""}" data-lang="en">EN</button>
+    `;
+    el.querySelectorAll("button[data-lang]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        setLang(btn.dataset.lang);
+        renderLangToggle();
       });
-    }
+    });
+  }
 
-    // Badge priority for sort: top=0, rising=1, new=2, none=3 (lower = earlier)
-    function badgePriority(th) {
-      const b = th.badges || [];
-      if (b.includes("top")) return 0;
-      if (b.includes("rising")) return 1;
-      if (b.includes("new")) return 2;
-      return 3;
-    }
-
-    function sortByBadgeThenName(list) {
-      return list.slice().sort((a, b) => {
-        const pa = badgePriority(a);
-        const pb = badgePriority(b);
-        if (pa !== pb) return pa - pb;
-        return (a.nameTh || a.nameEn || "").localeCompare(b.nameTh || b.nameEn || "");
+  // ============================================================
+  // BRANCH FILTER
+  // ============================================================
+  function renderBranchFilter() {
+    const branches = [
+      { key: "all", label: t("allBranches") },
+      { key: "branch1", label: t("branch1") },
+      { key: "branch2", label: t("branch2") },
+    ];
+    const count = countFilteredTherapists();
+    const countText = `${count} ${t("staffCount")}`;
+    const chipsHtml = branches.map(b => `
+      <button data-branch="${b.key}" class="ps-chip ${activeBranch === b.key ? "active" : ""}">${escapeHtml(b.label)}</button>
+    `).join("");
+    document.getElementById("branch-filter").innerHTML = `
+      ${chipsHtml}
+      <span class="ps-count">${escapeHtml(countText)}</span>
+    `;
+    document.querySelectorAll("[data-branch]").forEach(b => {
+      b.addEventListener("click", () => {
+        activeBranch = b.dataset.branch;
+        renderBranchFilter();
+        renderGrid();
       });
-    }
+    });
+  }
 
-    // สุ่ม url จาก gallery — null ถ้าไม่มี
-    function pickRandomGallery(th) {
-      const g = Array.isArray(th.gallery) ? th.gallery.map(x => x?.url).filter(Boolean) : [];
-      if (g.length === 0) return null;
-      return g[Math.floor(Math.random() * g.length)];
-    }
+  function countFilteredTherapists() {
+    return therapists.filter(th => {
+      if (th.active === false) return false;
+      if (activeBranch !== "all" && th.branch !== activeBranch) return false;
+      return true;
+    }).length;
+  }
 
-    function renderCard(th, isAvailable) {
-      const status = statuses[th.id];
-      const lbl = statusLabel(status);
-      const altName = escapeHtml(pickName(th));
-      const isReady = !!checkins[th.id] && status?.status === "ready";
-      const reviewCount = Array.isArray(th.reviews) ? th.reviews.length : 0;
+  // ============================================================
+  // SORT / GROUPING
+  // ============================================================
+  function badgePriority(th) {
+    const b = th.badges || [];
+    if (b.includes("top")) return 0;
+    if (b.includes("rising")) return 1;
+    if (b.includes("new")) return 2;
+    return 3;
+  }
 
-      // Photo: stack 2 layers (profile + random gallery) เฉพาะการ์ดในกลุ่มพร้อม
-      // กลุ่มไม่พร้อม (และ/หรือไม่มี profile) → รูปนิ่ง
-      let photoHtml;
-      if (!th.photoUrl) {
-        photoHtml = `<div class="w-full h-full bg-gray-100 flex items-center justify-center text-gray-300 text-4xl">👤</div>`;
+  function sortByBadgeThenName(list) {
+    return list.slice().sort((a, b) => {
+      const pa = badgePriority(a);
+      const pb = badgePriority(b);
+      if (pa !== pb) return pa - pb;
+      return (a.nameTh || a.nameEn || "").localeCompare(b.nameTh || b.nameEn || "");
+    });
+  }
+
+  function pickRandomGallery(th) {
+    const g = Array.isArray(th.gallery) ? th.gallery.map(x => x?.url).filter(Boolean) : [];
+    if (g.length === 0) return null;
+    return g[Math.floor(Math.random() * g.length)];
+  }
+
+  // map statusLabel color → emerald pill CSS class
+  function pillClass(color) {
+    const map = {
+      green: "ps-pill-green",
+      yellow: "ps-pill-yellow",
+      orange: "ps-pill-orange",
+      indigo: "ps-pill-indigo",
+      blue: "ps-pill-blue",
+      purple: "ps-pill-purple",
+      red: "ps-pill-red",
+      gray: "ps-pill-gray",
+    };
+    return map[color] || "ps-pill-gray";
+  }
+
+  // ============================================================
+  // CARD RENDER
+  // ============================================================
+  function renderCard(th, isAvailable) {
+    const status = statuses[th.id];
+    const lbl = statusLabel(status);
+    const altName = escapeHtml(pickName(th));
+    const isReady = !!checkins[th.id] && status?.status === "ready";
+    const reviewCount = Array.isArray(th.reviews) ? th.reviews.length : 0;
+
+    // Photo HTML — keep Ken Burns + swap behavior
+    let photoHtml;
+    if (!th.photoUrl) {
+      photoHtml = `
+        <div class="ps-photo-empty">
+          <svg width="60" height="60" viewBox="0 0 64 64" fill="currentColor">
+            <circle cx="32" cy="23" r="12"/>
+            <path d="M11 60c0-12 9-19 21-19s21 7 21 19"/>
+          </svg>
+          <span>รูปน้องหมอ</span>
+        </div>`;
+    } else {
+      const profileImg = `<img src="${escapeHtml(th.photoUrl)}" alt="${altName}" loading="lazy" />`;
+      const secondUrl = isAvailable ? pickRandomGallery(th) : null;
+      const kbClass = isAvailable ? "kb" : "no-anim";
+      if (secondUrl) {
+        photoHtml = `
+          <div class="photo-stack ${kbClass}">
+            <div class="layer active">${profileImg}</div>
+            <div class="layer"><img src="${escapeHtml(secondUrl)}" alt="${altName}" loading="lazy" /></div>
+          </div>`;
       } else {
-        const profileImg = `<img src="${escapeHtml(th.photoUrl)}" alt="${altName}" loading="lazy" />`;
-        const secondUrl = isAvailable ? pickRandomGallery(th) : null;
-        const kbClass = isAvailable ? "kb" : "no-anim";
-        if (secondUrl) {
-          photoHtml = `
-            <div class="photo-stack ${kbClass} w-full h-full">
-              <div class="layer active">${profileImg}</div>
-              <div class="layer"><img src="${escapeHtml(secondUrl)}" alt="${altName}" loading="lazy" /></div>
-            </div>`;
-        } else {
-          photoHtml = `<div class="photo-stack ${kbClass} w-full h-full">${profileImg}</div>`;
-        }
+        photoHtml = `<div class="photo-stack ${kbClass}">${profileImg}</div>`;
       }
-
-      const badgePulseCls = isReady ? "badge-pulse" : "";
-      const badges = (th.badges || []).map((b) => `
-        <span class="inline-block text-[10px] font-bold px-1.5 py-0.5 rounded ${badgeStyle(b)} ${badgePulseCls}">${escapeHtml(badgeLabel(b))}</span>
-      `).join("");
-
-      const pulseClass = lbl.color === "green" ? "pulse-green" : "";
-
-      return `
-        <a href="therapist.html?id=${encodeURIComponent(th.id)}" class="therapist-card block bg-white rounded-2xl overflow-hidden border border-gray-100 fade-in">
-          <div class="aspect-photo bg-gray-50 relative overflow-hidden">
-            ${photoHtml}
-            <div class="absolute top-2 left-2 flex flex-col gap-1 z-10">${badges}</div>
-            <div class="absolute bottom-2 left-2 right-2 z-10">
-              <span class="inline-flex items-center text-xs font-medium px-2 py-1 rounded-full border ${statusBadgeClasses(lbl.color)} ${pulseClass} bg-white/90 backdrop-blur">
-                ${escapeHtml(lbl.text)}
-              </span>
-            </div>
-          </div>
-          <div class="p-3">
-            <div class="text-xs text-gray-400 mb-1">${escapeHtml(t(th.branch || "branch1"))}</div>
-            <div class="font-semibold text-gray-800 truncate">${escapeHtml(pickName(th))}</div>
-            ${formatMeasurements(th.measurements) ? `<div class="text-pink-500 font-mono text-xs mt-0.5">${formatMeasurements(th.measurements)}</div>` : ""}
-            ${reviewCount > 0 ? `<div class="mt-0.5"><span class="review-count text-xs text-pink-600 hover:text-pink-700 hover:underline cursor-pointer" data-id="${escapeHtml(th.id)}">⭐ ${reviewCount} ${t("reviewCount")}</span></div>` : ""}
-            ${th.specialties ? `<div class="text-xs text-gray-500 truncate mt-0.5">${escapeHtml(th.specialties)}</div>` : ""}
-          </div>
-        </a>
-      `;
     }
 
-    function renderGroup(list, isAvailable = false) {
-      return `<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-        ${list.map(th => renderCard(th, isAvailable)).join("")}
-      </div>`;
+    // Badges (top / new / rising) — top-left, stacked, short labels to fit 140px card
+    const badgePulseCls = isReady ? "badge-pulse" : "";
+    const badgeClassMap = { top: "ps-badge-top", new: "ps-badge-new", rising: "ps-badge-rising" };
+    const lang = getLang();
+    const badgeShortLabel = (b) => {
+      if (b === "top") return "★ Top";
+      if (b === "new") return lang === "th" ? "มาใหม่" : "New";
+      if (b === "rising") return "Hot";
+      return "";
+    };
+    const badgesHtml = (th.badges || [])
+      .filter(b => badgeClassMap[b])
+      .map(b => `<span class="ps-badge ${badgeClassMap[b]} ${badgePulseCls}">${escapeHtml(badgeShortLabel(b))}</span>`)
+      .join("");
+
+    const pillCls = pillClass(lbl.color);
+    const branchLabelText = t(th.branch || "branch1");
+    const measureText = formatMeasurements(th.measurements);
+
+    return `
+      <a href="therapist.html?id=${encodeURIComponent(th.id)}" class="ps-card">
+        <div class="ps-photo">
+          ${photoHtml}
+          ${badgesHtml ? `<div class="ps-badges">${badgesHtml}</div>` : ""}
+          <div class="ps-pill-wrap">
+            <span class="ps-pill ${pillCls}">
+              <span class="dot"></span>${escapeHtml(lbl.text)}
+            </span>
+          </div>
+        </div>
+        <div class="ps-card-body">
+          <div class="ps-card-branch">${escapeHtml(branchLabelText)}</div>
+          <div class="ps-card-name">${escapeHtml(pickName(th))}</div>
+          ${measureText ? `<div class="ps-card-measure">${escapeHtml(measureText)}</div>` : ""}
+          ${reviewCount > 0 ? `<a href="therapist.html?id=${encodeURIComponent(th.id)}#reviews" class="ps-card-review" data-review-id="${escapeHtml(th.id)}">★ ${reviewCount} ${escapeHtml(t("reviewCount"))}</a>` : ""}
+          ${th.specialties ? `<div class="ps-card-tag">${escapeHtml(th.specialties)}</div>` : ""}
+        </div>
+      </a>
+    `;
+  }
+
+  function renderGroup(list, isAvailable = false) {
+    return `<div class="ps-grid">${list.map(th => renderCard(th, isAvailable)).join("")}</div>`;
+  }
+
+  // ============================================================
+  // GRID RENDER (keep existing 6-status grouping logic)
+  // ============================================================
+  function renderGrid() {
+    const filtered = therapists.filter(th => {
+      if (th.active === false) return false;
+      if (activeBranch !== "all" && th.branch !== activeBranch) return false;
+      return true;
+    });
+
+    const wrapper = document.getElementById("grid-wrapper");
+    const empty = document.getElementById("empty");
+
+    if (filtered.length === 0) {
+      wrapper.innerHTML = "";
+      empty.style.display = "block";
+      return;
     }
+    empty.style.display = "none";
 
-    function renderGrid() {
-      const filtered = therapists.filter((th) => {
-        if (th.active === false) return false;
-        if (activeBranch !== "all" && th.branch !== activeBranch) return false;
-        return true;
-      });
+    // Group by status: ready → ready_at → busy → booked → notArrived → unavailable
+    const ready = [], readyAt = [], busy = [], booked = [], notArrived = [], unavailable = [];
+    const PRESENT_STATUSES = new Set(["ready", "ready_at", "busy", "booked", "break"]);
+    filtered.forEach(th => {
+      const s = statuses[th.id]?.status;
+      const checkedIn = !!checkins[th.id];
 
-      const wrapper = document.getElementById("grid-wrapper");
-      const empty = document.getElementById("empty");
-
-      if (filtered.length === 0) {
-        wrapper.innerHTML = "";
-        empty.classList.remove("hidden");
+      if (!checkedIn) {
+        if (s && PRESENT_STATUSES.has(s)) notArrived.push(th);
+        else unavailable.push(th);
         return;
       }
-      empty.classList.add("hidden");
+      if (s === "ready")          ready.push(th);
+      else if (s === "ready_at")  readyAt.push(th);
+      else if (s === "busy")      busy.push(th);
+      else if (s === "booked")    booked.push(th);
+      else if (s === "break")     notArrived.push(th);
+      else                        unavailable.push(th);
+    });
 
-      // Group by status: ready → ready_at → busy → booked → notArrived → unavailable
-      //   - notArrived: status พร้อมบริการ แต่ยังไม่ check-in (เช่น มีจองล่วงหน้า/อาจจะมาทำงาน)
-      //   - unavailable: status="not_ready"/"leave" หรือไม่ระบุ → ท้ายสุด
-      const ready = [], readyAt = [], busy = [], booked = [], notArrived = [], unavailable = [];
-      const PRESENT_STATUSES = new Set(["ready", "ready_at", "busy", "booked", "break"]);
-      filtered.forEach((th) => {
-        const s = statuses[th.id]?.status;
-        const checkedIn = !!checkins[th.id];
+    const readySorted        = sortByBadgeThenName(ready);
+    const readyAtSorted      = sortByBadgeThenName(readyAt);
+    const busySorted         = sortByBadgeThenName(busy);
+    const bookedSorted       = sortByBadgeThenName(booked);
+    const notArrivedSorted   = sortByBadgeThenName(notArrived);
+    const unavailableSorted  = sortByBadgeThenName(unavailable);
 
-        if (!checkedIn) {
-          // status พร้อมบริการแต่ไม่ check-in → "ยังไม่มา"
-          // status "not_ready"/"leave"/null → "ไม่พร้อม" (ท้ายสุด)
-          if (s && PRESENT_STATUSES.has(s)) notArrived.push(th);
-          else unavailable.push(th);
-          return;
-        }
-        // check-in แล้ว → group ตาม status
-        if (s === "ready")    ready.push(th);
-        else if (s === "ready_at") readyAt.push(th);
-        else if (s === "busy") busy.push(th);
-        else if (s === "booked") booked.push(th);
-        else if (s === "break") notArrived.push(th); // พักสักครู่ — กลุ่ม "ยังไม่มา" เพราะจะกลับมา
-        else unavailable.push(th); // status=not_ready/leave/null → "ไม่พร้อม / ลา" ท้ายสุด
-      });
+    const availableGroup = [...readySorted, ...readyAtSorted, ...busySorted, ...bookedSorted];
+    const othersGroup = [...notArrivedSorted, ...unavailableSorted];
 
-      const readySorted        = sortByBadgeThenName(ready);
-      const readyAtSorted      = sortByBadgeThenName(readyAt);
-      const busySorted         = sortByBadgeThenName(busy);
-      const bookedSorted       = sortByBadgeThenName(booked);
-      const notArrivedSorted   = sortByBadgeThenName(notArrived);
-      const unavailableSorted  = sortByBadgeThenName(unavailable);
-
-      // Available group = ready + ready_at + busy + booked
-      const availableGroup = [...readySorted, ...readyAtSorted, ...busySorted, ...bookedSorted];
-      // Others group: ยังไม่มา ก่อน → ไม่พร้อม/ลา ท้ายสุด
-      const othersGroup = [...notArrivedSorted, ...unavailableSorted];
-
-      const sections = [];
-      if (availableGroup.length) sections.push(renderGroup(availableGroup, true));
-      if (availableGroup.length && othersGroup.length) {
-        sections.push(`<div class="my-8 border-t-2 border-dashed border-pink-200"></div>`);
-      }
-      if (othersGroup.length) sections.push(renderGroup(othersGroup, false));
-
-      wrapper.innerHTML = sections.join("");
+    const sections = [];
+    if (availableGroup.length) sections.push(renderGroup(availableGroup, true));
+    if (availableGroup.length && othersGroup.length) {
+      sections.push(`<div class="ps-section-divider"></div>`);
     }
+    if (othersGroup.length) sections.push(renderGroup(othersGroup, false));
 
-    // Click ตรง "X รีวิว" → ไปหน้าโปรไฟล์ส่วน #reviews โดยตรง (ไม่ใช่ top ของ page)
-    document.getElementById("grid-wrapper").addEventListener("click", (e) => {
-      const link = e.target.closest(".review-count");
-      if (!link) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const id = link.dataset.id;
-      if (id) window.location.href = `therapist.html?id=${encodeURIComponent(id)}#reviews`;
+    wrapper.innerHTML = sections.join("");
+  }
+
+  // ============================================================
+  // EVENTS (review click → therapist.html#reviews)
+  // ============================================================
+  document.getElementById("grid-wrapper").addEventListener("click", e => {
+    const link = e.target.closest("[data-review-id]");
+    if (!link) return;
+    // Default <a href> works — no need to prevent. But stop propagation to avoid bubbling to card's <a>.
+    e.stopPropagation();
+  });
+
+  // ============================================================
+  // WATCHERS
+  // ============================================================
+  watchTherapists(list => {
+    therapists = list;
+    renderBranchFilter();
+    renderGrid();
+  });
+
+  watchStatuses(map => {
+    statuses = map;
+    renderBranchFilter();
+    renderGrid();
+  });
+
+  watchCheckins(map => {
+    checkins = map;
+    renderBranchFilter();
+    renderGrid();
+  });
+
+  // Auto-promote "ready_at HH:MM" → "ready" when the time passes
+  startReadyAtMonitor(() => statuses);
+
+  // ============================================================
+  // PHOTO SWAP — sync with Ken Burns peaks (every 7s)
+  // เฉพาะการ์ดในกลุ่มพร้อม (.kb) — กลุ่มไม่พร้อม (.no-anim) ข้าม
+  // ============================================================
+  function swapPhotoLayers() {
+    document.querySelectorAll(".photo-stack.kb").forEach(stack => {
+      const layers = stack.querySelectorAll(":scope > .layer");
+      if (layers.length < 2) return;
+      layers.forEach(l => l.classList.toggle("active"));
     });
+  }
+  setTimeout(() => {
+    swapPhotoLayers();
+    setInterval(swapPhotoLayers, 7000);
+  }, 7000);
 
-    watchTherapists((list) => {
-      therapists = list;
-      renderBranchFilter();
-      renderGrid();
-    });
+  // ============================================================
+  // INIT
+  // ============================================================
+  renderLangToggle();
 
-    watchStatuses((map) => {
-      statuses = map;
-      renderGrid();
-    });
+  document.addEventListener("langchange", () => {
+    renderLangToggle();
+    renderBranchFilter();
+    renderGrid();
+  });
+</script>
 
-    watchCheckins((map) => {
-      checkins = map;
-      renderGrid();
-    });
-
-    // Auto-promote any "ready_at HH:MM" → "ready" when the time passes
-    startReadyAtMonitor(() => statuses);
-
-    // ============================================================
-    // Photo swap — สลับ profile ↔ random gallery ทุก 7s
-    // sync กับ Ken Burns 14s (swap ตอน peak ซูมเข้าสุดและซูมออกสุด)
-    // ทำเฉพาะการ์ดในกลุ่มพร้อม (.kb เท่านั้น) — กลุ่มไม่พร้อมใช้ .no-anim ข้าม
-    // ============================================================
-    function swapPhotoLayers() {
-      document.querySelectorAll(".photo-stack.kb").forEach(stack => {
-        const layers = stack.querySelectorAll(":scope > .layer");
-        if (layers.length < 2) return; // ไม่มี gallery → skip
-        layers.forEach(l => l.classList.toggle("active"));
-      });
-    }
-    // ครั้งแรกหลัง 7s (Ken Burns peak ครั้งแรก) → ทุก 7s
-    setTimeout(() => {
-      swapPhotoLayers();
-      setInterval(swapPhotoLayers, 7000);
-    }, 7000);
-
-    document.addEventListener("langchange", () => {
-      renderBranchFilter();
-      renderGrid();
-    });
-  </script>
 </body>
 </html>
