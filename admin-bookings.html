@@ -135,11 +135,11 @@
 
 <script type="module">
 import {
-  db, collection, doc, getDocs, query, where, updateDoc, serverTimestamp,
+  db, collection, doc, getDoc, getDocs, query, where, updateDoc, serverTimestamp,
 } from "./js/firebase-config.js";
 import { requireAuth } from "./js/auth.js";
 import {
-  listTherapists, escapeHtml, getBusinessDate, shiftDate,
+  listTherapists, escapeHtml, getBusinessDate, shiftDate, setStatus,
 } from "./js/helpers.js";
 
 await requireAuth();
@@ -326,11 +326,58 @@ async function cancelBooking(id) {
       status: "cancelled",
       updatedAt: serverTimestamp(),
     });
+    // Sync therapist status — กันสถานะ "booked" ค้างไว้ทั้งที่ booking ถูกยกเลิกแล้ว
+    if (b.therapistId) {
+      await syncTherapistStatusAfterBookingChange(b.therapistId, b.bookingDate || selectedDate);
+    }
     await load();
   } catch (err) {
     console.error(err);
     alert("ยกเลิกไม่สำเร็จ: " + err.message);
   }
+}
+
+/**
+ * ถ้าสถานะหมอเป็น "booked" → recompute จาก bookings ที่เหลือ
+ * - ไม่มี booking เหลือ → set ready
+ * - ยังมี booking → set booked ตามอันที่เร็วสุด
+ * (ไม่ยุ่งถ้าสถานะปัจจุบันเป็น busy/ready/อื่นๆ — เคารพ admin manual)
+ */
+async function syncTherapistStatusAfterBookingChange(therapistId, bookingDate) {
+  try {
+    const statusSnap = await getDoc(doc(db, "statuses", therapistId));
+    if (!statusSnap.exists()) return;
+    if (statusSnap.data().status !== "booked") return;
+
+    const snap = await getDocs(query(
+      collection(db, "bookings"),
+      where("therapistId", "==", therapistId),
+      where("bookingDate", "==", bookingDate),
+    ));
+    const open = snap.docs
+      .map(d => d.data())
+      .filter(b => !b.sessionId && (b.status === "pending_confirmation" || b.status === "confirmed"))
+      .sort((a, b) => (a.bookingTime || "").localeCompare(b.bookingTime || ""));
+
+    if (open.length === 0) {
+      await setStatus(therapistId, "ready");
+    } else {
+      const first = open[0];
+      const start = first.bookingTime;
+      const end = first.bookingEndAt || addMinHHMM(start, first.serviceDuration || 60);
+      await setStatus(therapistId, "booked", start, end);
+    }
+  } catch (e) {
+    console.warn("[admin-bookings] sync status failed:", e.message);
+  }
+}
+
+function addMinHHMM(hhmm, minutes) {
+  const [h, m] = hhmm.split(":").map(Number);
+  const total = (h * 60 + m + minutes) % 1440;
+  const eh = Math.floor(total / 60);
+  const em = total % 60;
+  return `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`;
 }
 
 async function restoreBooking(id) {
