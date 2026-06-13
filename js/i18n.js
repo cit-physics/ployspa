@@ -81,7 +81,7 @@ const translations = {
     // Pages
     homeTitle: "น้องหมอของร้าน Ploy Spa เมืองทองธานี",
     homeSubtitle: "ดูสถานะหมอแบบเรียลไทม์",
-    homeContact: "ติดต่อจองหมอที่ Line: poui_spa1 หรือ โทร 085-3955458 คุณพลอย",
+    homeContact: "ติดต่อจองหมอที่ Line OA: @ploymt (มี @ ด้วยนะคะ) หรือ โทร 085-3955458 คุณพลอย",
     bookNow: "จองคิวออนไลน์",
     adminTitle: "จัดการข้อมูลหมอ",
     adminSubtitle: "เพิ่ม / แก้ไข / ลบ ข้อมูลหมอ",
@@ -214,7 +214,7 @@ const translations = {
     // Pages
     homeTitle: "Our Girls at Ploy Spa Muang Thong Thani",
     homeSubtitle: "Real-time availability",
-    homeContact: "Book via LINE: poui_spa1 or call 085-395-5458 (Khun Ploy)",
+    homeContact: "Book via LINE OA: @ploymt or call 085-395-5458 (Khun Ploy)",
     bookNow: "Book Online",
     adminTitle: "Manage Therapists",
     adminSubtitle: "Add / Edit / Delete therapist information",
