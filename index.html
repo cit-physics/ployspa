@@ -675,7 +675,7 @@
           <div class="ps-card-branch">${escapeHtml(branchLabelText)}</div>
           <div class="ps-card-name">${escapeHtml(pickName(th))}</div>
           ${measureText ? `<div class="ps-card-measure">${escapeHtml(measureText)}</div>` : ""}
-          ${reviewCount > 0 ? `<a href="therapist.html?id=${encodeURIComponent(th.id)}#reviews" class="ps-card-review" data-review-id="${escapeHtml(th.id)}">★ ${reviewCount} ${escapeHtml(t("reviewCount"))}</a>` : ""}
+          ${reviewCount > 0 ? `<span class="ps-card-review" data-review-id="${escapeHtml(th.id)}">★ ${reviewCount} ${escapeHtml(t("reviewCount"))}</span>` : ""}
           ${th.specialties ? `<div class="ps-card-tag">${escapeHtml(th.specialties)}</div>` : ""}
         </div>
       </a>
@@ -752,8 +752,11 @@
   document.getElementById("grid-wrapper").addEventListener("click", e => {
     const link = e.target.closest("[data-review-id]");
     if (!link) return;
-    // Default <a href> works — no need to prevent. But stop propagation to avoid bubbling to card's <a>.
+    // span ภายในการ์ด <a> — กัน card link เปิดก่อน แล้วเลื่อนไปที่ #reviews โดยตรง
+    e.preventDefault();
     e.stopPropagation();
+    const id = link.dataset.reviewId;
+    if (id) window.location.href = `therapist.html?id=${encodeURIComponent(id)}#reviews`;
   });
 
   // ============================================================
