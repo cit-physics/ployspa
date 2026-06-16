@@ -160,6 +160,27 @@
           <textarea id="f-note" rows="2" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300"></textarea>
         </div>
 
+        <!-- Languages -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="languages">ภาษา</label>
+          <div class="flex flex-wrap gap-3 text-sm">
+            <label class="inline-flex items-center gap-1.5"><input type="checkbox" id="f-lang-th" value="th" class="text-pink-500" /> 🇹🇭 ไทย</label>
+            <label class="inline-flex items-center gap-1.5"><input type="checkbox" id="f-lang-en" value="en" class="text-pink-500" /> 🇬🇧 English</label>
+            <label class="inline-flex items-center gap-1.5"><input type="checkbox" id="f-lang-zh" value="zh" class="text-pink-500" /> 🇨🇳 中文</label>
+            <label class="inline-flex items-center gap-1.5"><input type="checkbox" id="f-lang-ja" value="ja" class="text-pink-500" /> 🇯🇵 日本語</label>
+            <label class="inline-flex items-center gap-1.5"><input type="checkbox" id="f-lang-ko" value="ko" class="text-pink-500" /> 🇰🇷 한국어</label>
+            <label class="inline-flex items-center gap-1.5"><input type="checkbox" id="f-lang-ru" value="ru" class="text-pink-500" /> 🇷🇺 Русский</label>
+          </div>
+        </div>
+
+        <!-- Voice intro (audio) -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">🎙 เสียงแนะนำตัว (audio)</label>
+          <div id="f-voice-current" class="flex items-center gap-3 mb-2 text-sm text-gray-500"></div>
+          <input type="file" id="f-voice-input" accept="audio/*" class="text-sm" />
+          <p class="text-xs text-gray-400 mt-1">รองรับ MP3, M4A, WAV (สูงสุด 5 MB) — แนะนำ 15-30 วินาที</p>
+        </div>
+
         <!-- Gallery photos -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2" data-i18n="galleryPhotos"></label>
@@ -216,9 +237,11 @@
 
     let editingId = null;
     let pendingPhoto = null; // { url, path } new uploaded profile photo
+    let pendingVoice = null; // { url, path } new uploaded voice intro
     let gallery = []; // [{url, path}]
     let reviews = [];
     let cachedList = []; // last loaded therapist list
+    const LANG_CODES = ["th", "en", "zh", "ja", "ko", "ru"];
 
     const $ = (id) => document.getElementById(id);
     const modal = $("modal");
@@ -270,6 +293,7 @@
           if (!confirm(t("deleteConfirm"))) return;
           const item = (await listTherapists()).find((x) => x.id === b.dataset.del);
           if (item?.photoPath) await removePhoto(item.photoPath);
+          if (item?.voicePath) await removePhoto(item.voicePath);
           for (const g of item?.gallery || []) if (g.path) await removePhoto(g.path);
           for (const r of item?.reviews || []) if (r.path) await removePhoto(r.path);
           await removeTherapist(b.dataset.del);
@@ -282,10 +306,13 @@
     function openModal(id = null) {
       editingId = id;
       pendingPhoto = null;
+      pendingVoice = null;
       gallery = [];
       reviews = [];
       $("form").reset();
       emptyPreview();
+      renderVoice();
+      LANG_CODES.forEach(c => { const el = $(`f-lang-${c}`); if (el) el.checked = false; });
 
       if (!id) {
         $("modal-title").textContent = t("addNewTherapist").replace("+ ", "");
@@ -326,6 +353,12 @@
           $("f-photo-preview").innerHTML = `<img src="${th.photoUrl}" class="w-full h-full object-cover" />`;
           pendingPhoto = { url: th.photoUrl, path: th.photoPath || null };
         }
+        if (th.voiceUrl) {
+          pendingVoice = { url: th.voiceUrl, path: th.voicePath || null };
+        }
+        renderVoice();
+        const langs = Array.isArray(th.languages) ? th.languages : [];
+        LANG_CODES.forEach(c => { const el = $(`f-lang-${c}`); if (el) el.checked = langs.includes(c); });
         gallery = th.gallery || [];
         reviews = th.reviews || [];
         renderGallery();
@@ -355,6 +388,24 @@
           gallery.splice(idx, 1);
           renderGallery();
         });
+      });
+    }
+
+    function renderVoice() {
+      const el = $("f-voice-current");
+      if (!el) return;
+      if (!pendingVoice?.url) {
+        el.innerHTML = `<span class="text-gray-400">ยังไม่มีเสียง</span>`;
+        return;
+      }
+      el.innerHTML = `
+        <audio controls src="${escapeHtml(pendingVoice.url)}" class="h-9"></audio>
+        <button type="button" id="f-voice-remove" class="text-xs text-red-500 hover:text-red-700">ลบ</button>
+      `;
+      $("f-voice-remove").addEventListener("click", async () => {
+        if (pendingVoice?.path) await removePhoto(pendingVoice.path);
+        pendingVoice = null;
+        renderVoice();
       });
     }
 
@@ -420,6 +471,27 @@
       renderReviews();
     });
 
+    $("f-voice-input").addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (file.size > 5 * 1024 * 1024) {
+        alert("ไฟล์เสียงใหญ่เกิน 5 MB กรุณาตัดให้สั้นลง");
+        e.target.value = "";
+        return;
+      }
+      try {
+        const oldPath = pendingVoice?.path;
+        const result = await uploadPhoto(file, "voice");
+        pendingVoice = result;
+        if (oldPath) await removePhoto(oldPath);
+        renderVoice();
+      } catch (err) {
+        alert(`${t("error")}: ${err.message}`);
+      } finally {
+        e.target.value = "";
+      }
+    });
+
     // --- Save ---
     $("form").addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -441,6 +513,8 @@
       if ($("f-badge-new").checked) badges.push("new");
       if ($("f-badge-rising").checked) badges.push("rising");
 
+      const languages = LANG_CODES.filter(c => $(`f-lang-${c}`)?.checked);
+
       const data = {
         code: codeValue,
         nameTh: $("f-name-th").value.trim(),
@@ -460,10 +534,13 @@
           .map(s => s.trim())
           .filter(Boolean),
         note: $("f-note").value.trim(),
+        languages,
         badges,
         active: $("f-active").checked,
         photoUrl: pendingPhoto?.url || null,
         photoPath: pendingPhoto?.path || null,
+        voiceUrl: pendingVoice?.url || null,
+        voicePath: pendingVoice?.path || null,
         gallery,
         reviews,
       };

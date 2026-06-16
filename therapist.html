@@ -4,172 +4,516 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ploy Spa - Therapist</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" />
-  <link rel="stylesheet" href="css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="css/theme.css">
 </head>
-<body class="bg-gradient-to-b from-pink-50 via-white to-pink-50 min-h-screen">
-  <header class="bg-white/80 backdrop-blur border-b sticky top-0 z-10">
-    <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
-      <a href="index.html" class="text-pink-600 hover:text-pink-700 text-sm font-medium" data-i18n="backToList"></a>
-      <div id="lang-toggle" class="flex gap-1"></div>
-    </div>
-  </header>
+<body>
 
-  <main class="max-w-3xl mx-auto px-4 py-6">
-    <div id="content">
-      <div class="text-center py-16"><div class="spinner mx-auto"></div></div>
+<!-- ===== HEADER ===== -->
+<header class="ps-header">
+  <div class="ps-header-inner">
+    <a href="index.html" class="ps-back" data-i18n="backToHomeShort">← กลับ</a>
+    <div class="ps-header-right">
+      <div id="ps-lang-toggle" class="ps-lang-toggle"></div>
     </div>
-  </main>
-
-  <!-- Lightbox -->
-  <div id="lightbox" class="fixed inset-0 bg-black/90 z-50 hidden items-center justify-center p-4 cursor-pointer">
-    <img id="lightbox-img" class="max-w-full max-h-full rounded-lg" />
   </div>
+</header>
 
-  <script type="module">
-    import { getTherapist, watchStatuses, statusLabel, statusBadgeClasses, badgeStyle, badgeLabel, escapeHtml, qs, formatMeasurements } from "./js/helpers.js";
-    import { t, getLang, pickName } from "./js/i18n.js";
-    import { onAuth } from "./js/auth.js";
+<main class="ps-narrow ps-detail">
+  <div id="content">
+    <div class="ps-loading"><div class="ps-spinner"></div></div>
+  </div>
+</main>
 
-    const id = qs("id");
-    let therapist = null;
-    let statuses = {};
-    let isAdmin = false;
+<!-- ===== Sticky CTA (mobile) ===== -->
+<div id="sticky-cta" class="ps-sticky-cta" style="display:none;">
+  <a id="sticky-cta-link" href="https://lin.ee/xNM9TXk" target="_blank" rel="noopener" class="ps-btn ps-btn-line">
+    <span class="ps-btn-chip ps-btn-chip-line">L</span>
+    <span id="sticky-cta-text">จองผ่าน Line OA</span>
+  </a>
+</div>
 
-    onAuth((user) => {
-      isAdmin = !!user;
+<!-- ===== Lightbox ===== -->
+<div id="lightbox" class="ps-lightbox">
+  <button class="ps-lightbox-close" aria-label="close">&times;</button>
+  <span class="ps-lightbox-counter" id="lightbox-counter">1 / 1</span>
+  <button class="ps-lightbox-nav ps-lightbox-prev" aria-label="prev">‹</button>
+  <img id="lightbox-img" class="ps-lightbox-img" alt="" />
+  <button class="ps-lightbox-nav ps-lightbox-next" aria-label="next">›</button>
+</div>
+
+<!-- ===== Audio element (hidden) ===== -->
+<audio id="voice-player" preload="none"></audio>
+
+<script type="module">
+  import {
+    getTherapist, watchStatuses, statusLabel,
+    escapeHtml, qs, getPricing, subscribePricing,
+  } from "./js/helpers.js";
+  import { t, getLang, setLang, pickName } from "./js/i18n.js";
+  import { onAuth } from "./js/auth.js";
+
+  // ============================================================
+  // State
+  // ============================================================
+  const id = qs("id");
+  let therapist = null;
+  let statuses = {};
+  let isAdmin = false;
+  let pricing = getPricing();
+  let lightboxImages = [];
+  let lightboxIndex = 0;
+  let kbSwapTimer = null;
+
+  // ============================================================
+  // Lang toggle (emerald style)
+  // ============================================================
+  function renderLangToggle() {
+    const lang = getLang();
+    const el = document.getElementById("ps-lang-toggle");
+    el.innerHTML = `
+      <button type="button" class="ps-lang-btn ${lang === "th" ? "active" : ""}" data-lang="th">ไทย</button>
+      <button type="button" class="ps-lang-btn ${lang === "en" ? "active" : ""}" data-lang="en">EN</button>
+    `;
+    el.querySelectorAll("button[data-lang]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        setLang(btn.dataset.lang);
+        renderLangToggle();
+      });
+    });
+  }
+
+  // ============================================================
+  // Auth
+  // ============================================================
+  onAuth((user) => {
+    isAdmin = !!user;
+    if (therapist) render();
+  });
+
+  if (!id) {
+    document.getElementById("content").innerHTML =
+      `<div class="ps-empty"><div class="ps-empty-icon">🤔</div><a href="index.html" class="ps-back">${t("backToList")}</a></div>`;
+  }
+
+  // ============================================================
+  // Helpers
+  // ============================================================
+  function nong(th) {
+    const raw = pickName(th);
+    const stripped = String(raw).replace(/^(น้อง|พี่)\s*/, "").trim();
+    if (!stripped) return "?";
+    return getLang() === "th" ? `น้อง${stripped}` : stripped;
+  }
+
+  function pillClass(color) {
+    const map = {
+      green: "ps-pill-green", yellow: "ps-pill-yellow", orange: "ps-pill-orange",
+      indigo: "ps-pill-indigo", blue: "ps-pill-blue", purple: "ps-pill-purple",
+      red: "ps-pill-red", gray: "ps-pill-gray",
+    };
+    return map[color] || "ps-pill-gray";
+  }
+
+  function langFlag(code) {
+    const map = { th: "🇹🇭", en: "🇬🇧", zh: "🇨🇳", ja: "🇯🇵", ko: "🇰🇷", ru: "🇷🇺" };
+    return map[code] || "🌐";
+  }
+
+  function splitSpecialties(s) {
+    if (!s) return [];
+    return s.split(/[,，\/、]/).map(x => x.trim()).filter(Boolean);
+  }
+
+  function buildLightboxList(th) {
+    const out = [];
+    if (th.photoUrl) out.push(th.photoUrl);
+    (th.gallery || []).forEach(g => { if (g?.url) out.push(g.url); });
+    (th.reviews || []).forEach(r => { if (r?.url) out.push(r.url); });
+    return out;
+  }
+
+  function pickPhotoStackImages(th) {
+    const main = th.photoUrl;
+    const gallery = (th.gallery || []).map(g => g?.url).filter(Boolean);
+    if (!main && gallery.length === 0) return [];
+    const list = main ? [main, ...gallery] : gallery;
+    return list.slice(0, 6);
+  }
+
+  // ============================================================
+  // Render
+  // ============================================================
+  function render() {
+    if (!therapist) return;
+    const th = therapist;
+    const status = statuses[th.id];
+    const lbl = statusLabel(status);
+
+    // ----- Photo stack (Ken Burns) -----
+    const stackImgs = pickPhotoStackImages(th);
+    let photoHtml;
+    if (stackImgs.length === 0) {
+      photoHtml = `
+        <div class="ps-photo-empty">
+          <svg width="80" height="80" viewBox="0 0 64 64" fill="currentColor">
+            <circle cx="32" cy="23" r="12"/>
+            <path d="M11 60c0-12 9-19 21-19s21 7 21 19"/>
+          </svg>
+          <span>NO PHOTO</span>
+        </div>`;
+    } else {
+      const layers = stackImgs.map((url, i) =>
+        `<div class="layer ${i === 0 ? "active" : ""}" data-img-idx="${i}"><img src="${escapeHtml(url)}" alt="${escapeHtml(pickName(th))}" loading="lazy" /></div>`
+      ).join("");
+      photoHtml = `<div class="photo-stack kb">${layers}</div>`;
+    }
+
+    // ----- Badges -----
+    const badgeClassMap = { top: "ps-badge-top", new: "ps-badge-new", rising: "ps-badge-rising" };
+    const lang = getLang();
+    const badgeShortLabel = (b) => {
+      if (b === "top") return "★ Top";
+      if (b === "new") return lang === "th" ? "มาใหม่" : "New";
+      if (b === "rising") return "Hot";
+      return "";
+    };
+    const badgesHtml = (th.badges || [])
+      .filter(b => badgeClassMap[b])
+      .map(b => `<span class="ps-badge ${badgeClassMap[b]}">${escapeHtml(badgeShortLabel(b))}</span>`)
+      .join("");
+
+    // ----- Status pill -----
+    const pillCls = pillClass(lbl.color);
+    const pillHtml = `<span class="ps-pill ${pillCls}"><span class="dot"></span>${escapeHtml(lbl.text)}</span>`;
+
+    // ----- Voice button -----
+    const voiceHtml = th.voiceUrl
+      ? `<button class="ps-voice-btn" id="voice-btn" type="button" aria-label="${t("voicePlay")}">▶</button>
+         <span class="ps-voice-label">${t("voicePlay")}</span>`
+      : "";
+
+    // ----- Languages -----
+    const langs = Array.isArray(th.languages) ? th.languages : [];
+    const langsHtml = langs.length
+      ? `<div class="ps-langs">${langs.map(c => `<span class="ps-lang-flag" title="${escapeHtml(c)}">${langFlag(c)}</span>`).join("")}</div>`
+      : "";
+
+    // ----- Specialties chips -----
+    const specs = splitSpecialties(th.specialties);
+    const specsHtml = specs.length
+      ? `<div class="ps-spec-chips">${specs.map(s => `<span class="ps-spec-chip">${escapeHtml(s)}</span>`).join("")}</div>`
+      : "";
+
+    // ----- ETA banner (busy/ready_at) -----
+    let etaHtml = "";
+    if (status?.readyAt && (status.status === "busy" || status.status === "ready_at")) {
+      const suffix = getLang() === "th" ? " น." : "";
+      etaHtml = `
+        <div class="ps-eta">
+          <span>⏳ ${t("etaAvailable")}</span>
+          <span class="ps-eta-time">${escapeHtml(status.readyAt)}${suffix}</span>
+        </div>`;
+    }
+
+    // ----- CTA bar -----
+    const bookText = `${t("bookThisTherapist")} ${escapeHtml(nong(th))}`;
+    const ctaHtml = `
+      <div class="ps-detail-cta">
+        <a href="https://line.me/ti/g2/FujTHalh48iJJ9CDS_reGEUAu9sRIFrd7Zwpwg?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener" class="ps-btn ps-btn-chat">
+          <span class="ps-btn-chip ps-btn-chip-chat">💬</span>
+          <span>${t("ctaOpenChat")}</span>
+        </a>
+        <a href="https://lin.ee/xNM9TXk" target="_blank" rel="noopener" class="ps-btn ps-btn-line">
+          <span class="ps-btn-chip ps-btn-chip-line">L</span>
+          <span>${t("ctaBookLine")}</span>
+        </a>
+        <a href="tel:0853955458" class="ps-btn ps-btn-call">
+          <span style="font-size:14px;">☎</span>
+          <span>${t("ctaCall")}</span>
+        </a>
+      </div>`;
+
+    // ----- About (stat stack) -----
+    const m = th.measurements || {};
+    const measureStr = (m.bust && m.waist && m.hip) ? `${m.bust} — ${m.waist} — ${m.hip}` : "";
+    const heightStr = m.height ? `${m.height} cm` : "";
+    const ageStr = th.age ? `${th.age} ${t("yearsOld")}` : "";
+    const aboutItems = [];
+    if (measureStr) aboutItems.push({ label: t("measurementsHeading"), value: measureStr, accent: true });
+    if (heightStr)  aboutItems.push({ label: t("heightHeading"),       value: heightStr,  accent: true });
+    if (ageStr)     aboutItems.push({ label: t("ageHeading"),          value: ageStr,     accent: false });
+    const aboutHtml = aboutItems.length ? `
+      <h3 class="ps-section-heading">${t("aboutTherapist")}</h3>
+      <div class="ps-stat-stack">
+        ${aboutItems.map(it => `
+          <div class="ps-stat-item">
+            <div class="ps-stat-label">${escapeHtml(it.label)}</div>
+            <div class="${it.accent ? "ps-stat-value" : "ps-stat-value-sub"}">${escapeHtml(it.value)}</div>
+          </div>
+        `).join("")}
+      </div>
+    ` : "";
+
+    // ----- Pricing -----
+    const fc = pricing?.fullCourse || {};
+    const priceRows = Object.keys(fc)
+      .map(Number).filter(n => !isNaN(n))
+      .sort((a, b) => a - b)
+      .map(min => {
+        const rev = fc[String(min)]?.revenue;
+        if (rev == null) return "";
+        return `
+          <div class="ps-price-row">
+            <span class="ps-price-dur">${min} ${t("courseMinutes")}</span>
+            <span class="ps-price-amt">฿${rev.toLocaleString()}</span>
+          </div>`;
+      }).filter(Boolean).join("");
+    const pricingHtml = priceRows ? `
+      <h3 class="ps-section-heading">${t("coursePricing")}</h3>
+      <div class="ps-price-list">${priceRows}</div>
+    ` : "";
+
+    // ----- Gallery -----
+    const galleryItems = (th.gallery || []).filter(g => g?.url);
+    const galleryHtml = galleryItems.length ? `
+      <h3 class="ps-section-heading">${t("photoGallery")}<span class="count">${galleryItems.length}</span></h3>
+      <div class="ps-gallery-grid">
+        ${galleryItems.map(g => `
+          <button type="button" class="ps-gallery-item" data-lb="${escapeHtml(g.url)}">
+            <img src="${escapeHtml(g.url)}" alt="" loading="lazy" />
+          </button>
+        `).join("")}
+      </div>
+    ` : "";
+
+    // ----- Reviews (carousel) -----
+    const reviewItems = (th.reviews || []).filter(r => r?.url);
+    const reviewsHtml = reviewItems.length ? `
+      <h3 class="ps-section-heading" id="reviews" style="scroll-margin-top:80px;">
+        ${t("realCustomerReviews")}
+        <span class="count">${reviewItems.length} ${t("reviewCount")}</span>
+        <span class="ps-review-badge">${t("realCustomer")}</span>
+      </h3>
+      <div class="ps-reviews-carousel">
+        ${reviewItems.map(r => `
+          <button type="button" class="ps-review-item" data-lb="${escapeHtml(r.url)}">
+            <img src="${escapeHtml(r.url)}" alt="" loading="lazy" />
+          </button>
+        `).join("")}
+      </div>
+    ` : "";
+
+    // ----- Compose -----
+    const editBtn = isAdmin
+      ? `<a href="admin.html?edit=${encodeURIComponent(th.id)}" class="ps-edit-btn">✏️ ${t("edit")}</a>`
+      : "";
+    const branchLabelText = t(th.branch || "branch1");
+    const noteHtml = th.note ? `<p class="ps-note">${escapeHtml(th.note)}</p>` : "";
+
+    document.getElementById("content").innerHTML = `
+      <div class="ps-detail-hero">
+        <div class="ps-detail-photo">
+          ${photoHtml}
+          ${badgesHtml ? `<div class="ps-badges">${badgesHtml}</div>` : ""}
+          <div class="ps-pill-wrap">${pillHtml}</div>
+          ${voiceHtml}
+        </div>
+        <div class="ps-detail-body">
+          <div class="ps-detail-branch">${escapeHtml(branchLabelText)}</div>
+          <div class="ps-detail-name-row">
+            <h1 class="ps-detail-name">${escapeHtml(nong(th))}</h1>
+            ${editBtn}
+          </div>
+          ${langsHtml}
+          ${specsHtml}
+          ${etaHtml}
+          ${ctaHtml}
+          ${noteHtml}
+          ${aboutHtml}
+          ${pricingHtml}
+          ${galleryHtml}
+          ${reviewsHtml}
+        </div>
+      </div>
+    `;
+
+    // ----- Wire up: voice -----
+    if (th.voiceUrl) wireVoice(th.voiceUrl);
+
+    // ----- Wire up: gallery + review clicks → lightbox -----
+    lightboxImages = buildLightboxList(th);
+    document.querySelectorAll("[data-lb]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const url = btn.dataset.lb;
+        const idx = lightboxImages.indexOf(url);
+        openLightbox(idx >= 0 ? idx : 0);
+      });
+    });
+    // photo stack click → lightbox at current active layer
+    document.querySelectorAll(".ps-detail-photo .photo-stack .layer img").forEach(img => {
+      img.style.cursor = "pointer";
+      img.addEventListener("click", () => {
+        const url = img.src;
+        const idx = lightboxImages.indexOf(url);
+        openLightbox(idx >= 0 ? idx : 0);
+      });
+    });
+
+    // ----- Sticky CTA on mobile -----
+    const sticky = document.getElementById("sticky-cta");
+    sticky.style.display = "flex";
+    document.getElementById("sticky-cta-text").textContent = bookText;
+
+    // ----- Restart photo swap -----
+    startPhotoSwap();
+  }
+
+  // ============================================================
+  // Voice player
+  // ============================================================
+  function wireVoice(url) {
+    const audio = document.getElementById("voice-player");
+    const btn = document.getElementById("voice-btn");
+    if (!btn) return;
+    audio.src = url;
+    audio.onended = () => { btn.textContent = "▶"; btn.classList.remove("playing"); };
+    btn.addEventListener("click", () => {
+      if (audio.paused) {
+        audio.play().then(() => {
+          btn.textContent = "‖";
+          btn.classList.add("playing");
+        }).catch(err => console.warn("Audio play failed", err));
+      } else {
+        audio.pause();
+        btn.textContent = "▶";
+        btn.classList.remove("playing");
+      }
+    });
+  }
+
+  // ============================================================
+  // Photo swap (Ken Burns layers)
+  // ============================================================
+  function startPhotoSwap() {
+    if (kbSwapTimer) clearInterval(kbSwapTimer);
+    const stack = document.querySelector(".ps-detail-photo .photo-stack.kb");
+    if (!stack) return;
+    const layers = stack.querySelectorAll(":scope > .layer");
+    if (layers.length < 2) return;
+    let i = 0;
+    kbSwapTimer = setInterval(() => {
+      layers.forEach(l => l.classList.remove("active"));
+      i = (i + 1) % layers.length;
+      layers[i].classList.add("active");
+    }, 6000);
+  }
+
+  // ============================================================
+  // Lightbox + navigation
+  // ============================================================
+  const lb = document.getElementById("lightbox");
+  const lbImg = document.getElementById("lightbox-img");
+  const lbCounter = document.getElementById("lightbox-counter");
+  const lbPrev = lb.querySelector(".ps-lightbox-prev");
+  const lbNext = lb.querySelector(".ps-lightbox-next");
+  const lbClose = lb.querySelector(".ps-lightbox-close");
+
+  function openLightbox(idx) {
+    if (!lightboxImages.length) return;
+    lightboxIndex = idx;
+    showLightboxImage();
+    lb.classList.add("open");
+    document.body.style.overflow = "hidden";
+  }
+  function closeLightbox() {
+    lb.classList.remove("open");
+    document.body.style.overflow = "";
+  }
+  function showLightboxImage() {
+    lbImg.src = lightboxImages[lightboxIndex];
+    lbCounter.textContent = `${lightboxIndex + 1} / ${lightboxImages.length}`;
+    const single = lightboxImages.length <= 1;
+    lbPrev.style.display = single ? "none" : "";
+    lbNext.style.display = single ? "none" : "";
+    lbCounter.style.display = single ? "none" : "";
+  }
+  function nextImage() {
+    if (lightboxImages.length <= 1) return;
+    lightboxIndex = (lightboxIndex + 1) % lightboxImages.length;
+    showLightboxImage();
+  }
+  function prevImage() {
+    if (lightboxImages.length <= 1) return;
+    lightboxIndex = (lightboxIndex - 1 + lightboxImages.length) % lightboxImages.length;
+    showLightboxImage();
+  }
+
+  lbPrev.addEventListener("click", (e) => { e.stopPropagation(); prevImage(); });
+  lbNext.addEventListener("click", (e) => { e.stopPropagation(); nextImage(); });
+  lbClose.addEventListener("click", (e) => { e.stopPropagation(); closeLightbox(); });
+  lb.addEventListener("click", (e) => {
+    // close only when click on backdrop (not on nav buttons or img)
+    if (e.target === lb) closeLightbox();
+  });
+  lbImg.addEventListener("click", (e) => e.stopPropagation());
+
+  document.addEventListener("keydown", (e) => {
+    if (!lb.classList.contains("open")) return;
+    if (e.key === "ArrowRight") nextImage();
+    else if (e.key === "ArrowLeft") prevImage();
+    else if (e.key === "Escape") closeLightbox();
+  });
+
+  // Swipe gestures (touch)
+  let touchStartX = null;
+  lb.addEventListener("touchstart", (e) => {
+    if (e.touches.length === 1) touchStartX = e.touches[0].clientX;
+  }, { passive: true });
+  lb.addEventListener("touchend", (e) => {
+    if (touchStartX == null) return;
+    const dx = (e.changedTouches[0]?.clientX ?? touchStartX) - touchStartX;
+    if (Math.abs(dx) > 40) {
+      if (dx < 0) nextImage();
+      else prevImage();
+    }
+    touchStartX = null;
+  });
+
+  // ============================================================
+  // Init
+  // ============================================================
+  renderLangToggle();
+
+  if (id) {
+    getTherapist(id).then((th) => {
+      if (!th) {
+        document.getElementById("content").innerHTML =
+          `<div class="ps-empty"><div class="ps-empty-icon">🤔</div><a href="index.html" class="ps-back">${t("backToList")}</a></div>`;
+        return;
+      }
+      therapist = th;
+      document.title = `${pickName(th)} - Ploy Spa`;
+      render();
+    });
+
+    watchStatuses((map) => {
+      statuses = map;
       if (therapist) render();
     });
 
-    if (!id) {
-      document.getElementById("content").innerHTML = `<div class="text-center py-12"><a href="index.html" class="text-pink-500">${t("backToList")}</a></div>`;
-    }
-
-    function row(label, value) {
-      if (!value && value !== 0) return "";
-      return `<div class="flex justify-between py-1.5 border-b border-gray-100">
-        <span class="text-gray-500 text-sm">${escapeHtml(label)}</span>
-        <span class="text-gray-800 text-sm font-medium">${escapeHtml(value)}</span>
-      </div>`;
-    }
-
-    function render() {
-      if (!therapist) return;
-      const th = therapist;
-      const status = statuses[th.id];
-      const lbl = statusLabel(status);
-      const pulseClass = lbl.color === "green" ? "pulse-green" : "";
-
-      const photo = th.photoUrl
-        ? `<img src="${escapeHtml(th.photoUrl)}" class="w-full h-full object-cover" />`
-        : `<div class="w-full h-full bg-gray-100 flex items-center justify-center text-6xl text-gray-300">👤</div>`;
-
-      const badges = (th.badges || []).map((b) =>
-        `<span class="text-xs font-bold px-2 py-1 rounded ${badgeStyle(b)}">${escapeHtml(badgeLabel(b))}</span>`
-      ).join(" ");
-
-      const measurementsStr = formatMeasurements(th.measurements);
-      const measurementsRows = measurementsStr
-        ? row(t("measurementsLabel"), measurementsStr)
-        : "";
-
-      const galleryHtml = (th.gallery || []).length
-        ? `<section class="mt-6">
-            <h3 class="text-lg font-semibold text-gray-800 mb-3">${t("photoGallery")}</h3>
-            <div class="grid grid-cols-3 gap-2">
-              ${(th.gallery || []).map((g) => `
-                <button type="button" data-img="${escapeHtml(g.url)}" class="aspect-square overflow-hidden rounded-lg bg-gray-100">
-                  <img src="${escapeHtml(g.url)}" class="w-full h-full object-cover hover:scale-105 transition" loading="lazy" />
-                </button>
-              `).join("")}
-            </div>
-          </section>` : "";
-
-      const reviewsHtml = (th.reviews || []).length
-        ? `<section id="reviews" class="mt-6 scroll-mt-20">
-            <h3 class="text-lg font-semibold text-gray-800 mb-3">${t("customerReviews")}</h3>
-            <div class="grid grid-cols-3 gap-2">
-              ${(th.reviews || []).map((r) => `
-                <button type="button" data-img="${escapeHtml(r.url)}" class="aspect-square overflow-hidden rounded-lg bg-gray-100">
-                  <img src="${escapeHtml(r.url)}" class="w-full h-full object-cover hover:scale-105 transition" loading="lazy" />
-                </button>
-              `).join("")}
-            </div>
-          </section>` : "";
-
-      document.getElementById("content").innerHTML = `
-        <div class="bg-white rounded-2xl shadow-sm overflow-hidden fade-in">
-          <div class="aspect-[4/5] sm:aspect-[3/2] bg-gray-50 relative">
-            ${photo}
-            ${badges ? `<div class="absolute top-3 left-3 flex flex-wrap gap-1">${badges}</div>` : ""}
-            <div class="absolute bottom-3 left-3 right-3">
-              <span class="inline-flex items-center text-sm font-medium px-3 py-1.5 rounded-full border ${statusBadgeClasses(lbl.color)} ${pulseClass} bg-white/95 backdrop-blur">
-                ${escapeHtml(lbl.text)}
-              </span>
-            </div>
-          </div>
-
-          <div class="p-5">
-            <div class="text-xs text-gray-400 mb-1">${escapeHtml(t(th.branch || "branch1"))}</div>
-            <div class="flex items-start justify-between gap-3">
-              <h1 class="text-2xl font-bold text-gray-800">${escapeHtml(pickName(th))}</h1>
-              ${isAdmin ? `<a href="admin.html?edit=${encodeURIComponent(th.id)}" class="flex-shrink-0 inline-flex items-center gap-1 px-3 py-1.5 bg-pink-500 hover:bg-pink-600 text-white text-xs font-medium rounded-lg whitespace-nowrap">✏️ ${t("edit")}</a>` : ""}
-            </div>
-            ${th.specialties ? `<p class="text-pink-600 text-sm mt-1">${escapeHtml(th.specialties)}</p>` : ""}
-
-            ${th.note ? `<p class="text-gray-600 text-sm mt-3 leading-relaxed whitespace-pre-line">${escapeHtml(th.note)}</p>` : ""}
-
-            ${(th.age || measurementsRows) ? `
-              <section class="mt-5">
-                <h3 class="text-lg font-semibold text-gray-800 mb-2">${t("aboutTherapist")}</h3>
-                ${row(t("age"), th.age)}
-                ${measurementsRows}
-              </section>
-            ` : ""}
-
-            ${galleryHtml}
-            ${reviewsHtml}
-          </div>
-        </div>
-      `;
-
-      // Lightbox bindings
-      document.querySelectorAll("[data-img]").forEach((b) => {
-        b.addEventListener("click", () => openLightbox(b.dataset.img));
-      });
-    }
-
-    function openLightbox(url) {
-      const lb = document.getElementById("lightbox");
-      document.getElementById("lightbox-img").src = url;
-      lb.classList.remove("hidden");
-      lb.classList.add("flex");
-    }
-
-    document.getElementById("lightbox").addEventListener("click", () => {
-      document.getElementById("lightbox").classList.add("hidden");
-      document.getElementById("lightbox").classList.remove("flex");
+    subscribePricing((cfg) => {
+      pricing = cfg;
+      if (therapist) render();
     });
+  }
 
-    if (id) {
-      getTherapist(id).then((th) => {
-        if (!th) {
-          document.getElementById("content").innerHTML = `<div class="text-center py-12"><a href="index.html" class="text-pink-500">${t("backToList")}</a></div>`;
-          return;
-        }
-        therapist = th;
-        document.title = `${pickName(th)} - Ploy Spa`;
-        render();
-      });
+  document.addEventListener("langchange", () => {
+    renderLangToggle();
+    if (therapist) render();
+  });
+</script>
 
-      watchStatuses((map) => {
-        statuses = map;
-        render();
-      });
-    }
-
-    document.addEventListener("langchange", render);
-  </script>
 </body>
 </html>
