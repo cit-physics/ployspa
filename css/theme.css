@@ -234,31 +234,62 @@ main {
 
 /* Badges */
 .ps-badges {
-  position: absolute; top: 9px; left: 9px;
-  display: flex; flex-direction: column; gap: 5px;
+  position: absolute; top: 10px; left: 10px;
+  display: flex; flex-direction: column; gap: 6px;
   align-items: flex-start; z-index: 2;
 }
 .ps-badge {
-  font-size: 10px; font-weight: 700;
-  padding: 3px 8px; border-radius: 7px;
-  letter-spacing: .02em; white-space: nowrap;
+  font-size: 12px; font-weight: 800;
+  padding: 5px 11px; border-radius: 8px;
+  letter-spacing: .03em; white-space: nowrap;
   line-height: 1.2;
+  text-transform: uppercase;
 }
 .ps-badge-top {
-  background: var(--accent); color: var(--on-accent);
-  box-shadow: 0 3px 8px -2px rgba(0,0,0,.5);
+  background: linear-gradient(135deg, #F4DC9C 0%, #E0C98A 50%, #C9A55F 100%);
+  color: var(--on-accent);
+  box-shadow:
+    0 4px 12px -2px rgba(224,201,138,.55),
+    inset 0 1px 0 rgba(255,255,255,.4);
+  animation: ps-badge-glow 2.4s ease-in-out infinite;
+}
+@keyframes ps-badge-glow {
+  0%, 100% {
+    box-shadow:
+      0 4px 12px -2px rgba(224,201,138,.55),
+      inset 0 1px 0 rgba(255,255,255,.4);
+  }
+  50% {
+    box-shadow:
+      0 4px 18px 0 rgba(224,201,138,.85),
+      inset 0 1px 0 rgba(255,255,255,.5);
+  }
 }
 .ps-badge-new {
-  background: rgba(224,201,138,.16);
+  background: rgba(224,201,138,.20);
   color: var(--accent-text);
-  border: 1px solid rgba(224,201,138,.45);
-  padding: 2px 8px;
+  border: 1px solid rgba(224,201,138,.6);
+  padding: 4px 10px;
+  box-shadow: 0 3px 10px -3px rgba(224,201,138,.4);
 }
 .ps-badge-rising {
-  background: rgba(196,181,253,.16);
-  color: #DDD6FE;
-  border: 1px solid rgba(196,181,253,.45);
-  padding: 2px 8px;
+  background: linear-gradient(135deg, rgba(196,181,253,.28), rgba(167,139,250,.18));
+  color: #E9E4FE;
+  border: 1px solid rgba(196,181,253,.6);
+  padding: 4px 10px;
+  box-shadow: 0 3px 10px -3px rgba(196,181,253,.5);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ps-badge-top { animation: none !important; }
+}
+
+/* Bigger badges on detail page */
+.ps-detail-photo .ps-badges { top: 14px; left: 14px; gap: 8px; }
+.ps-detail-photo .ps-badge {
+  font-size: 13.5px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  letter-spacing: .04em;
 }
 
 /* Pill (status) */
@@ -569,6 +600,11 @@ main {
   display: flex; gap: 9px; flex-wrap: wrap;
 }
 .ps-detail-cta .ps-btn { flex: 1 1 auto; min-width: 0; }
+.ps-detail-cta-bottom {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px dashed var(--card-border);
+}
 
 /* Note */
 .ps-note {

@@ -28,9 +28,13 @@
 
 <!-- ===== Sticky CTA (mobile) ===== -->
 <div id="sticky-cta" class="ps-sticky-cta" style="display:none;">
-  <a id="sticky-cta-link" href="https://lin.ee/xNM9TXk" target="_blank" rel="noopener" class="ps-btn ps-btn-line">
+  <a href="https://lin.ee/xNM9TXk" target="_blank" rel="noopener" class="ps-btn ps-btn-line">
     <span class="ps-btn-chip ps-btn-chip-line">L</span>
-    <span id="sticky-cta-text">จองผ่าน Line OA</span>
+    <span data-i18n="ctaBookLine">จองผ่าน Line OA</span>
+  </a>
+  <a href="tel:0853955458" class="ps-btn ps-btn-call">
+    <span style="font-size:14px;">☎</span>
+    <span data-i18n="ctaCall">โทรจองหมอ</span>
   </a>
 </div>
 
@@ -217,14 +221,18 @@
         </div>`;
     }
 
-    // ----- CTA bar -----
-    const bookText = `${t("bookThisTherapist")} ${escapeHtml(nong(th))}`;
-    const ctaHtml = `
+    // ----- CTA: top (inline, Open Chat only) -----
+    const ctaTopHtml = `
       <div class="ps-detail-cta">
         <a href="https://line.me/ti/g2/FujTHalh48iJJ9CDS_reGEUAu9sRIFrd7Zwpwg?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener" class="ps-btn ps-btn-chat">
           <span class="ps-btn-chip ps-btn-chip-chat">💬</span>
           <span>${t("ctaOpenChat")}</span>
         </a>
+      </div>`;
+
+    // ----- CTA: bottom (call + LINE OA) -----
+    const ctaBottomHtml = `
+      <div class="ps-detail-cta ps-detail-cta-bottom">
         <a href="https://lin.ee/xNM9TXk" target="_blank" rel="noopener" class="ps-btn ps-btn-line">
           <span class="ps-btn-chip ps-btn-chip-line">L</span>
           <span>${t("ctaBookLine")}</span>
@@ -241,9 +249,9 @@
     const heightStr = m.height ? `${m.height} cm` : "";
     const ageStr = th.age ? `${th.age} ${t("yearsOld")}` : "";
     const aboutItems = [];
-    if (measureStr) aboutItems.push({ label: t("measurementsHeading"), value: measureStr, accent: true });
-    if (heightStr)  aboutItems.push({ label: t("heightHeading"),       value: heightStr,  accent: true });
-    if (ageStr)     aboutItems.push({ label: t("ageHeading"),          value: ageStr,     accent: false });
+    if (measureStr) aboutItems.push({ label: t("measurementsHeadingFull"), value: measureStr, accent: true });
+    if (heightStr)  aboutItems.push({ label: t("heightHeading"),           value: heightStr,  accent: true });
+    if (ageStr)     aboutItems.push({ label: t("ageHeading"),              value: ageStr,     accent: false });
     const aboutHtml = aboutItems.length ? `
       <h3 class="ps-section-heading">${t("aboutTherapist")}</h3>
       <div class="ps-stat-stack">
@@ -256,11 +264,10 @@
       </div>
     ` : "";
 
-    // ----- Pricing -----
+    // ----- Pricing (60/90/120 only) -----
     const fc = pricing?.fullCourse || {};
-    const priceRows = Object.keys(fc)
-      .map(Number).filter(n => !isNaN(n))
-      .sort((a, b) => a - b)
+    const PRICING_DURATIONS = [60, 90, 120];
+    const priceRows = PRICING_DURATIONS
       .map(min => {
         const rev = fc[String(min)]?.revenue;
         if (rev == null) return "";
@@ -294,7 +301,6 @@
       <h3 class="ps-section-heading" id="reviews" style="scroll-margin-top:80px;">
         ${t("realCustomerReviews")}
         <span class="count">${reviewItems.length} ${t("reviewCount")}</span>
-        <span class="ps-review-badge">${t("realCustomer")}</span>
       </h3>
       <div class="ps-reviews-carousel">
         ${reviewItems.map(r => `
@@ -329,12 +335,13 @@
           ${langsHtml}
           ${specsHtml}
           ${etaHtml}
-          ${ctaHtml}
+          ${ctaTopHtml}
           ${noteHtml}
           ${aboutHtml}
-          ${pricingHtml}
           ${galleryHtml}
           ${reviewsHtml}
+          ${pricingHtml}
+          ${ctaBottomHtml}
         </div>
       </div>
     `;
@@ -362,9 +369,7 @@
     });
 
     // ----- Sticky CTA on mobile -----
-    const sticky = document.getElementById("sticky-cta");
-    sticky.style.display = "flex";
-    document.getElementById("sticky-cta-text").textContent = bookText;
+    document.getElementById("sticky-cta").style.display = "flex";
 
     // ----- Restart photo swap -----
     startPhotoSwap();
