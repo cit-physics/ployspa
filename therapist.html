@@ -29,8 +29,7 @@
 <!-- ===== Sticky CTA (mobile) ===== -->
 <div id="sticky-cta" class="ps-sticky-cta" style="display:none;">
   <a href="https://lin.ee/xNM9TXk" target="_blank" rel="noopener" class="ps-btn ps-btn-line">
-    <span class="ps-btn-chip ps-btn-chip-line">L</span>
-    <span data-i18n="ctaBookLine">จองผ่าน Line OA</span>
+    <span data-i18n="ctaAskBookLine">สอบถาม/จองผ่าน Line OA</span>
   </a>
   <a href="tel:0853955458" class="ps-btn ps-btn-call">
     <span style="font-size:14px;">☎</span>
@@ -53,7 +52,7 @@
 <script type="module">
   import {
     getTherapist, watchStatuses, statusLabel,
-    escapeHtml, qs, getPricing, subscribePricing,
+    escapeHtml, qs,
   } from "./js/helpers.js";
   import { t, getLang, setLang, pickName } from "./js/i18n.js";
   import { onAuth } from "./js/auth.js";
@@ -65,7 +64,6 @@
   let therapist = null;
   let statuses = {};
   let isAdmin = false;
-  let pricing = getPricing();
   let lightboxImages = [];
   let lightboxIndex = 0;
   let kbSwapTimer = null;
@@ -221,25 +219,12 @@
         </div>`;
     }
 
-    // ----- CTA: top (inline, Open Chat only) -----
-    const ctaTopHtml = `
-      <div class="ps-detail-cta">
+    // ----- CTA: bottom (Open Chat only) -----
+    const ctaBottomHtml = `
+      <div class="ps-detail-cta ps-detail-cta-bottom">
         <a href="https://line.me/ti/g2/FujTHalh48iJJ9CDS_reGEUAu9sRIFrd7Zwpwg?utm_source=invitation&utm_medium=link_copy&utm_campaign=default" target="_blank" rel="noopener" class="ps-btn ps-btn-chat">
           <span class="ps-btn-chip ps-btn-chip-chat">💬</span>
           <span>${t("ctaOpenChat")}</span>
-        </a>
-      </div>`;
-
-    // ----- CTA: bottom (call + LINE OA) -----
-    const ctaBottomHtml = `
-      <div class="ps-detail-cta ps-detail-cta-bottom">
-        <a href="https://lin.ee/xNM9TXk" target="_blank" rel="noopener" class="ps-btn ps-btn-line">
-          <span class="ps-btn-chip ps-btn-chip-line">L</span>
-          <span>${t("ctaBookLine")}</span>
-        </a>
-        <a href="tel:0853955458" class="ps-btn ps-btn-call">
-          <span style="font-size:14px;">☎</span>
-          <span>${t("ctaCall")}</span>
         </a>
       </div>`;
 
@@ -262,24 +247,6 @@
           </div>
         `).join("")}
       </div>
-    ` : "";
-
-    // ----- Pricing (60/90/120 only) -----
-    const fc = pricing?.fullCourse || {};
-    const PRICING_DURATIONS = [60, 90, 120];
-    const priceRows = PRICING_DURATIONS
-      .map(min => {
-        const rev = fc[String(min)]?.revenue;
-        if (rev == null) return "";
-        return `
-          <div class="ps-price-row">
-            <span class="ps-price-dur">${min} ${t("courseMinutes")}</span>
-            <span class="ps-price-amt">฿${rev.toLocaleString()}</span>
-          </div>`;
-      }).filter(Boolean).join("");
-    const pricingHtml = priceRows ? `
-      <h3 class="ps-section-heading">${t("coursePricing")}</h3>
-      <div class="ps-price-list">${priceRows}</div>
     ` : "";
 
     // ----- Gallery -----
@@ -335,12 +302,10 @@
           ${langsHtml}
           ${specsHtml}
           ${etaHtml}
-          ${ctaTopHtml}
           ${noteHtml}
           ${aboutHtml}
           ${galleryHtml}
           ${reviewsHtml}
-          ${pricingHtml}
           ${ctaBottomHtml}
         </div>
       </div>
@@ -505,11 +470,6 @@
 
     watchStatuses((map) => {
       statuses = map;
-      if (therapist) render();
-    });
-
-    subscribePricing((cfg) => {
-      pricing = cfg;
       if (therapist) render();
     });
   }
