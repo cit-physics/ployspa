@@ -93,6 +93,16 @@
       font-family:'Sarabun', sans-serif;
     }
     .cell-time-input:focus { outline:none; border-color:#ec4899; box-shadow:0 0 0 2px #fbcfe8; }
+
+    /* Branch select (แก้ค่าสาขาได้ inline) */
+    .cell-branch-select {
+      width: 50px; padding: 3px 4px;
+      border: 1px solid #f9a8d4; border-radius: 5px;
+      font-size: 13px; text-align: center;
+      background: #fff; cursor: pointer;
+      font-family: inherit;
+    }
+    .cell-branch-select:focus { outline:none; border-color:#ec4899; box-shadow:0 0 0 2px #fbcfe8; }
     .cell-time-pair { display:inline-flex; align-items:center; gap:2px; }
     .cell-time-pair .dash { color:#999; font-size:11px; }
     .cell-ext-input {
@@ -388,9 +398,13 @@ import { requireAuth } from "./js/auth.js";
 import {
   listTherapists, escapeHtml,
   getBusinessDate, shiftDate, isInBizWindow,
-  calcShopCut, SHOP_RATE_TABLE,
+  calcShopCut, estimateRevenue, SHOP_RATE_TABLE,
   setStatus,
 } from "./js/helpers.js";
+
+// Default course used when session has no start time — 60-min standard rate
+// (revenue/shopCut fall back to these instead of 0/0, so admin can save faster)
+const NO_START_DEFAULT_MIN = 60;
 
 await requireAuth();
 
@@ -505,9 +519,11 @@ function branchKey(b) {
   return null;
 }
 
-/** branch ของ session — fallback ใช้ therapist.branch ถ้า session.branch ไม่ valid */
+/** branch ของ session — dirty > session.branch > therapist.branch (fallback) */
 function sessionBranchKey(s) {
-  const bk = branchKey(s.branch);
+  const d = dirty.get(s.id) || {};
+  const raw = d.branch != null ? d.branch : s.branch;
+  const bk = branchKey(raw);
   if (bk) return bk;
   const t = therapists.find(x => x.id === s.therapistId);
   return t ? branchKey(t.branch) : null;
@@ -712,22 +728,34 @@ function totalMinutes(s) {
   return timeDiffMin(s.endTime, s.startTime);
 }
 
-/** default shopCut คำนวณจากเวลาจริง (ก่อน admin override) */
+/** default shopCut คำนวณจากเวลาจริง (ก่อน admin override)
+ *  ถ้าไม่มี startTime → fallback เป็นเรทคอร์ส 60 น. (ให้ admin กรอกน้อยลง) */
 function defaultShopCut(s) {
   const min = totalMinutes(s);
-  if (!min || min <= 0) return 0;
+  if (!min || min <= 0) return calcShopCut(NO_START_DEFAULT_MIN);
   return calcShopCut(min);
+}
+
+/** default revenue — ถ้า DB มีค่าใช้เลย, ถ้าไม่มี fallback:
+ *   - มี startTime + endTime → estimateRevenue(actual minutes)
+ *   - ไม่มี startTime → เรทคอร์ส 60 น. (default ให้ admin กรอกน้อยลง) */
+function defaultRevenue(s) {
+  if (s.revenue) return s.revenue;
+  const min = totalMinutes(s);
+  if (!min || min <= 0) return estimateRevenue(NO_START_DEFAULT_MIN);
+  return estimateRevenue(min);
 }
 
 /** effective values — ดึงค่า dirty > DB ตามลำดับ */
 function effectiveValues(s) {
   const d = dirty.get(s.id) || {};
   return {
+    branch: d.branch != null ? d.branch : (s.branch || ""),
     startTime: d.startTime != null ? d.startTime : (s.startTime || ""),
     endTime: d.endTime != null ? d.endTime : (s.endTime || ""),
     actualEndTime: d.actualEndTime != null ? d.actualEndTime : (s.actualEndTime || ""),
     extensionMinutes: d.extensionMinutes != null ? d.extensionMinutes : (s.extensionMinutes || 0),
-    revenue: d.revenue != null ? d.revenue : (s.revenue || 0),
+    revenue: d.revenue != null ? d.revenue : defaultRevenue(s),
     shopCut: d.shopCut != null ? d.shopCut
               : (s.shopCutOverride != null ? s.shopCutOverride : defaultShopCut(s)),
     adminNote: d.adminNote != null ? d.adminNote : (s.adminNote || ""),
@@ -769,11 +797,18 @@ function renderRow(s, ord) {
   const isModified = dirty.has(s.id);
   const rowCls = isModified ? "modified-row" : "";
 
+  const branchKeyEff = branchKey(ev.branch);
   return `
     <tr class="${rowCls}" data-row="${s.id}">
       <td>${ord}</td>
       <td class="col-name">${escapeHtml(nameStr)}</td>
-      <td>${escapeHtml(branchShort(s.branch))}</td>
+      <td>
+        <select class="cell-branch-select" data-edit="branch" data-id="${s.id}">
+          <option value="branch1" ${branchKeyEff === "branch1" ? "selected" : ""}>1</option>
+          <option value="branch2" ${branchKeyEff === "branch2" ? "selected" : ""}>2</option>
+          <option value="" ${!branchKeyEff ? "selected" : ""}>?</option>
+        </select>
+      </td>
       <td class="col-time">
         <span class="cell-time-pair">
           <input type="text" class="cell-time-input" data-edit="startTime" data-id="${s.id}" value="${escapeHtml(ev.startTime)}" placeholder="HH:MM" />
@@ -870,6 +905,15 @@ function onCellInput(e) {
     cur[field] = val;
   } else if (field === "adminNote") {
     cur.adminNote = input.value;
+  } else if (field === "branch") {
+    const val = input.value; // "branch1" | "branch2" | ""
+    const dbVal = session.branch || "";
+    // ถ้าเลือกกลับไปเท่ากับ DB → ลบออกจาก dirty
+    if (val === dbVal) {
+      delete cur.branch;
+    } else {
+      cur.branch = val;
+    }
   } else if (field === "startTime" || field === "endTime" || field === "actualEndTime") {
     // เก็บค่าดิบไว้ก่อน — normalize ตอน blur
     cur[field] = input.value;
@@ -894,10 +938,14 @@ function onCellInput(e) {
     cur.extensionMinutes = newExtMin;
   }
 
-  dirty.set(sessionId, cur);
+  if (Object.keys(cur).length === 0) {
+    dirty.delete(sessionId);
+  } else {
+    dirty.set(sessionId, cur);
+  }
   // Mark row
   const row = document.querySelector(`[data-row="${sessionId}"]`);
-  if (row) row.classList.add("modified-row");
+  if (row) row.classList.toggle("modified-row", dirty.has(sessionId));
 
   refreshDerivedCells(sessionId);
   updateSaveBar();
@@ -1071,6 +1119,10 @@ async function saveAll() {
       if (changes.isReturningCustomer != null) {
         updates.isReturningCustomer = changes.isReturningCustomer;
       }
+      if (changes.branch != null) {
+        // "" (?) → เก็บ null เพื่อ clear field, "branch1"/"branch2" → เก็บตรง
+        updates.branch = changes.branch || null;
+      }
       // เวลา (normalize อีกครั้งก่อน save กัน raw value หลุดมา)
       if (changes.startTime != null) {
         const n = normalizeTimeInput(changes.startTime);
@@ -1128,6 +1180,7 @@ async function saveAll() {
       }
       if (changes.adminNote != null) s.adminNote = changes.adminNote.trim() || null;
       if (changes.isReturningCustomer != null) s.isReturningCustomer = changes.isReturningCustomer;
+      if (changes.branch != null) s.branch = changes.branch || null;
       if (changes.startTime != null) {
         const n = normalizeTimeInput(changes.startTime);
         if (n) s.startTime = n;
