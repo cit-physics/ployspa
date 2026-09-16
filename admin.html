@@ -255,6 +255,13 @@
     // --- List render ---
     async function refresh() {
       const list = await listTherapists();
+      // เรียง: หมอที่ active อยู่ก่อน, ปิดใช้งาน (active===false) ลงข้างล่าง
+      // JS sort เป็น stable → order เดิม (ตาม code P01, P02...) จะคงไว้ในแต่ละกลุ่ม
+      list.sort((a, b) => {
+        const aInactive = a.active === false ? 1 : 0;
+        const bInactive = b.active === false ? 1 : 0;
+        return aInactive - bInactive;
+      });
       cachedList = list;
       const container = $("therapist-list");
       if (list.length === 0) {
