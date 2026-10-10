@@ -178,6 +178,7 @@
         <option value="all">ทั้งหมด</option>
         <option value="branch1">สาขา 1</option>
         <option value="branch2">สาขา 2</option>
+        <option value="branch3">สาขา 3</option>
       </select>
     </div>
     <div class="flex items-center gap-2 flex-wrap">
@@ -202,6 +203,12 @@
       <div class="sum-card-time" id="sum-2-hours">— ชม.</div>
       <div class="sum-card-money" id="sum-2-shop">฿ —</div>
       <div class="sum-card-meta" id="sum-2-cases">— เคส</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-card-title">🏠 สาขา 3</div>
+      <div class="sum-card-time" id="sum-3-hours">— ชม.</div>
+      <div class="sum-card-money" id="sum-3-shop">฿ —</div>
+      <div class="sum-card-meta" id="sum-3-cases">— เคส</div>
     </div>
     <div class="sum-card" style="border-color:#a8e6cf;">
       <div class="sum-card-title" style="color:#2d6a4f;">🏪 รวมทั้งร้าน</div>
@@ -305,6 +312,7 @@
             <select id="mf-branch">
               <option value="พ1">พ1 — สาขา 1</option>
               <option value="พ2">พ2 — สาขา 2</option>
+              <option value="พ3">พ3 — สาขา 3</option>
             </select>
           </div>
           <div>
@@ -420,12 +428,13 @@ function nong(t) {
 function branchShortFromTh(b) {
   if (b === "branch1") return "1";
   if (b === "branch2") return "2";
+  if (b === "branch3") return "3";
   return "?";
 }
 
-/** เปลี่ยน branch ของ therapist → key "branch1"/"branch2" */
+/** เปลี่ยน branch ของ therapist → key "branch1"/"branch2"/"branch3" */
 function thBranchKey(b) {
-  if (b === "branch1" || b === "branch2") return b;
+  if (b === "branch1" || b === "branch2" || b === "branch3") return b;
   return null;
 }
 
@@ -676,6 +685,7 @@ function renderSummary(rows) {
   const stats = {
     branch1: { hours: 0, shop: 0, cases: 0 },
     branch2: { hours: 0, shop: 0, cases: 0 },
+    branch3: { hours: 0, shop: 0, cases: 0 },
   };
   let totalCases = 0, totalHoursMin = 0, totalReturning = 0,
       totalBooking = 0, totalExt = 0, totalAbsence = 0,
@@ -707,8 +717,12 @@ function renderSummary(rows) {
   $("sum-2-shop").textContent  = `฿ ${fmtMoney(stats.branch2.shop)}`;
   $("sum-2-cases").textContent = `${stats.branch2.cases} เคส`;
 
-  const allHours = stats.branch1.hours + stats.branch2.hours;
-  const allCases = stats.branch1.cases + stats.branch2.cases;
+  $("sum-3-hours").textContent = `${stats.branch3.hours.toFixed(1)} ชม.`;
+  $("sum-3-shop").textContent  = `฿ ${fmtMoney(stats.branch3.shop)}`;
+  $("sum-3-cases").textContent = `${stats.branch3.cases} เคส`;
+
+  const allHours = stats.branch1.hours + stats.branch2.hours + stats.branch3.hours;
+  const allCases = stats.branch1.cases + stats.branch2.cases + stats.branch3.cases;
   $("sum-all-hours").textContent = `${allHours.toFixed(1)} ชม.`;
   $("sum-all-shop").textContent  = `฿ ${fmtMoney(totalShop)}`;
   $("sum-all-cases").textContent = `${allCases} เคส`;
@@ -900,7 +914,7 @@ function showForm(editingId) {
     $("mf-start").value = s.startTime || "";
     $("mf-end").value = s.endTime || "";
     $("mf-actual-end").value = s.actualEndTime || "";
-    $("mf-branch").value = s.branch || (th?.branch === "branch2" ? "พ2" : "พ1");
+    $("mf-branch").value = s.branch || (th?.branch === "branch2" ? "พ2" : th?.branch === "branch3" ? "พ3" : "พ1");
     $("mf-room").value = s.roomNumber || "";
     $("mf-customer").value = s.customerName || "";
     $("mf-payment").value = s.paymentType || "ไม่ระบุ";
@@ -913,7 +927,7 @@ function showForm(editingId) {
     $("mf-start").value = "";
     $("mf-end").value = "";
     $("mf-actual-end").value = "";
-    $("mf-branch").value = th?.branch === "branch2" ? "พ2" : "พ1";
+    $("mf-branch").value = th?.branch === "branch2" ? "พ2" : th?.branch === "branch3" ? "พ3" : "พ1";
     $("mf-room").value = "";
     $("mf-customer").value = "";
     $("mf-payment").value = "ไม่ระบุ";

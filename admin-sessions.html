@@ -113,6 +113,7 @@
           <select id="f-branch" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-300">
             <option value="พ1">พ1 — สาขา 1</option>
             <option value="พ2">พ2 — สาขา 2</option>
+            <option value="พ3">พ3 — สาขา 3</option>
           </select>
         </div>
         <div>
@@ -520,7 +521,7 @@ $("btn-quick-send").addEventListener("click", async () => {
 // Auto-set branch from therapist selection
 $("f-therapist").addEventListener("change", () => {
   const th = therapists.find(t => t.id === $("f-therapist").value);
-  if (th?.branch) $("f-branch").value = th.branch === "branch2" ? "พ2" : "พ1";
+  if (th?.branch) $("f-branch").value = th.branch === "branch2" ? "พ2" : th.branch === "branch3" ? "พ3" : "พ1";
 });
 
 // ─── SAVE ────────────────────────────────────────────

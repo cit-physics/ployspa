@@ -115,7 +115,7 @@
     let timeTargetMode = "ready_at"; // "ready_at" | "booked"
 
     function getActiveByBranch() {
-      const groups = { branch1: [], branch2: [] };
+      const groups = { branch1: [], branch2: [], branch3: [] };
       for (const th of therapists) {
         if (th.active === false) continue;
         const branch = th.branch || "branch1";
@@ -134,7 +134,7 @@
       const container = $("branches-container");
       const sections = [];
 
-      for (const branchKey of ["branch1", "branch2"]) {
+      for (const branchKey of ["branch1", "branch2", "branch3"]) {
         const list = groups[branchKey] || [];
         if (list.length === 0) continue;
         sections.push(`
@@ -231,7 +231,7 @@
 
     function updateSelectAll() {
       const groups = getActiveByBranch();
-      const all = [...(groups.branch1 || []), ...(groups.branch2 || [])];
+      const all = [...(groups.branch1 || []), ...(groups.branch2 || []), ...(groups.branch3 || [])];
       const cb = $("select-all");
       cb.checked = all.length > 0 && all.every((t) => selected.has(t.id));
       cb.indeterminate = !cb.checked && all.some((t) => selected.has(t.id));
@@ -332,7 +332,7 @@
     // Bulk handlers
     $("select-all").addEventListener("change", (e) => {
       const groups = getActiveByBranch();
-      const all = [...(groups.branch1 || []), ...(groups.branch2 || [])];
+      const all = [...(groups.branch1 || []), ...(groups.branch2 || []), ...(groups.branch3 || [])];
       if (e.target.checked) all.forEach((t) => selected.add(t.id));
       else selected.clear();
       render();

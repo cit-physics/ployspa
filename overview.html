@@ -337,6 +337,7 @@
     <span class="bh-chip bh-total" id="bh-all">🏠 รวมทุกสาขา: — ชม.</span>
     <span class="bh-chip" id="bh1">🏠 สาขา 1: — ชม.</span>
     <span class="bh-chip" id="bh2">🏠 สาขา 2: — ชม.</span>
+    <span class="bh-chip" id="bh3">🏠 สาขา 3: — ชม.</span>
   </div>
 </div>
 
@@ -345,6 +346,7 @@
   <button class="tab-btn active" data-branch="all">ทุกสาขา</button>
   <button class="tab-btn" data-branch="branch1">สาขา 1</button>
   <button class="tab-btn" data-branch="branch2">สาขา 2</button>
+  <button class="tab-btn" data-branch="branch3">สาขา 3</button>
 </div>
 
 <!-- LOADING -->
@@ -809,9 +811,9 @@ function render() {
     activeBranch === "all" || t.branch === activeBranch
   );
 
-  // sort: branch1 → branch2 → no branch
+  // sort: branch1 → branch2 → branch3 → no branch
   // ภายใน branch: พร้อม → ไม่พร้อม+มีจอง → ready_at → busy → break → ไม่พร้อม/ลา/ยังไม่มา
-  const branchOrder = { branch1: 0, branch2: 1 };
+  const branchOrder = { branch1: 0, branch2: 1, branch3: 2 };
   const statusOrder = t => {
     const s = statuses[t.id]?.status;
     const hasUpcomingBk = !!findUpcomingBk(allBookings[t.id] || [], allSessions[t.id] || []);
@@ -838,7 +840,7 @@ function render() {
 // ─── SUMMARY BAR ─────────────────────────────────────
 function updateSummary() {
   let busy=0, ready=0, booked=0, readyat=0, none=0;
-  let h1=0, h2=0;
+  let h1=0, h2=0, h3=0;
 
   therapists.forEach(t => {
     const st = statuses[t.id]?.status;
@@ -862,6 +864,7 @@ function updateSummary() {
     const hrs = (allSessions[t.id] || []).reduce((acc, s) => acc + diffH(s.startTime, s.endTime), 0);
     if (t.branch === "branch1") h1 += hrs;
     else if (t.branch === "branch2") h2 += hrs;
+    else if (t.branch === "branch3") h3 += hrs;
   });
 
   document.getElementById("cnt-busy").textContent    = busy;
@@ -869,9 +872,10 @@ function updateSummary() {
   document.getElementById("cnt-booked").textContent  = booked;
   document.getElementById("cnt-readyat").textContent = readyat;
   document.getElementById("cnt-none").textContent    = none;
-  document.getElementById("bh-all").textContent = `🏠 รวมทุกสาขา: ${(h1 + h2).toFixed(1)} ชม.`;
+  document.getElementById("bh-all").textContent = `🏠 รวมทุกสาขา: ${(h1 + h2 + h3).toFixed(1)} ชม.`;
   document.getElementById("bh1").textContent = `🏠 สาขา 1: ${h1.toFixed(1)} ชม.`;
   document.getElementById("bh2").textContent = `🏠 สาขา 2: ${h2.toFixed(1)} ชม.`;
+  document.getElementById("bh3").textContent = `🏠 สาขา 3: ${h3.toFixed(1)} ชม.`;
 }
 
 // ─── TIME AXIS ────────────────────────────────────────
@@ -905,7 +909,7 @@ function buildGantt(list) {
       lastBranch = t.branch;
       const sep = document.createElement("div");
       sep.className = "branch-sep";
-      const branchName = t.branch === "branch2" ? "สาขา 2" : "สาขา 1";
+      const branchName = t.branch === "branch2" ? "สาขา 2" : t.branch === "branch3" ? "สาขา 3" : "สาขา 1";
       sep.innerHTML = `<div class="branch-label-cell">📍 ${esc(branchName)}</div><div class="branch-label-line"></div>`;
       container.appendChild(sep);
     }
@@ -1026,7 +1030,7 @@ function buildTable(list) {
   list.forEach(t => {
     if (t.branch !== lastBranch) {
       lastBranch = t.branch;
-      const branchName = t.branch === "branch2" ? "📍 สาขา 2" : "📍 สาขา 1";
+      const branchName = t.branch === "branch2" ? "📍 สาขา 2" : t.branch === "branch3" ? "📍 สาขา 3" : "📍 สาขา 1";
       const tr = document.createElement("tr");
       tr.className = "tr-branch";
       tr.innerHTML = `<td colspan="11">${esc(branchName)}</td>`;
@@ -1250,7 +1254,9 @@ function openEditModal(sessionId) {
   // Therapist name + branch info
   const t = therapists.find(x => x.id === s.therapistId);
   const tName = t?.nameTh || t?.nameEn || t?.code || s.therapistName || "–";
-  const branchLabel = (s.branch === "พ2" || t?.branch === "branch2") ? "สาขา 2" : "สาขา 1";
+  const branchLabel = (s.branch === "พ2" || t?.branch === "branch2") ? "สาขา 2"
+                    : (s.branch === "พ3" || t?.branch === "branch3") ? "สาขา 3"
+                    : "สาขา 1";
   $$("ov-modal-info").innerHTML =
     `👤 <b>${esc(tName)}</b> · 🏠 ${esc(branchLabel)} · 📅 ${esc(formatDateLabel(s.date || selectedDate))}`;
 

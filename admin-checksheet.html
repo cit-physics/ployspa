@@ -37,6 +37,7 @@
     .bar-value { width:90px; text-align:right; font-weight:600; color:#3d2a35; flex-shrink:0; }
     .bar-fill-1   { background:linear-gradient(90deg,#ec4899,#f472b6); }
     .bar-fill-2   { background:linear-gradient(90deg,#9333ea,#a855f7); }
+    .bar-fill-3   { background:linear-gradient(90deg,#f59e0b,#fbbf24); }
     .bar-fill-all { background:linear-gradient(90deg,#0891b2,#06b6d4); }
 
     /* Table */
@@ -218,6 +219,12 @@
       <div class="sum-card-money" id="sum-2-shop">฿ —</div>
       <div class="sum-card-meta" id="sum-2-cases">— เคส</div>
     </div>
+    <div class="sum-card">
+      <div class="sum-card-title">🏠 สาขา 3</div>
+      <div class="sum-card-time" id="sum-3-hours">— ชม.</div>
+      <div class="sum-card-money" id="sum-3-shop">฿ —</div>
+      <div class="sum-card-meta" id="sum-3-cases">— เคส</div>
+    </div>
     <div class="sum-card" style="border-color:#a8e6cf;">
       <div class="sum-card-title" style="color:#2d6a4f;">🏪 รวมทั้งร้าน</div>
       <div class="sum-card-time" id="sum-all-hours">— ชม.</div>
@@ -230,7 +237,7 @@
   <div class="bg-white border border-pink-100 rounded-xl p-4 mb-4">
     <div class="text-sm font-semibold text-gray-700 mb-3">💰 รายได้เข้าร้านวันนี้</div>
     <div id="bar-chart">
-      <!-- 3 bars: สาขา 1, สาขา 2, รวม -->
+      <!-- 4 bars: สาขา 1, สาขา 2, สาขา 3, รวม -->
     </div>
   </div>
 
@@ -329,6 +336,7 @@
           <select id="mf-branch">
             <option value="พ1">พ1 — สาขา 1</option>
             <option value="พ2">พ2 — สาขา 2</option>
+            <option value="พ3">พ3 — สาขา 3</option>
           </select>
         </div>
         <div>
@@ -505,17 +513,19 @@ function timeDiffMin(t1, t2) {
   return d;
 }
 
-/** branch: "พ1"/"พ2"/"branch1"/"branch2" → "1"/"2" */
+/** branch: "พ1"/"พ2"/"พ3"/"branch1"/"branch2"/"branch3" → "1"/"2"/"3" */
 function branchShort(b) {
   if (b === "พ1" || b === "branch1") return "1";
   if (b === "พ2" || b === "branch2") return "2";
+  if (b === "พ3" || b === "branch3") return "3";
   return b || "?";
 }
 
-/** branch normalize → "branch1"/"branch2" */
+/** branch normalize → "branch1"/"branch2"/"branch3" */
 function branchKey(b) {
   if (b === "พ1" || b === "branch1") return "branch1";
   if (b === "พ2" || b === "branch2") return "branch2";
+  if (b === "พ3" || b === "branch3") return "branch3";
   return null;
 }
 
@@ -627,7 +637,7 @@ function renderAbsences(absences) {
   const onLeave = absences.filter(a => a.reason === "leave");
   const formatList = (list) => list.map(a => {
     const name = stripPrefix(a.therapistName || a.therapistCode || "?");
-    const branch = a.branch === "branch1" ? "ส.1" : a.branch === "branch2" ? "ส.2" : "";
+    const branch = a.branch === "branch1" ? "ส.1" : a.branch === "branch2" ? "ส.2" : a.branch === "branch3" ? "ส.3" : "";
     return `<span class="inline-block px-2 py-0.5 mr-1 mb-1 bg-pink-50 border border-pink-100 rounded-full text-xs">น้อง${escapeHtml(name)}${branch ? ` <span class="text-gray-400">· ${branch}</span>` : ""}</span>`;
   }).join("");
 
@@ -806,6 +816,7 @@ function renderRow(s, ord) {
         <select class="cell-branch-select" data-edit="branch" data-id="${s.id}">
           <option value="branch1" ${branchKeyEff === "branch1" ? "selected" : ""}>1</option>
           <option value="branch2" ${branchKeyEff === "branch2" ? "selected" : ""}>2</option>
+          <option value="branch3" ${branchKeyEff === "branch3" ? "selected" : ""}>3</option>
           <option value="" ${!branchKeyEff ? "selected" : ""}>?</option>
         </select>
       </td>
@@ -906,7 +917,7 @@ function onCellInput(e) {
   } else if (field === "adminNote") {
     cur.adminNote = input.value;
   } else if (field === "branch") {
-    const val = input.value; // "branch1" | "branch2" | ""
+    const val = input.value; // "branch1" | "branch2" | "branch3" | ""
     const dbVal = session.branch || "";
     // ถ้าเลือกกลับไปเท่ากับ DB → ลบออกจาก dirty
     if (val === dbVal) {
@@ -997,7 +1008,11 @@ function onCellBlur(e) {
 // SUMMARY + BAR CHART
 // =========================================================
 function renderSummary() {
-  const stats = { branch1: { hours:0, shop:0, cases:0 }, branch2: { hours:0, shop:0, cases:0 } };
+  const stats = {
+    branch1: { hours:0, shop:0, cases:0 },
+    branch2: { hours:0, shop:0, cases:0 },
+    branch3: { hours:0, shop:0, cases:0 },
+  };
   let totalRevenue = 0, totalShop = 0, totalPay = 0;
 
   sessions.forEach(s => {
@@ -1031,14 +1046,18 @@ function renderSummary() {
   $("sum-2-shop").textContent  = `฿ ${fmtMoney(stats.branch2.shop)}`;
   $("sum-2-cases").textContent = `${stats.branch2.cases} เคส`;
 
-  const allHours = stats.branch1.hours + stats.branch2.hours;
-  const allCases = stats.branch1.cases + stats.branch2.cases;
+  $("sum-3-hours").textContent = `${stats.branch3.hours.toFixed(1)} ชม.`;
+  $("sum-3-shop").textContent  = `฿ ${fmtMoney(stats.branch3.shop)}`;
+  $("sum-3-cases").textContent = `${stats.branch3.cases} เคส`;
+
+  const allHours = stats.branch1.hours + stats.branch2.hours + stats.branch3.hours;
+  const allCases = stats.branch1.cases + stats.branch2.cases + stats.branch3.cases;
   $("sum-all-hours").textContent = `${allHours.toFixed(1)} ชม.`;
   $("sum-all-shop").textContent  = `฿ ${fmtMoney(totalShop)}`;
   $("sum-all-cases").textContent = `${allCases} เคส`;
 
-  // Bar chart — 3 bars: สาขา 1, สาขา 2, รวม (รวมเป็น max ใน chart)
-  const max = Math.max(stats.branch1.shop, stats.branch2.shop, totalShop, 1);
+  // Bar chart — 4 bars: สาขา 1, สาขา 2, สาขา 3, รวม (รวมเป็น max ใน chart)
+  const max = Math.max(stats.branch1.shop, stats.branch2.shop, stats.branch3.shop, totalShop, 1);
   $("bar-chart").innerHTML = `
     <div class="bar-row">
       <span class="bar-label">สาขา 1</span>
@@ -1049,6 +1068,11 @@ function renderSummary() {
       <span class="bar-label">สาขา 2</span>
       <div class="bar-track"><div class="bar-fill bar-fill-2" style="width:${(stats.branch2.shop/max*100).toFixed(1)}%"></div></div>
       <span class="bar-value">฿${fmtMoney(stats.branch2.shop)}</span>
+    </div>
+    <div class="bar-row">
+      <span class="bar-label">สาขา 3</span>
+      <div class="bar-track"><div class="bar-fill bar-fill-3" style="width:${(stats.branch3.shop/max*100).toFixed(1)}%"></div></div>
+      <span class="bar-value">฿${fmtMoney(stats.branch3.shop)}</span>
     </div>
     <div class="bar-row">
       <span class="bar-label" style="color:#0e7c5a;">🏪 รวม</span>
@@ -1120,7 +1144,7 @@ async function saveAll() {
         updates.isReturningCustomer = changes.isReturningCustomer;
       }
       if (changes.branch != null) {
-        // "" (?) → เก็บ null เพื่อ clear field, "branch1"/"branch2" → เก็บตรง
+        // "" (?) → เก็บ null เพื่อ clear field, "branch1"/"branch2"/"branch3" → เก็บตรง
         updates.branch = changes.branch || null;
       }
       // เวลา (normalize อีกครั้งก่อน save กัน raw value หลุดมา)
@@ -1257,6 +1281,7 @@ $("mf-therapist").addEventListener("change", () => {
   const b = opt?.dataset.branch;
   if (b === "branch1") $("mf-branch").value = "พ1";
   else if (b === "branch2") $("mf-branch").value = "พ2";
+  else if (b === "branch3") $("mf-branch").value = "พ3";
 });
 
 // เช็คเวลาทับซ้อนกับ session อื่นของหมอคนเดียวกัน (วันเดียวกัน)
