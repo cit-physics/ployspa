@@ -132,6 +132,13 @@ main {
   font-family: inherit;
 }
 .ps-btn:hover { transform: translateY(-1px); }
+.ps-btn-pick {
+  background: linear-gradient(135deg, #E0C98A, #C9A55F);
+  color: var(--on-accent);
+  box-shadow: 0 12px 28px -12px rgba(224,201,138,.65);
+  font-weight: 700;
+}
+.ps-btn-chip-pick { background: rgba(255,255,255,.25); color: inherit; }
 .ps-btn-chat {
   background: var(--line-green); color: #ffffff;
   box-shadow: 0 12px 28px -12px rgba(6,199,85,.6);

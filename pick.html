@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <title>เลือกน้อง — Ploy Spa</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="css/theme.css">
+  <style>
+    html, body { height: 100%; overflow: hidden; margin: 0; }
+    body { background: #000; }
+
+    .pick-root { position: fixed; inset: 0; display: flex; flex-direction: column; background: #000; }
+
+    /* Top bar: close + filter tabs */
+    .pick-top {
+      position: absolute; top: 0; left: 0; right: 0; z-index: 20;
+      padding: calc(env(safe-area-inset-top, 10px) + 10px) 60px 14px 60px;
+      background: linear-gradient(180deg, rgba(0,0,0,.55) 0%, rgba(0,0,0,0) 100%);
+      pointer-events: none;
+    }
+    .pick-top > * { pointer-events: auto; }
+    .pick-close {
+      position: absolute;
+      top: calc(env(safe-area-inset-top, 10px) + 10px);
+      left: 12px;
+      width: 42px; height: 42px;
+      border: none; background: rgba(0,0,0,.55);
+      color: #fff; font-size: 20px; line-height: 42px;
+      border-radius: 50%; cursor: pointer;
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    }
+    .pick-tabs {
+      display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;
+    }
+    .pick-tab {
+      padding: 8px 14px;
+      font-family: inherit; font-size: 13px; font-weight: 500;
+      border: 1px solid rgba(255,255,255,.3);
+      background: rgba(0,0,0,.45); color: #fff;
+      border-radius: 999px; cursor: pointer;
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      white-space: nowrap;
+    }
+    .pick-tab.active {
+      background: var(--accent); color: var(--on-accent);
+      border-color: var(--accent);
+      font-weight: 700;
+    }
+
+    /* Swiper: horizontal scroll-snap */
+    .pick-track {
+      display: flex; flex: 1 1 auto;
+      overflow-x: auto; overflow-y: hidden;
+      scroll-snap-type: x mandatory;
+      scroll-behavior: smooth;
+      scrollbar-width: none; -ms-overflow-style: none;
+    }
+    .pick-track::-webkit-scrollbar { display: none; }
+
+    .pick-card {
+      flex: 0 0 100%;
+      height: 100%;
+      position: relative;
+      scroll-snap-align: center;
+      scroll-snap-stop: always;
+      overflow: hidden;
+      background: #152620;
+    }
+    .pick-photo {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover; object-position: center 25%;
+      display: block;
+    }
+    .pick-placeholder {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Noto Serif Thai', serif;
+      font-size: 180px; font-weight: 700;
+      color: rgba(224,201,138,.3);
+      background: linear-gradient(160deg,#21392F,#152620);
+    }
+
+    /* Overlay: badges + name + branch + status */
+    .pick-overlay {
+      position: absolute; left: 0; right: 0; bottom: 0;
+      padding: 100px 22px calc(env(safe-area-inset-bottom, 16px) + 120px);
+      background: linear-gradient(0deg, rgba(0,0,0,.90) 0%, rgba(0,0,0,.5) 55%, rgba(0,0,0,0) 100%);
+      color: #fff;
+      pointer-events: none;
+    }
+    .pick-badges { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+    .pick-badge {
+      padding: 4px 10px; font-size: 12px; font-weight: 700;
+      border-radius: 999px; letter-spacing: .3px;
+    }
+    .pick-badge-top    { background: linear-gradient(135deg,#F4DC9C,#C9A55F); color: #11201A; }
+    .pick-badge-new    { background: #F4B8D5; color: #5C1F38; }
+    .pick-badge-rising { background: linear-gradient(135deg,#C4B5FD,#A78BFA); color: #2A1B5C; }
+
+    .pick-name {
+      font-family: 'Noto Serif Thai', serif;
+      font-size: clamp(28px, 7vw, 40px); font-weight: 600;
+      line-height: 1.1; margin: 0 0 8px;
+      text-shadow: 0 2px 10px rgba(0,0,0,.4);
+    }
+    .pick-meta {
+      display: flex; gap: 10px; align-items: center;
+      font-size: 15px; color: rgba(255,255,255,.9);
+      margin-bottom: 12px;
+    }
+    .pick-dot-sep { width: 4px; height: 4px; background: rgba(255,255,255,.5); border-radius: 50%; }
+
+    .pick-status {
+      display: inline-block;
+      padding: 7px 14px; font-size: 13px; font-weight: 500;
+      border-radius: 999px;
+      background: rgba(255,255,255,.15); color: #fff;
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,.2);
+    }
+    .pick-status-ready   { background: rgba(76,175,80,.35);   border-color: rgba(76,175,80,.6); }
+    .pick-status-busy    { background: rgba(255,152,0,.35);   border-color: rgba(255,152,0,.6); }
+    .pick-status-booked  { background: rgba(103,80,164,.35);  border-color: rgba(103,80,164,.6); }
+    .pick-status-break   { background: rgba(33,150,243,.35);  border-color: rgba(33,150,243,.6); }
+    .pick-status-ready_at{ background: rgba(255,235,59,.3);   border-color: rgba(255,235,59,.5); color: #fff; }
+
+    /* Dots pager */
+    .pick-dots {
+      position: absolute; left: 0; right: 0;
+      bottom: calc(env(safe-area-inset-bottom, 16px) + 82px);
+      display: flex; justify-content: center; gap: 6px;
+      z-index: 15; pointer-events: none;
+    }
+    .pick-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: rgba(255,255,255,.4);
+      transition: all .25s ease;
+    }
+    .pick-dot.active { background: var(--accent); width: 22px; border-radius: 3px; }
+
+    /* Choose button */
+    .pick-bottom {
+      position: absolute; left: 0; right: 0; bottom: 0;
+      z-index: 20;
+      padding: 10px 16px calc(env(safe-area-inset-bottom, 16px) + 14px);
+    }
+    .pick-choose {
+      display: block; width: 100%;
+      padding: 16px;
+      border: none; cursor: pointer;
+      background: var(--accent); color: var(--on-accent);
+      font-family: inherit; font-size: 16px; font-weight: 700;
+      border-radius: 14px;
+      box-shadow: 0 14px 32px -8px rgba(224,201,138,.55);
+    }
+    .pick-choose:active { transform: scale(.98); }
+
+    /* Side arrows (desktop only) */
+    .pick-arrow {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      width: 48px; height: 48px;
+      display: none; align-items: center; justify-content: center;
+      background: rgba(0,0,0,.5); color: #fff; font-size: 28px; cursor: pointer;
+      border: none; border-radius: 50%;
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      z-index: 15;
+    }
+    .pick-arrow-left  { left: 16px; }
+    .pick-arrow-right { right: 16px; }
+    @media (hover: hover) and (pointer: fine) {
+      .pick-arrow { display: flex; }
+    }
+
+    /* Empty / loading */
+    .pick-empty {
+      flex: 0 0 100%; height: 100%;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      color: #fff; text-align: center; padding: 24px;
+    }
+    .pick-empty-icon { font-size: 64px; margin-bottom: 16px; opacity: .7; }
+    .pick-empty p { color: rgba(255,255,255,.75); font-size: 16px; margin: 0; }
+
+    /* Swipe hint (first visit) */
+    .pick-hint {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 14px 22px;
+      background: rgba(0,0,0,.75);
+      color: #fff; font-size: 14px;
+      border-radius: 999px;
+      z-index: 25;
+      opacity: 0; pointer-events: none;
+      animation: hintFade 2.5s ease-in-out forwards;
+    }
+    @keyframes hintFade {
+      0%   { opacity: 0; }
+      20%  { opacity: 1; }
+      70%  { opacity: 1; }
+      100% { opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="pick-root">
+    <button class="pick-close" onclick="history.length>1?history.back():(location.href='index.html')" aria-label="ปิด">✕</button>
+
+    <div class="pick-top">
+      <div class="pick-tabs" id="pick-tabs"></div>
+    </div>
+
+    <button class="pick-arrow pick-arrow-left"  id="pick-prev" aria-label="ก่อนหน้า">‹</button>
+    <button class="pick-arrow pick-arrow-right" id="pick-next" aria-label="ถัดไป">›</button>
+
+    <div class="pick-track" id="pick-track"></div>
+
+    <div class="pick-dots" id="pick-dots"></div>
+
+    <div class="pick-bottom">
+      <button class="pick-choose" id="pick-choose">👆 เลือกน้องคนนี้</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import {
+      watchTherapists, watchStatuses, watchCheckins,
+      statusLabel, escapeHtml,
+    } from "./js/helpers.js";
+    import { pickName } from "./js/i18n.js";
+
+    const BRANCHES = [
+      { key: "all",     label: "ทุกสาขา" },
+      { key: "branch1", label: "สาขา 1" },
+      { key: "branch2", label: "สาขา 2" },
+      { key: "branch3", label: "สาขา 3" },
+    ];
+    const BRANCH_LABEL = {
+      branch1: "สาขา 1", branch2: "สาขา 2", branch3: "สาขา 3",
+    };
+    // สถานะที่ถือว่า "อยู่ร้าน" (เหมือน collage/prGroupHandler)
+    const PRESENT_STATUSES = new Set(["ready", "busy", "ready_at", "booked", "break"]);
+
+    let therapists = [];
+    let statuses = {};
+    let checkins = {};
+    let activeBranch = "all";
+    let filtered = [];
+    let currentIndex = 0;
+    let hintShown = false;
+
+    const $ = (id) => document.getElementById(id);
+    const track = $("pick-track");
+    const dots  = $("pick-dots");
+    const choose = $("pick-choose");
+
+    function renderTabs() {
+      const el = $("pick-tabs");
+      el.innerHTML = BRANCHES.map(b => `
+        <button class="pick-tab ${b.key===activeBranch?'active':''}" data-key="${b.key}">${b.label}</button>
+      `).join("");
+      el.querySelectorAll("[data-key]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          if (activeBranch === btn.dataset.key) return;
+          activeBranch = btn.dataset.key;
+          currentIndex = 0;
+          renderTabs();
+          render();
+        });
+      });
+    }
+
+    function filterTherapists() {
+      return therapists
+        .filter(t => t.active !== false)
+        .filter(t => {
+          if (!checkins[t.id]) return false;                       // ต้อง check-in วันนี้
+          const st = statuses[t.id]?.status;
+          if (!PRESENT_STATUSES.has(st)) return false;              // ต้องอยู่ร้าน
+          if (activeBranch !== "all" && t.branch !== activeBranch) return false;
+          return true;
+        })
+        .sort((a, b) => (a.code || "").localeCompare(b.code || ""));
+    }
+
+    function render() {
+      filtered = filterTherapists();
+
+      if (filtered.length === 0) {
+        const label = activeBranch === "all" ? "" : "ที่" + (BRANCH_LABEL[activeBranch] || "");
+        track.innerHTML = `
+          <div class="pick-empty">
+            <div class="pick-empty-icon">😴</div>
+            <p>ตอนนี้ยังไม่มีน้องๆ${label} พร้อมให้บริการค่ะ</p>
+          </div>
+        `;
+        dots.innerHTML = "";
+        choose.style.display = "none";
+        return;
+      }
+
+      choose.style.display = "block";
+      if (currentIndex >= filtered.length) currentIndex = filtered.length - 1;
+      if (currentIndex < 0) currentIndex = 0;
+
+      track.innerHTML = filtered.map((th, i) => {
+        const name = (typeof pickName === "function") ? pickName(th) : (th.nameTh || th.nameEn || th.code || "?");
+        const branchLabel = BRANCH_LABEL[th.branch] || "";
+        const st = statusLabel(statuses[th.id]);
+        const rawSt = statuses[th.id]?.status || "unknown";
+        const statusClass = `pick-status-${rawSt}`;
+        const badges = (th.badges || []).filter(b => ["top","new","rising"].includes(b));
+        const initial = (th.nameTh || th.nameEn || th.code || "?")[0] || "?";
+
+        const photoHtml = th.photoUrl
+          ? `<img class="pick-photo" src="${escapeHtml(th.photoUrl)}" alt="${escapeHtml(name)}" loading="${i<=1?'eager':'lazy'}" />`
+          : `<div class="pick-placeholder">${escapeHtml(initial)}</div>`;
+
+        return `
+          <div class="pick-card" data-id="${escapeHtml(th.id)}" data-index="${i}">
+            ${photoHtml}
+            <div class="pick-overlay">
+              ${badges.length ? `<div class="pick-badges">${badges.map(b => `<span class="pick-badge pick-badge-${b}">${b==='top'?'★ TOP':b==='new'?'ใหม่':'HOT'}</span>`).join("")}</div>` : ""}
+              <h2 class="pick-name">น้อง${escapeHtml(name)}</h2>
+              <div class="pick-meta">
+                <span>${escapeHtml(branchLabel)}</span>
+                ${th.code ? `<span class="pick-dot-sep"></span><span>${escapeHtml(th.code)}</span>` : ""}
+              </div>
+              <div class="pick-status ${statusClass}">${escapeHtml(st.text)}</div>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      renderDots();
+      scrollToIndex(currentIndex, false);
+      showHintOnce();
+    }
+
+    function renderDots() {
+      dots.innerHTML = filtered.map((_, i) => `<div class="pick-dot ${i===currentIndex?'active':''}"></div>`).join("");
+    }
+
+    function scrollToIndex(i, smooth = true) {
+      const w = track.clientWidth;
+      track.scrollTo({ left: i * w, behavior: smooth ? "smooth" : "auto" });
+    }
+
+    function updateDots() {
+      dots.querySelectorAll(".pick-dot").forEach((d, i) => d.classList.toggle("active", i === currentIndex));
+    }
+
+    function showHintOnce() {
+      if (hintShown || filtered.length <= 1) return;
+      try { if (sessionStorage.getItem("pick-hint-shown")) { hintShown = true; return; } } catch {}
+      hintShown = true;
+      try { sessionStorage.setItem("pick-hint-shown", "1"); } catch {}
+      const hint = document.createElement("div");
+      hint.className = "pick-hint";
+      hint.textContent = "👉 ปัดซ้ายขวาเพื่อดูน้องคนอื่น";
+      document.querySelector(".pick-root").appendChild(hint);
+      setTimeout(() => hint.remove(), 2800);
+    }
+
+    // Track scroll → update current index
+    let scrollRaf;
+    track.addEventListener("scroll", () => {
+      cancelAnimationFrame(scrollRaf);
+      scrollRaf = requestAnimationFrame(() => {
+        const w = track.clientWidth;
+        if (w === 0) return;
+        const idx = Math.round(track.scrollLeft / w);
+        if (idx !== currentIndex && idx >= 0 && idx < filtered.length) {
+          currentIndex = idx;
+          updateDots();
+        }
+      });
+    });
+
+    // Choose button
+    choose.addEventListener("click", () => {
+      const th = filtered[currentIndex];
+      if (!th) return;
+      window.location.href = `therapist.html?id=${encodeURIComponent(th.id)}`;
+    });
+
+    // Arrows
+    $("pick-prev").addEventListener("click", () => {
+      if (currentIndex > 0) scrollToIndex(currentIndex - 1);
+    });
+    $("pick-next").addEventListener("click", () => {
+      if (currentIndex < filtered.length - 1) scrollToIndex(currentIndex + 1);
+    });
+
+    // Keyboard
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowLeft"  && currentIndex > 0)                   { scrollToIndex(currentIndex - 1); e.preventDefault(); }
+      if (e.key === "ArrowRight" && currentIndex < filtered.length - 1) { scrollToIndex(currentIndex + 1); e.preventDefault(); }
+      if (e.key === "Enter"      && filtered[currentIndex])             { choose.click(); e.preventDefault(); }
+      if (e.key === "Escape")                                            { history.back(); }
+    });
+
+    // Resize → re-align
+    let resizeRaf;
+    window.addEventListener("resize", () => {
+      cancelAnimationFrame(resizeRaf);
+      resizeRaf = requestAnimationFrame(() => scrollToIndex(currentIndex, false));
+    });
+
+    // Subscribe
+    renderTabs();
+    watchTherapists(data => { therapists = data; render(); });
+    watchStatuses(data   => { statuses   = data; render(); });
+    watchCheckins(data   => { checkins   = data; render(); });
+  </script>
+</body>
+</html>
